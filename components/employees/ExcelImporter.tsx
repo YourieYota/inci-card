@@ -114,10 +114,11 @@ export default function ExcelImporter({ companyId, onImportSuccess, onCancel }: 
     setError(null);
 
     try {
+      const cleanRows = JSON.parse(JSON.stringify(rows));
       const res = await importEmployees({
         companyId,
         uniqueField,
-        rows,
+        rows: cleanRows,
       });
 
       if (res.success) {
