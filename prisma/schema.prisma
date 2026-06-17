@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- ENUMS ---
+enum Role {
+  ADMIN
+  DESIGNER
+  OPERATEUR
+}
+
+enum CardType {
+  BADGE
+  CARTE_PRO
+}
+
+// --- MODELES ---
+
+// Utilisateurs de l'application (Personnel de l'Imprimerie Nationale)
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          Role     @default(OPERATEUR)
+  createdAt     DateTime @default(now())
+}
+
+// Entreprises Clientes
+model Company {
+  id            String          @id @default(uuid())
+  name          String          @unique
+  createdAt     DateTime        @default(now())
+  
+  // Relations
+  employees     Employee[]
+  templates     CardTemplate[]  // Une entreprise peut avoir plusieurs modèles
+}
+
+// Employés des entreprises clientes
+model Employee {
+  id               String   @id @default(uuid())
+  
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  dynamicData      Json     // Stocke la ligne Excel entière : {"Nom": "X", "Matricule": "Y"}
+  uniqueIdentifier String   // Clé anti-doublon (ex: Matricule) choisie à l'import
+  
+  // La photo est strictement reliée à l'employé
+  photoUrl         String?  // URL de l'image stockée sur le serveur (ex: S3)
+  
+  status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME
+  printedAt        DateTime? 
+  createdAt        DateTime @default(now())
+  
+  // Un employé est unique au sein de son entreprise
+  @@unique([companyId, uniqueIdentifier]) 
+}
+
+// Modèles de conception (Studio Drag & Drop)
+model CardTemplate {
+  id            String   @id @default(uuid())
+  
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  type          CardType @default(BADGE) // Permet de différencier Badges et Cartes Pro
+  
+  width         Int      @default(324) // Dimensions par défaut (CR80)
+  height        Int      @default(204)
+  backgroundUrl String?  // Image de fond de la carte
+  
+  layoutConfig  Json     // Tableau d'éléments: [{id, type, x, y, width, height, variableExcel}]
+  
+  // Une entreprise a un design unique par TYPE de carte
+  @@unique([companyId, type]) 
+}
