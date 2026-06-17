@@ -8,7 +8,7 @@ export default async function StudioPage() {
   const companies = await getCompanies();
 
   return (
-    <div className="max-w-7xl mx-auto py-2">
+    <div className="w-full py-1">
       <StudioClient initialCompanies={companies} />
     </div>
   );

@@ -436,7 +436,7 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
   return (
     <div className="flex flex-col gap-6 min-h-screen" id="studio-workspace">
       {/* HEADER BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-850 py-4 px-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
@@ -609,14 +609,14 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
         </div>
       ) : (
         // STATE: ACTIVE EDITOR
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        <div className="flex flex-col xl:flex-row gap-6 items-start w-full">
           {/* Left Toolbar */}
-          <div className="lg:col-span-1">
+          <div className="w-full xl:w-72 shrink-0">
             <Toolbar onAddElement={handleAddElement} />
           </div>
 
           {/* Central Workspace Canvas */}
-          <div className="lg:col-span-2">
+          <div className="flex-1 min-w-0 w-full">
             <Canvas
               width={canvasWidth}
               height={canvasHeight}
@@ -631,7 +631,7 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
           </div>
 
           {/* Right Properties Panel */}
-          <div className="lg:col-span-1">
+          <div className="w-full xl:w-80 shrink-0">
             <PropertiesPanel
               canvasWidth={canvasWidth}
               canvasHeight={canvasHeight}

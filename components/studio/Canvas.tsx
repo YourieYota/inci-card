@@ -58,7 +58,7 @@ export default function Canvas({
   const scaledHeight = height * zoom;
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-auto min-h-[480px] max-h-[75vh] transition-all duration-300">
+    <div className="flex flex-col items-center justify-center p-8 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-auto min-h-[480px] h-[calc(100vh-250px)] max-h-[85vh] w-full flex-1 transition-all duration-300">
       <span className="text-xs text-neutral-400 dark:text-neutral-500 mb-4 font-mono">
         Zone de travail ({width}x{height} px @ {Math.round(zoom * 100)}%)
       </span>
