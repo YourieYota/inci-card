@@ -2,12 +2,13 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Settings, Users, Image as ImageIcon, LogOut, Printer } from "lucide-react";
+import { LayoutDashboard, Settings, Users, Image as ImageIcon, LogOut, Printer, UserCheck } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Entreprises", href: "/dashboard/companies", icon: Users },
+  { name: "Enrôlement", href: "/dashboard/employees", icon: UserCheck },
   { name: "Studio (Création)", href: "/dashboard/studio", icon: ImageIcon },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];
