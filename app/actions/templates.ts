@@ -14,6 +14,25 @@ export async function getCompanies() {
   }
 }
 
+export async function getCompaniesWithCounts() {
+  try {
+    return await prisma.company.findMany({
+      include: {
+        _count: {
+          select: {
+            employees: true,
+            templates: true,
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
+    console.error('Error fetching companies with counts:', error);
+    throw new Error('Impossible de récupérer les entreprises');
+  }
+}
+
 export async function createCompany(name: string) {
   try {
     return await prisma.company.create({
