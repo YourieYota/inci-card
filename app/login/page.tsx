@@ -1,7 +1,7 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { signIn, signOut } from "next-auth/react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Printer, Loader2, AlertCircle } from "lucide-react";
 
@@ -11,6 +11,26 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // Clear any stale/corrupted session cookies on login page load
+  useEffect(() => {
+    // Force sign out to clear any corrupted JWT tokens
+    signOut({ redirect: false }).catch(() => {
+      // Silently ignore errors – we just want to clear cookies
+    });
+
+    // Also manually delete known next-auth cookie names
+    const cookiesToClear = [
+      'next-auth.session-token',
+      '__Secure-next-auth.session-token',
+      'next-auth.csrf-token',
+      '__Host-next-auth.csrf-token',
+    ];
+    cookiesToClear.forEach((name) => {
+      document.cookie = `${name}=; Max-Age=0; path=/;`;
+      document.cookie = `${name}=; Max-Age=0; path=/; domain=${window.location.hostname};`;
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,10 +61,8 @@ export default function LoginPage() {
       <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
         <div className="p-8">
           <div className="flex flex-col items-center justify-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4">
-              <Printer className="text-white w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Imprimerie Pro</h1>
+            <img src="/logo-imprimerie.png" className="h-16 object-contain mb-4" alt="Logo Imprimerie Nationale" />
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Imprimerie Nationale</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Connectez-vous à votre espace</p>
           </div>
 
@@ -58,15 +76,15 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Email
+                Adresse email ou Identifiant
               </label>
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                placeholder="admin@imprimerie.fr"
+                placeholder="Ex: admin@imprimerie.ci ou admin"
               />
             </div>
             

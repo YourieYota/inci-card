@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Company, Employee } from '@prisma/client';
-import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2, Users as UsersIcon, CreditCard, Clock } from 'lucide-react';
 import Link from 'next/link';
 import ExcelImporter from './ExcelImporter';
 import EmployeeCardList from './EmployeeCardList';
 import WebcamModal from './WebcamModal';
-import { getEmployees, saveEmployeePhoto } from '@/app/actions/employees';
+import EmployeeDetailModal from './EmployeeDetailModal';
+import { getEmployees, saveEmployeePhoto, getCompanyDashboardStats } from '@/app/actions/employees';
 
 interface EmployeesClientProps {
   companies: Company[];
@@ -26,10 +27,18 @@ export default function EmployeesClient({
   // UI views / modals
   const [showImporter, setShowImporter] = useState<boolean>(false);
   const [activeWebcamEmployee, setActiveWebcamEmployee] = useState<Employee | null>(null);
+  const [selectedEmployeeForDetail, setSelectedEmployeeForDetail] = useState<Employee | null>(null);
   
   // States
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  const [companyStats, setCompanyStats] = useState<{
+    totalEmployees: number;
+    printedCount: number;
+    pendingPhotoCount: number;
+    validatedPhotoCount: number;
+  } | null>(null);
 
   const activeCompany = companies.find((c) => c.id === selectedCompanyId);
 
@@ -37,6 +46,7 @@ export default function EmployeesClient({
   useEffect(() => {
     if (!selectedCompanyId) {
       setEmployees([]);
+      setCompanyStats(null);
       setShowImporter(false);
       return;
     }
@@ -53,8 +63,12 @@ export default function EmployeesClient({
     if (!selectedCompanyId) return;
     setIsLoading(true);
     try {
-      const data = await getEmployees(selectedCompanyId);
+      const [data, stats] = await Promise.all([
+        getEmployees(selectedCompanyId),
+        getCompanyDashboardStats(selectedCompanyId)
+      ]);
       setEmployees(data);
+      setCompanyStats(stats);
     } catch (err: any) {
       alert(err.message || 'Impossible de charger les employés.');
     } finally {
@@ -73,9 +87,10 @@ export default function EmployeesClient({
     if (!activeWebcamEmployee) return;
 
     try {
-      await saveEmployeePhoto(activeWebcamEmployee.id, photoBase64);
-      setSuccessBanner(`Photo enregistrée pour ${activeWebcamEmployee.uniqueIdentifier}.`);
+      const updatedEmployee = await saveEmployeePhoto(activeWebcamEmployee.id, photoBase64);
+      setSuccessBanner(`Photo enregistrée pour ${updatedEmployee.enrollmentNumber || activeWebcamEmployee.uniqueIdentifier}.`);
       setActiveWebcamEmployee(null);
+      setSelectedEmployeeForDetail(updatedEmployee); // Re-open detail modal with the captured photo
       setTimeout(() => setSuccessBanner(null), 4000);
       refreshEmployees();
     } catch (err: any) {
@@ -86,13 +101,14 @@ export default function EmployeesClient({
   return (
     <div className="flex flex-col gap-6 min-h-screen">
       {/* HEADER BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-blue-100/60 dark:border-neutral-800 shadow-sm transition-all duration-300 relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-orange-400 to-emerald-500" />
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
+            className="p-2.5 rounded-xl border border-blue-100 dark:border-neutral-700 hover:bg-blue-50 dark:hover:bg-neutral-800 text-blue-500 transition"
           >
-            <ArrowLeft className="w-4 h-4 text-neutral-500" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Gestion des Employés</h1>
@@ -108,7 +124,7 @@ export default function EmployeesClient({
           <select
             value={selectedCompanyId}
             onChange={(e) => setSelectedCompanyId(e.target.value)}
-            className="px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-medium min-w-[220px]"
+            className="px-3.5 py-2.5 border border-blue-100 dark:border-neutral-700 bg-blue-50/30 dark:bg-neutral-900 rounded-xl text-sm font-medium min-w-[220px] focus:ring-2 focus:ring-blue-500/20 outline-none"
           >
             <option value="">Choisir une entreprise</option>
             {companies.map((c) => (
@@ -123,14 +139,14 @@ export default function EmployeesClient({
             <>
               <button
                 onClick={() => setShowImporter(true)}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
               >
                 <Plus className="w-4 h-4" />
                 <span>Importer Excel</span>
               </button>
               <button
                 onClick={refreshEmployees}
-                className="p-2.5 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-700 rounded-xl transition"
+                className="p-2.5 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-500 hover:text-blue-600 rounded-xl transition"
                 title="Rafraîchir"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -188,6 +204,48 @@ export default function EmployeesClient({
       ) : (
         // VIEW: EMPLOYEES CARD GRID LIST
         <div className="space-y-6">
+          {/* Company Stats Summary */}
+          {companyStats && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-300">
+              <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-violet-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/40">
+                  <UsersIcon className="w-4.5 h-4.5" style={{width:18,height:18}} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Total employés</p>
+                  <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.totalEmployees}</p>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-orange-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/40">
+                  <Clock className="w-4.5 h-4.5" style={{width:18,height:18}} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">En attente de photo</p>
+                  <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.pendingPhotoCount}</p>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-blue-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40">
+                  <CheckCircle className="w-4.5 h-4.5" style={{width:18,height:18}} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Photos validées</p>
+                  <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.validatedPhotoCount}</p>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-emerald-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
+                  <CreditCard className="w-4.5 h-4.5" style={{width:18,height:18}} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Badges imprimés</p>
+                  <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.printedCount}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-neutral-850 p-6 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-neutral-850 dark:text-white">
@@ -212,14 +270,27 @@ export default function EmployeesClient({
             employees={employees}
             onTriggerWebcam={setActiveWebcamEmployee}
             onRefresh={refreshEmployees}
+            onOpenDetail={setSelectedEmployeeForDetail}
           />
         </div>
+      )}
+
+      {/* EMPLOYEE DETAIL MODAL */}
+      {selectedEmployeeForDetail && (
+        <EmployeeDetailModal
+          employee={selectedEmployeeForDetail}
+          onClose={() => setSelectedEmployeeForDetail(null)}
+          onRefresh={refreshEmployees}
+          onTriggerWebcam={(emp) => {
+            setActiveWebcamEmployee(emp);
+          }}
+        />
       )}
 
       {/* WEBCAM CAPTURE DIALOG */}
       {activeWebcamEmployee && (
         <WebcamModal
-          employeeName={activeWebcamEmployee.uniqueIdentifier}
+          employeeName={activeWebcamEmployee.enrollmentNumber || activeWebcamEmployee.uniqueIdentifier}
           onSave={handleSavePhoto}
           onClose={() => setActiveWebcamEmployee(null)}
         />

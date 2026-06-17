@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload } from 'lucide-react';
 import { StudioElement } from './Canvas';
 
@@ -10,7 +10,8 @@ interface PropertiesPanelProps {
   canvasHeight: number;
   canvasBackground: string;
   canvasBackgroundOpacity: number; // range 0 to 1
-  onUpdateCanvas: (width: number, height: number, background: string, opacity: number) => void;
+  canvasBorderRadius: number;
+  onUpdateCanvas: (width: number, height: number, background: string, opacity: number, borderRadius: number) => void;
 
   // Selected element settings
   selectedElement: StudioElement | null;
@@ -19,11 +20,86 @@ interface PropertiesPanelProps {
   suggestedFields?: string[];
 }
 
+interface DimensionInputProps {
+  label: string;
+  value: number;
+  onChange: (val: number) => void;
+  min?: number;
+  elementId?: string; // used to reset state when a different element is selected
+}
+
+function DimensionInput({ label, value, onChange, min, elementId }: DimensionInputProps) {
+  const [localValue, setLocalValue] = useState<string>(value.toString());
+  const isFocused = React.useRef(false);
+
+  // Sync from prop when a DIFFERENT element is selected (elementId changes)
+  useEffect(() => {
+    isFocused.current = false;
+    setLocalValue(value.toString());
+  }, [elementId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Or when value changes outside of active editing (not focused, e.g. during dragging on canvas)
+  useEffect(() => {
+    if (!isFocused.current) {
+      setLocalValue(value.toString());
+    }
+  }, [value]);
+
+  // Also resync when focus is lost so we have the latest committed value
+  const handleFocus = () => {
+    isFocused.current = true;
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const valStr = e.target.value;
+    setLocalValue(valStr);
+
+    const parsed = parseInt(valStr);
+    if (!isNaN(parsed) && (min === undefined || parsed >= min)) {
+      onChange(parsed);
+    }
+  };
+
+  const handleBlur = () => {
+    isFocused.current = false;
+    const parsed = parseInt(localValue);
+    if (isNaN(parsed) || (min !== undefined && parsed < min)) {
+      setLocalValue(value.toString());
+    } else {
+      onChange(parsed);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">
+        {label}
+      </label>
+      <input
+        type="number"
+        value={localValue}
+        onFocus={handleFocus}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+      />
+    </div>
+  );
+}
+
 export default function PropertiesPanel({
   canvasWidth,
   canvasHeight,
   canvasBackground,
   canvasBackgroundOpacity,
+  canvasBorderRadius,
   onUpdateCanvas,
   selectedElement,
   onUpdateElement,
@@ -31,6 +107,44 @@ export default function PropertiesPanel({
   suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'],
 }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('studio_recent_colors');
+    if (saved) {
+      try {
+        setRecentColors(JSON.parse(saved));
+      } catch (e) {
+        setRecentColors(['#000000', '#ffffff', '#1e3c72', '#ff9966', '#0f9b0f', '#764ba2', '#1f2937']);
+      }
+    } else {
+      setRecentColors(['#000000', '#ffffff', '#1e3c72', '#ff9966', '#0f9b0f', '#764ba2', '#1f2937']);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedElement) return;
+    
+    let colorToSave: string | undefined;
+    if (selectedElement.type === 'text' && selectedElement.color) {
+      colorToSave = selectedElement.color;
+    } else if ((selectedElement.type === 'image' || selectedElement.type === 'logo' || selectedElement.type === 'qr') && selectedElement.borderColor) {
+      colorToSave = selectedElement.borderColor;
+    }
+
+    if (colorToSave) {
+      const color = colorToSave.toLowerCase();
+      const timer = setTimeout(() => {
+        setRecentColors((prev) => {
+          const filtered = prev.filter((c) => c.toLowerCase() !== color);
+          const updated = [colorToSave!, ...filtered].slice(0, 10);
+          localStorage.setItem('studio_recent_colors', JSON.stringify(updated));
+          return updated;
+        });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedElement?.id, selectedElement?.color, selectedElement?.borderColor]);
 
   // Preset background images
   const presets = [
@@ -49,7 +163,7 @@ export default function PropertiesPanel({
       const reader = new FileReader();
       reader.onloadend = () => {
         if (reader.result) {
-          onUpdateCanvas(canvasWidth, canvasHeight, reader.result as string, canvasBackgroundOpacity);
+          onUpdateCanvas(canvasWidth, canvasHeight, reader.result as string, canvasBackgroundOpacity, canvasBorderRadius);
         }
       };
       reader.readAsDataURL(file);
@@ -67,7 +181,7 @@ export default function PropertiesPanel({
                 Propriétés de l&apos;élément
               </h3>
               <p className="text-xs text-neutral-400 dark:text-neutral-500">
-                Type : {selectedElement.type === 'text' ? 'Texte' : selectedElement.type === 'image' ? 'Photo' : 'QR Code'}
+                Type : {selectedElement.type === 'text' ? 'Texte' : selectedElement.type === 'image' ? 'Photo' : selectedElement.type === 'logo' ? 'Logo / Image' : 'QR Code'}
               </p>
             </div>
             <button
@@ -81,42 +195,32 @@ export default function PropertiesPanel({
 
           {/* Sizing & Position (x, y, w, h) */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Largeur (px)</label>
-              <input
-                type="number"
-                value={selectedElement.width}
-                onChange={(e) => onUpdateElement({ ...selectedElement, width: Math.max(10, parseInt(e.target.value) || 0) })}
-                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Hauteur (px)</label>
-              <input
-                type="number"
-                value={selectedElement.height}
-                onChange={(e) => onUpdateElement({ ...selectedElement, height: Math.max(10, parseInt(e.target.value) || 0) })}
-                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Position X</label>
-              <input
-                type="number"
-                value={selectedElement.x}
-                onChange={(e) => onUpdateElement({ ...selectedElement, x: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Position Y</label>
-              <input
-                type="number"
-                value={selectedElement.y}
-                onChange={(e) => onUpdateElement({ ...selectedElement, y: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-              />
-            </div>
+            <DimensionInput
+              label="Largeur (px)"
+              value={selectedElement.width}
+              min={1}
+              elementId={selectedElement.id}
+              onChange={(val) => onUpdateElement({ ...selectedElement, width: val })}
+            />
+            <DimensionInput
+              label="Hauteur (px)"
+              value={selectedElement.height}
+              min={1}
+              elementId={selectedElement.id}
+              onChange={(val) => onUpdateElement({ ...selectedElement, height: val })}
+            />
+            <DimensionInput
+              label="Position X"
+              value={selectedElement.x}
+              elementId={selectedElement.id}
+              onChange={(val) => onUpdateElement({ ...selectedElement, x: val })}
+            />
+            <DimensionInput
+              label="Position Y"
+              value={selectedElement.y}
+              elementId={selectedElement.id}
+              onChange={(val) => onUpdateElement({ ...selectedElement, y: val })}
+            />
           </div>
 
           {/* Opacity Slider for Elements */}
@@ -134,6 +238,145 @@ export default function PropertiesPanel({
               className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
             />
           </div>
+
+          {/* Border Radius for Element */}
+          <div className="border-t border-neutral-100 dark:border-neutral-850 pt-4">
+            <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+              Arrondi des angles ({selectedElement.borderRadius || 0}px)
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={selectedElement.borderRadius || 0}
+              onChange={(e) => onUpdateElement({ ...selectedElement, borderRadius: parseInt(e.target.value) || 0 })}
+              className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+            />
+          </div>
+
+          {/* Border Width & Color for Image/Logo/QR */}
+          {(selectedElement.type === 'image' || selectedElement.type === 'logo' || selectedElement.type === 'qr') && (
+            <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-850 pt-4">
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                  Épaisseur de la bordure ({selectedElement.borderWidth || 0}px)
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="15"
+                  step="1"
+                  value={selectedElement.borderWidth || 0}
+                  onChange={(e) => onUpdateElement({ ...selectedElement, borderWidth: parseInt(e.target.value) || 0, borderColor: selectedElement.borderColor || '#000000' })}
+                  className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+
+              {selectedElement.borderWidth !== undefined && selectedElement.borderWidth > 0 && (
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                    Couleur de la bordure
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={selectedElement.borderColor || '#000000'}
+                      onChange={(e) => onUpdateElement({ ...selectedElement, borderColor: e.target.value })}
+                      className="w-10 h-10 border border-neutral-200 dark:border-neutral-800 bg-transparent rounded-lg cursor-pointer p-0.5"
+                    />
+                    <input
+                      type="text"
+                      value={selectedElement.borderColor || '#000000'}
+                      onChange={(e) => onUpdateElement({ ...selectedElement, borderColor: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm uppercase font-mono font-semibold"
+                    />
+                  </div>
+                  
+                  {recentColors.length > 0 && (
+                    <div className="mt-2.5">
+                      <span className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                        Couleurs récentes
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {recentColors.map((color, idx) => (
+                          <button
+                            key={`border-${color}-${idx}`}
+                            type="button"
+                            onClick={() => onUpdateElement({ ...selectedElement, borderColor: color })}
+                            className="w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-750 cursor-pointer transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            style={{ backgroundColor: color }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Logo Image Uploader */}
+          {selectedElement.type === 'logo' && (
+            <div className="flex flex-col gap-3 border-t border-neutral-100 dark:border-neutral-850 pt-4">
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                  Source de l&apos;Image / Logo
+                </label>
+                <input
+                  type="text"
+                  value={selectedElement.logoUrl || ''}
+                  onChange={(e) => onUpdateElement({ ...selectedElement, logoUrl: e.target.value })}
+                  placeholder="URL de l'image (ex: https://...)"
+                  className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-mono"
+                />
+              </div>
+              {selectedElement.logoUrl && (
+                <div className="flex items-center gap-3 p-2 bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                  <img src={selectedElement.logoUrl} className="w-10 h-10 object-contain rounded bg-white border border-neutral-200 dark:border-neutral-700" alt="Preview" />
+                  <span className="text-xs text-neutral-550 dark:text-neutral-400 truncate flex-1 font-mono">
+                    {selectedElement.logoUrl.startsWith('data:') ? 'Image locale (Base64)' : selectedElement.logoUrl}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateElement({ ...selectedElement, logoUrl: '' })}
+                    className="text-xs text-rose-500 hover:text-rose-600 font-bold px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/20 transition"
+                  >
+                    Effacer
+                  </button>
+                </div>
+              )}
+              <div>
+                <input
+                  type="file"
+                  id="logo-upload-input"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        if (reader.result) {
+                          onUpdateElement({ ...selectedElement, logoUrl: reader.result as string });
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('logo-upload-input')?.click()}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/50 text-indigo-750 dark:text-indigo-400 rounded-xl text-xs font-bold transition"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Uploader un logo/image</span>
+                </button>
+              </div>
+            </div>
+          ) }
 
           {/* Text-specific properties */}
           {selectedElement.type === 'text' && (
@@ -229,6 +472,26 @@ export default function PropertiesPanel({
                     className="flex-1 px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm uppercase font-mono font-semibold"
                   />
                 </div>
+                
+                {recentColors.length > 0 && (
+                  <div className="mt-2.5">
+                    <span className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                      Couleurs récentes
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {recentColors.map((color, idx) => (
+                        <button
+                          key={`${color}-${idx}`}
+                          type="button"
+                          onClick={() => onUpdateElement({ ...selectedElement, color })}
+                          className="w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-750 cursor-pointer transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Formatting & Alignment */}
@@ -333,37 +596,37 @@ export default function PropertiesPanel({
 
           {/* Width & Height */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Largeur (px)</label>
-              <input
-                type="number"
-                value={canvasWidth}
-                onChange={(e) => onUpdateCanvas(Math.max(100, parseInt(e.target.value) || 324), canvasHeight, canvasBackground, canvasBackgroundOpacity)}
-                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Hauteur (px)</label>
-              <input
-                type="number"
-                value={canvasHeight}
-                onChange={(e) => onUpdateCanvas(canvasWidth, Math.max(100, parseInt(e.target.value) || 204), canvasBackground, canvasBackgroundOpacity)}
-                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-              />
-            </div>
+            <DimensionInput
+              label="Largeur (px)"
+              value={canvasWidth}
+              min={100}
+              onChange={(val) => onUpdateCanvas(val, canvasHeight, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
+            />
+            <DimensionInput
+              label="Hauteur (px)"
+              value={canvasHeight}
+              min={100}
+              onChange={(val) => onUpdateCanvas(canvasWidth, val, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
+            />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => onUpdateCanvas(324, 204, canvasBackground, canvasBackgroundOpacity)}
-              className="flex-1 py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              onClick={() => onUpdateCanvas(324, 204, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
+              className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
               CR80 Paysage (324x204)
             </button>
             <button
-              onClick={() => onUpdateCanvas(204, 324, canvasBackground, canvasBackgroundOpacity)}
-              className="flex-1 py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              onClick={() => onUpdateCanvas(204, 324, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
+              className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
               CR80 Portrait (204x324)
+            </button>
+            <button
+              onClick={() => onUpdateCanvas(700, 450, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
+              className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
+              Grand Badge (700x450)
             </button>
           </div>
 
@@ -376,7 +639,7 @@ export default function PropertiesPanel({
               <input
                 type="text"
                 value={canvasBackground.startsWith('data:') ? 'Image Locale (Base64)' : canvasBackground}
-                onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, e.target.value, canvasBackgroundOpacity)}
+                onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, e.target.value, canvasBackgroundOpacity, canvasBorderRadius)}
                 placeholder="Insérer l'URL de l'image"
                 className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-mono"
               />
@@ -411,7 +674,23 @@ export default function PropertiesPanel({
                 max="1"
                 step="0.05"
                 value={canvasBackgroundOpacity}
-                onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, canvasBackground, parseFloat(e.target.value))}
+                onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, canvasBackground, parseFloat(e.target.value), canvasBorderRadius)}
+                className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
+
+            {/* Card Border Radius */}
+            <div className="mt-1">
+              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                Arrondi de la carte ({canvasBorderRadius}px)
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="30"
+                step="1"
+                value={canvasBorderRadius}
+                onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, canvasBackground, canvasBackgroundOpacity, parseInt(e.target.value) || 0)}
                 className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
               />
             </div>
@@ -423,7 +702,7 @@ export default function PropertiesPanel({
                 {presets.map((preset) => (
                   <button
                     key={preset.name}
-                    onClick={() => onUpdateCanvas(canvasWidth, canvasHeight, preset.url, canvasBackgroundOpacity)}
+                    onClick={() => onUpdateCanvas(canvasWidth, canvasHeight, preset.url, canvasBackgroundOpacity, canvasBorderRadius)}
                     className={`p-2.5 rounded-xl text-[10px] border font-bold text-left truncate transition ${
                       canvasBackground === preset.url
                         ? 'border-indigo-500 bg-indigo-50/50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400'

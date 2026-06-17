@@ -104,3 +104,44 @@ export async function saveTemplate({
     throw new Error('Impossible de sauvegarder le modèle de carte');
   }
 }
+
+export async function getCompanyFields(companyId: string): Promise<string[]> {
+  try {
+    const employees = await prisma.employee.findMany({
+      where: { companyId },
+      take: 15,
+    });
+
+    const fieldsSet = new Set<string>();
+    fieldsSet.add('Entreprise');
+    fieldsSet.add('N° d\'enrôlement');
+    fieldsSet.add('Identifiant unique');
+    fieldsSet.add('Reçu N°');
+    fieldsSet.add('Date d\'enrôlement');
+
+    if (employees.length > 0) {
+      // If employees/Excel exist, extract only the fields present in dynamicData
+      for (const emp of employees) {
+        if (emp.dynamicData && typeof emp.dynamicData === 'object') {
+          const data = emp.dynamicData as Record<string, any>;
+          Object.keys(data).forEach((key) => {
+            if (key && key.trim()) {
+              fieldsSet.add(key.trim());
+            }
+          });
+        }
+      }
+    } else {
+      // If no Excel was imported yet, suggest general placeholders so the operator can design
+      fieldsSet.add('Nom');
+      fieldsSet.add('Prenom');
+      fieldsSet.add('Role');
+      fieldsSet.add('Matricule');
+    }
+
+    return Array.from(fieldsSet);
+  } catch (error) {
+    console.error('Error fetching company fields:', error);
+    return ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'];
+  }
+}

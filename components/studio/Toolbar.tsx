@@ -1,15 +1,22 @@
 'use client';
 
 import React from 'react';
-import { Type, User, QrCode, FileText, Plus } from 'lucide-react';
+import { Type, User, QrCode, FileText, Plus, Image as ImageIcon } from 'lucide-react';
 import { StudioElement } from './Canvas';
 
 interface ToolbarProps {
-  onAddElement: (type: 'text' | 'image' | 'qr', customProps?: Partial<StudioElement>) => void;
+  onAddElement: (type: 'text' | 'image' | 'qr' | 'logo', customProps?: Partial<StudioElement>) => void;
+  onApplyDefaultLayout?: () => void;
+  onClearCanvas?: () => void;
   suggestedFields?: string[];
 }
 
-export default function Toolbar({ onAddElement, suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'] }: ToolbarProps) {
+export default function Toolbar({
+  onAddElement,
+  onApplyDefaultLayout,
+  onClearCanvas,
+  suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise']
+}: ToolbarProps) {
   return (
     <div className="w-full bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col gap-6">
       <div>
@@ -39,6 +46,18 @@ export default function Toolbar({ onAddElement, suggestedFields = ['Nom', 'Preno
             <User className="w-4 h-4" />
           </div>
           <span>Photo Employé</span>
+          <Plus className="w-3.5 h-3.5 ml-auto opacity-50" />
+        </button>
+
+        {/* Logo / Image Statique */}
+        <button
+          onClick={() => onAddElement('logo')}
+          className="flex items-center gap-3 w-full p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-indigo-50/50 hover:border-indigo-200 dark:hover:bg-indigo-950/20 dark:hover:border-indigo-900 text-neutral-700 dark:text-neutral-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium text-sm transition-all duration-200"
+        >
+          <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
+            <ImageIcon className="w-4 h-4" />
+          </div>
+          <span>Logo / Image</span>
           <Plus className="w-3.5 h-3.5 ml-auto opacity-50" />
         </button>
 
@@ -73,6 +92,32 @@ export default function Toolbar({ onAddElement, suggestedFields = ['Nom', 'Preno
           ))}
         </div>
       </div>
+
+      {(onApplyDefaultLayout || onClearCanvas) && (
+        <div className="border-t border-neutral-150 dark:border-neutral-800 pt-5 flex flex-col gap-2">
+          <h4 className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mb-2">Gabarits & Canevas</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {onApplyDefaultLayout && (
+              <button
+                type="button"
+                onClick={onApplyDefaultLayout}
+                className="py-2.5 px-2 rounded-xl border border-indigo-100 hover:border-indigo-200 dark:border-indigo-900/50 dark:hover:border-indigo-900 bg-indigo-50/30 hover:bg-indigo-50 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-750 dark:text-indigo-400 text-[10px] font-bold transition shadow-sm"
+              >
+                Gabarit par défaut
+              </button>
+            )}
+            {onClearCanvas && (
+              <button
+                type="button"
+                onClick={onClearCanvas}
+                className="py-2.5 px-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-rose-250 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 text-neutral-600 dark:text-neutral-400 text-[10px] font-bold transition"
+              >
+                Vider le canevas
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

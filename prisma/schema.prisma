@@ -12,16 +12,23 @@ datasource db {
   provider = "postgresql"
 }
 
-// --- ENUMS ---
-enum Role {
-  ADMIN
-  DESIGNER
-  OPERATEUR
+// --- MODELE ROLES DYNAMIQUES ---
+model CustomRole {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  color       String   @default("#6366f1")
+  isSystem    Boolean  @default(false)
+  permissions Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 enum CardType {
   BADGE
   CARTE_PRO
+  RECU
 }
 
 // --- MODELES ---
@@ -30,9 +37,12 @@ enum CardType {
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
+  login         String?  @unique
   passwordHash  String
   name          String
-  role          Role     @default(OPERATEUR)
+  firstName     String?
+  phone         String?
+  role          String   @default("OPERATEUR")
   createdAt     DateTime @default(now())
 }
 
@@ -59,6 +69,7 @@ model Employee {
   
   // La photo est strictement reliée à l'employé
   photoUrl         String?  // URL de l'image stockée sur le serveur (ex: S3)
+  enrollmentNumber String?  // Numéro d'enrôlement unique
   
   status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME
   printedAt        DateTime? 
