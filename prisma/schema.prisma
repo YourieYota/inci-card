@@ -48,13 +48,16 @@ model User {
 
 // Entreprises Clientes
 model Company {
-  id            String          @id @default(uuid())
-  name          String          @unique
-  createdAt     DateTime        @default(now())
+  id             String             @id @default(uuid())
+  name           String             @unique
+  createdAt      DateTime           @default(now())
   
   // Relations
-  employees     Employee[]
-  templates     CardTemplate[]  // Une entreprise peut avoir plusieurs modèles
+  employees      Employee[]
+  templates      CardTemplate[]     // Une entreprise peut avoir plusieurs modèles
+  cardFormats    CardFormat[]
+  cardCategories CardCategory[]
+  physicalTypes  CardPhysicalType[]
 }
 
 // Employés des entreprises clientes
@@ -69,9 +72,11 @@ model Employee {
   
   // La photo est strictement reliée à l'employé
   photoUrl         String?  // URL de l'image stockée sur le serveur (ex: S3)
+  photoHash        String?  // Empreinte numérique de la photo (SHA-256)
+  photoConflict    Boolean  @default(false) // Conflit de duplication photo suspecte
   enrollmentNumber String?  // Numéro d'enrôlement unique
   
-  status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME
+  status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME, A_VERIFIER
   printedAt        DateTime? 
   createdAt        DateTime @default(now())
   
@@ -88,12 +93,63 @@ model CardTemplate {
   
   type          CardType @default(BADGE) // Permet de différencier Badges et Cartes Pro
   
+  categoryId    String?
+  category      CardCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
   width         Int      @default(324) // Dimensions par défaut (CR80)
   height        Int      @default(204)
   backgroundUrl String?  // Image de fond de la carte
   
   layoutConfig  Json     // Tableau d'éléments: [{id, type, x, y, width, height, variableExcel}]
-  
-  // Une entreprise a un design unique par TYPE de carte
-  @@unique([companyId, type]) 
+
+  @@unique([companyId, type, categoryId])
 }
+
+model CardFormat {
+  id          String         @id @default(uuid())
+  name        String
+  width       Float          @default(85.6) // CR80 standard width (mm)
+  height      Float          @default(53.98) // CR80 standard height (mm)
+  unit        String         @default("mm") // mm, px, in
+  companyId   String?
+  company     Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  categories  CardCategory[]
+
+  @@unique([companyId, name])
+}
+
+model CardCategory {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String
+  color       String         @default("#6366f1")
+  description String?
+  formatId    String
+  format      CardFormat     @relation(fields: [formatId], references: [id], onDelete: Restrict)
+  companyId   String?
+  company     Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templates   CardTemplate[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([companyId, name])
+  @@unique([companyId, slug])
+}
+
+model CardPhysicalType {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  cardCode    String   @default("")
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, name])
+  @@unique([companyId, slug])
+}
+

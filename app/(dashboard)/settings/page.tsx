@@ -34,7 +34,7 @@ export default async function SettingsPage() {
         },
       });
     } catch (error) {
-      console.error("Error loading settings user:", error);
+      console.warn("Error loading settings user:", error);
     }
   }
 

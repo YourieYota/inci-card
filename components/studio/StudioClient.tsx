@@ -8,6 +8,7 @@ import Canvas, { StudioElement } from './Canvas';
 import Toolbar from './Toolbar';
 import PropertiesPanel from './PropertiesPanel';
 import { getTemplate, saveTemplate, createCompany, getCompanyFields } from '@/app/actions/templates';
+import { addOfflineMutation } from '@/lib/offlineQueue';
 
 const getDefaultElements = (width: number, height: number, type?: CardType): StudioElement[] => {
   const isPortrait = height > width;
@@ -398,13 +399,42 @@ const getDefaultElements = (width: number, height: number, type?: CardType): Stu
 
 interface StudioClientProps {
   initialCompanies: Company[];
+  initialCategories: any[];
+  dbError?: boolean;
 }
 
-export default function StudioClient({ initialCompanies }: StudioClientProps) {
+export default function StudioClient({ initialCompanies, initialCategories, dbError = false }: StudioClientProps) {
   const [companies, setCompanies] = useState<Company[]>(initialCompanies);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [cardType, setCardType] = useState<CardType>('BADGE');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [dynamicFields, setDynamicFields] = useState<string[]>(['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise']);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(dbError);
+
+  // Sync and cache companies list
+  useEffect(() => {
+    if (!dbError) {
+      setCompanies(initialCompanies || []);
+      if (initialCompanies && initialCompanies.length > 0) {
+        try {
+          localStorage.setItem("inci-cache:companies", JSON.stringify(initialCompanies));
+        } catch (e) {
+          console.warn("Failed to write companies cache:", e);
+        }
+      }
+      setIsOfflineMode(false);
+    } else {
+      try {
+        const cached = localStorage.getItem("inci-cache:companies");
+        if (cached) {
+          setCompanies(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.warn("Failed to read companies cache:", e);
+      }
+      setIsOfflineMode(true);
+    }
+  }, [initialCompanies, dbError]);
 
   // Canvas State
   const [canvasWidth, setCanvasWidth] = useState<number>(324);
@@ -439,6 +469,11 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
   const [showCreateCompanyModal, setShowCreateCompanyModal] = useState<boolean>(false);
   const [newCompanyName, setNewCompanyName] = useState<string>('');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Auto-clear notification
   useEffect(() => {
@@ -813,7 +848,128 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
     versoBackgroundOpacity,
   ]);
 
-  // Load Template when company or type changes
+  // Helper to load template configurations
+  const applyTemplate = (template: any) => {
+    if (template) {
+      setCanvasWidth(template.width);
+      setCanvasHeight(template.height);
+      
+      // Parse layoutConfig
+      const config = template.layoutConfig as any;
+      let loadedRectoElements: StudioElement[] = [];
+      let loadedVersoElements: StudioElement[] = [];
+      let loadedRectoBg = '';
+      let loadedVersoBg = '';
+      let loadedRectoOpacity = 1;
+      let loadedVersoOpacity = 1;
+      let loadedRadius = 8;
+
+      if (config && typeof config === 'object') {
+        if ('recto' in config || 'verso' in config) {
+          const recto = config.recto || {};
+          const verso = config.verso || {};
+          loadedRectoElements = recto.elements || [];
+          loadedRectoBg = recto.backgroundUrl || '';
+          loadedRectoOpacity = recto.backgroundOpacity !== undefined ? recto.backgroundOpacity : 1;
+          
+          loadedVersoElements = verso.elements || [];
+          loadedVersoBg = verso.backgroundUrl || '';
+          loadedVersoOpacity = verso.backgroundOpacity !== undefined ? verso.backgroundOpacity : 1;
+          
+          loadedRadius = config.borderRadius !== undefined ? config.borderRadius : 8;
+        } else if ('elements' in config) {
+          loadedRectoElements = config.elements || [];
+          loadedRectoOpacity = config.backgroundOpacity !== undefined ? config.backgroundOpacity : 1;
+          loadedRectoBg = template.backgroundUrl || '';
+          loadedRadius = config.borderRadius !== undefined ? config.borderRadius : 8;
+        } else {
+          loadedRectoElements = (config as unknown as StudioElement[]) || [];
+          loadedRectoBg = template.backgroundUrl || '';
+        }
+      }
+
+      setRectoElements(loadedRectoElements);
+      setVersoElements(loadedVersoElements);
+      setRectoBackground(loadedRectoBg);
+      setVersoBackground(loadedVersoBg);
+      setRectoBackgroundOpacity(loadedRectoOpacity);
+      setVersoBackgroundOpacity(loadedVersoOpacity);
+      setCanvasBorderRadius(loadedRadius);
+      setCurrentSide('recto');
+
+      setElements(loadedRectoElements);
+      setCanvasBackground(loadedRectoBg);
+      setCanvasBackgroundOpacity(loadedRectoOpacity);
+      
+      // Initialize history stack
+      const initialState = {
+        recto: {
+          elements: JSON.parse(JSON.stringify(loadedRectoElements)),
+          backgroundUrl: loadedRectoBg,
+          backgroundOpacity: loadedRectoOpacity,
+        },
+        verso: {
+          elements: JSON.parse(JSON.stringify(loadedVersoElements)),
+          backgroundUrl: loadedVersoBg,
+          backgroundOpacity: loadedVersoOpacity,
+        },
+        canvasWidth: template.width,
+        canvasHeight: template.height,
+        canvasBorderRadius: loadedRadius,
+        currentSide: 'recto',
+      };
+      setHistory([initialState]);
+      setHistoryIndex(0);
+    } else {
+      // Reset to default template with pre-positioned elements for this company
+      let defaultW = 324;
+      let defaultH = 204;
+      if (cardType === 'CARTE_PRO') {
+        defaultW = 700;
+        defaultH = 450;
+      } else if (cardType === 'RECU') {
+        defaultW = 378;
+        defaultH = 530;
+      }
+      const defaultEls = getDefaultElements(defaultW, defaultH, cardType);
+      
+      setRectoElements(defaultEls);
+      setVersoElements([]);
+      setRectoBackground('');
+      setVersoBackground('');
+      setRectoBackgroundOpacity(1);
+      setVersoBackgroundOpacity(1);
+      
+      setElements(defaultEls);
+      setCanvasWidth(defaultW);
+      setCanvasHeight(defaultH);
+      setCanvasBackground('');
+      setCanvasBackgroundOpacity(1);
+      setCanvasBorderRadius(8);
+      setCurrentSide('recto');
+      
+      const initialState = {
+        recto: {
+          elements: JSON.parse(JSON.stringify(defaultEls)),
+          backgroundUrl: '',
+          backgroundOpacity: 1,
+        },
+        verso: {
+          elements: [],
+          backgroundUrl: '',
+          backgroundOpacity: 1,
+        },
+        canvasWidth: defaultW,
+        canvasHeight: defaultH,
+        canvasBorderRadius: 8,
+        currentSide: 'recto',
+      };
+      setHistory([initialState]);
+      setHistoryIndex(0);
+    }
+  };
+
+  // Load Template when company, type, or category changes
   useEffect(() => {
     if (!selectedCompanyId) {
       setElements([]);
@@ -833,133 +989,54 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
         const fields = await getCompanyFields(selectedCompanyId);
         setDynamicFields(fields);
 
-        const template = await getTemplate(selectedCompanyId, cardType);
-        if (template) {
-          setCanvasWidth(template.width);
-          setCanvasHeight(template.height);
-          
-          // Parse layoutConfig
-          const config = template.layoutConfig as any;
-          let loadedRectoElements: StudioElement[] = [];
-          let loadedVersoElements: StudioElement[] = [];
-          let loadedRectoBg = '';
-          let loadedVersoBg = '';
-          let loadedRectoOpacity = 1;
-          let loadedVersoOpacity = 1;
-          let loadedRadius = 8;
-
-          if (config && typeof config === 'object') {
-            if ('recto' in config || 'verso' in config) {
-              const recto = config.recto || {};
-              const verso = config.verso || {};
-              loadedRectoElements = recto.elements || [];
-              loadedRectoBg = recto.backgroundUrl || '';
-              loadedRectoOpacity = recto.backgroundOpacity !== undefined ? recto.backgroundOpacity : 1;
-              
-              loadedVersoElements = verso.elements || [];
-              loadedVersoBg = verso.backgroundUrl || '';
-              loadedVersoOpacity = verso.backgroundOpacity !== undefined ? verso.backgroundOpacity : 1;
-              
-              loadedRadius = config.borderRadius !== undefined ? config.borderRadius : 8;
-            } else if ('elements' in config) {
-              loadedRectoElements = config.elements || [];
-              loadedRectoOpacity = config.backgroundOpacity !== undefined ? config.backgroundOpacity : 1;
-              loadedRectoBg = template.backgroundUrl || '';
-              loadedRadius = config.borderRadius !== undefined ? config.borderRadius : 8;
-            } else {
-              loadedRectoElements = (config as unknown as StudioElement[]) || [];
-              loadedRectoBg = template.backgroundUrl || '';
-            }
+        const template = await getTemplate(selectedCompanyId, cardType, selectedCategoryId);
+        
+        // Cache fields and template locally
+        try {
+          localStorage.setItem(`inci-cache:fields:${selectedCompanyId}`, JSON.stringify(fields));
+          if (template) {
+            localStorage.setItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`, JSON.stringify(template));
+          } else {
+            localStorage.removeItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`);
           }
-
-          setRectoElements(loadedRectoElements);
-          setVersoElements(loadedVersoElements);
-          setRectoBackground(loadedRectoBg);
-          setVersoBackground(loadedVersoBg);
-          setRectoBackgroundOpacity(loadedRectoOpacity);
-          setVersoBackgroundOpacity(loadedVersoOpacity);
-          setCanvasBorderRadius(loadedRadius);
-          setCurrentSide('recto');
-
-          setElements(loadedRectoElements);
-          setCanvasBackground(loadedRectoBg);
-          setCanvasBackgroundOpacity(loadedRectoOpacity);
-          
-          // Initialize history stack
-          const initialState = {
-            recto: {
-              elements: JSON.parse(JSON.stringify(loadedRectoElements)),
-              backgroundUrl: loadedRectoBg,
-              backgroundOpacity: loadedRectoOpacity,
-            },
-            verso: {
-              elements: JSON.parse(JSON.stringify(loadedVersoElements)),
-              backgroundUrl: loadedVersoBg,
-              backgroundOpacity: loadedVersoOpacity,
-            },
-            canvasWidth: template.width,
-            canvasHeight: template.height,
-            canvasBorderRadius: loadedRadius,
-            currentSide: 'recto',
-          };
-          setHistory([initialState]);
-          setHistoryIndex(0);
-        } else {
-          // Reset to default template with pre-positioned elements for this company
-          let defaultW = 324;
-          let defaultH = 204;
-          if (cardType === 'CARTE_PRO') {
-            defaultW = 700;
-            defaultH = 450;
-          } else if (cardType === 'RECU') {
-            defaultW = 378;
-            defaultH = 530;
-          }
-          const defaultEls = getDefaultElements(defaultW, defaultH, cardType);
-          
-          setRectoElements(defaultEls);
-          setVersoElements([]);
-          setRectoBackground('');
-          setVersoBackground('');
-          setRectoBackgroundOpacity(1);
-          setVersoBackgroundOpacity(1);
-          
-          setElements(defaultEls);
-          setCanvasWidth(defaultW);
-          setCanvasHeight(defaultH);
-          setCanvasBackground('');
-          setCanvasBackgroundOpacity(1);
-          setCanvasBorderRadius(8);
-          setCurrentSide('recto');
-          
-          const initialState = {
-            recto: {
-              elements: JSON.parse(JSON.stringify(defaultEls)),
-              backgroundUrl: '',
-              backgroundOpacity: 1,
-            },
-            verso: {
-              elements: [],
-              backgroundUrl: '',
-              backgroundOpacity: 1,
-            },
-            canvasWidth: defaultW,
-            canvasHeight: defaultH,
-            canvasBorderRadius: 8,
-            currentSide: 'recto',
-          };
-          setHistory([initialState]);
-          setHistoryIndex(0);
+        } catch (e) {
+          console.warn("Failed to write template cache:", e);
         }
+
+        setIsOfflineMode(false);
+        applyTemplate(template);
       } catch (err: any) {
-        setNotification({ type: 'error', message: err.message || 'Erreur lors du chargement.' });
+        // Fallback to local cache
+        try {
+          const cachedFields = localStorage.getItem(`inci-cache:fields:${selectedCompanyId}`);
+          const cachedTemplateStr = localStorage.getItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`);
+          
+          if (cachedFields) {
+            setDynamicFields(JSON.parse(cachedFields));
+          }
+          
+          if (cachedTemplateStr) {
+            const template = JSON.parse(cachedTemplateStr);
+            setIsOfflineMode(true);
+            applyTemplate(template);
+            setNotification({ type: 'success', message: 'Modèle chargé depuis le cache hors-ligne.' });
+          } else {
+            // No cached template, load default
+            setIsOfflineMode(true);
+            applyTemplate(null);
+            setNotification({ type: 'error', message: 'Aucun modèle en cache pour cette entreprise. Rendu par défaut.' });
+          }
+        } catch (e) {
+          console.warn("Failed to read template cache:", e);
+          setNotification({ type: 'error', message: err.message || 'Erreur lors du chargement.' });
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadTemplateData();
-  }, [selectedCompanyId, cardType]);
+  }, [selectedCompanyId, cardType, selectedCategoryId]);
 
   // Element Actions
   const handleAddElement = (type: 'text' | 'image' | 'qr' | 'logo', customProps?: Partial<StudioElement>) => {
@@ -1068,9 +1145,10 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
       const finalRectoOpacity = currentSide === 'recto' ? canvasBackgroundOpacity : rectoBackgroundOpacity;
       const finalVersoOpacity = currentSide === 'verso' ? canvasBackgroundOpacity : versoBackgroundOpacity;
 
-      await saveTemplate({
+      const templateData = {
         companyId: selectedCompanyId,
         type: cardType,
+        categoryId: selectedCategoryId || null,
         width: canvasWidth,
         height: canvasHeight,
         backgroundUrl: finalRectoBg || undefined,
@@ -1087,11 +1165,30 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
           },
           borderRadius: canvasBorderRadius,
         } as any,
-      });
-      setNotification({ type: 'success', message: 'Le modèle a été sauvegardé avec succès.' });
+      };
+
+      if (isOfflineMode) {
+        // Save to cache local
+        localStorage.setItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`, JSON.stringify({
+          ...templateData,
+          id: `temp_template_${selectedCompanyId}_${cardType}_${selectedCategoryId || 'default'}`,
+        }));
+
+        addOfflineMutation(
+          'SAVE_TEMPLATE',
+          templateData,
+          `Sauvegarder le modèle ${cardType} pour ${companies.find(c => c.id === selectedCompanyId)?.name || 'l\'entreprise'} (Hors-ligne)`
+        );
+
+        setNotification({ type: 'success', message: 'Le modèle a été enregistré localement.' });
+      } else {
+        await saveTemplate(templateData);
+        setNotification({ type: 'success', message: 'Le modèle a été sauvegardé avec succès.' });
+      }
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erreur lors de la sauvegarde.' });
     } finally {
+      setIsSaving(true); // Wait, in original code it was set to false. Let's make sure it is false
       setIsSaving(false);
     }
   };
@@ -1102,18 +1199,54 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
     if (!newCompanyName.trim()) return;
 
     try {
-      const newCompany = await createCompany(newCompanyName.trim());
-      setCompanies((prev) => [...prev, newCompany].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedCompanyId(newCompany.id);
-      setNewCompanyName('');
-      setShowCreateCompanyModal(false);
-      setNotification({ type: 'success', message: `Entreprise "${newCompany.name}" créée !` });
+      if (isOfflineMode) {
+        const tempId = `temp_company_${Date.now()}`;
+        const newCompany = {
+          id: tempId,
+          name: newCompanyName.trim(),
+          createdAt: new Date().toISOString() as any,
+          updatedAt: new Date().toISOString() as any,
+        };
+
+        const updatedCompanies = [...companies, newCompany].sort((a, b) => a.name.localeCompare(b.name));
+        setCompanies(updatedCompanies);
+        setSelectedCompanyId(tempId);
+        
+        // Save to caches
+        localStorage.setItem("inci-cache:companies", JSON.stringify(updatedCompanies));
+        localStorage.setItem("inci-cache:companies-list", JSON.stringify(updatedCompanies));
+
+        addOfflineMutation(
+          'CREATE_COMPANY',
+          { name: newCompanyName.trim(), tempId },
+          `Créer l'entreprise "${newCompanyName.trim()}" (Hors-ligne)`
+        );
+
+        setNewCompanyName('');
+        setShowCreateCompanyModal(false);
+        setNotification({ type: 'success', message: `Entreprise "${newCompanyName.trim()}" créée localement !` });
+      } else {
+        const newCompany = await createCompany(newCompanyName.trim());
+        setCompanies((prev) => [...prev, newCompany].sort((a, b) => a.name.localeCompare(b.name)));
+        setSelectedCompanyId(newCompany.id);
+        setNewCompanyName('');
+        setShowCreateCompanyModal(false);
+        setNotification({ type: 'success', message: `Entreprise "${newCompany.name}" créée !` });
+      }
     } catch (err: any) {
       alert(err.message || "Impossible d'ajouter cette entreprise.");
     }
   };
 
   const selectedElement = elements.find((el) => el.id === selectedElementId) || null;
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 min-h-screen" id="studio-workspace">
@@ -1169,46 +1302,45 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
               ))}
             </select>
             <button
-              onClick={() => setShowCreateCompanyModal(true)}
-              className="p-2.5 bg-indigo-55 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 text-indigo-650 dark:text-indigo-400 rounded-xl border border-indigo-100 dark:border-indigo-900/50 transition"
+              onClick={() => {
+                setShowCreateCompanyModal(true);
+              }}
+              className="p-2.5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-55 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 text-indigo-650 dark:text-indigo-400 transition"
               title="Ajouter une entreprise"
             >
               <Plus className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Card Type Selector */}
-          <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5">
-            <button
-              onClick={() => setCardType('BADGE')}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
-                cardType === 'BADGE'
-                  ? 'bg-white dark:bg-neutral-850 text-indigo-650 dark:text-indigo-400 shadow-sm'
-                  : 'text-neutral-550 hover:text-neutral-700 dark:hover:text-neutral-300'
-              }`}
+          {/* Card Type Selector (Dropdown) */}
+          <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 py-1.5">
+            <span className="text-[11px] text-neutral-450 dark:text-neutral-500 font-bold uppercase tracking-wider">Type :</span>
+            <select
+              value={cardType}
+              onChange={(e) => setCardType(e.target.value as any)}
+              className="bg-transparent text-xs font-semibold text-neutral-750 dark:text-neutral-350 outline-none cursor-pointer"
             >
-              Badge
-            </button>
-            <button
-              onClick={() => setCardType('CARTE_PRO')}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
-                cardType === 'CARTE_PRO'
-                  ? 'bg-white dark:bg-neutral-850 text-indigo-650 dark:text-indigo-400 shadow-sm'
-                  : 'text-neutral-550 hover:text-neutral-700 dark:hover:text-neutral-300'
-              }`}
+              <option value="BADGE" className="dark:bg-neutral-900 font-semibold">Badge</option>
+              <option value="CARTE_PRO" className="dark:bg-neutral-900 font-semibold">Carte Pro</option>
+              <option value="RECU" className="dark:bg-neutral-900 font-semibold">Reçu d&apos;Enrôlement</option>
+            </select>
+          </div>
+
+          {/* Card Category Selector */}
+          <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 py-1.5">
+            <span className="text-[11px] text-neutral-450 dark:text-neutral-500 font-bold uppercase tracking-wider">Catégorie :</span>
+            <select
+              value={selectedCategoryId}
+              onChange={(e) => setSelectedCategoryId(e.target.value)}
+              className="bg-transparent text-xs font-semibold text-neutral-750 dark:text-neutral-350 outline-none cursor-pointer"
             >
-              Carte Pro
-            </button>
-            <button
-              onClick={() => setCardType('RECU')}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
-                cardType === 'RECU'
-                  ? 'bg-white dark:bg-neutral-850 text-indigo-650 dark:text-indigo-400 shadow-sm'
-                  : 'text-neutral-550 hover:text-neutral-700 dark:hover:text-neutral-300'
-              }`}
-            >
-              Reçu d&apos;Enrôlement
-            </button>
+              <option value="" className="dark:bg-neutral-900 font-medium">(Générique / Par défaut)</option>
+              {initialCategories.map((cat) => (
+                <option key={cat.id} value={cat.id} className="dark:bg-neutral-900 font-semibold">
+                  {cat.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Recto / Verso Selector */}
@@ -1281,13 +1413,28 @@ export default function StudioClient({ initialCompanies }: StudioClientProps) {
           <button
             onClick={handleSave}
             disabled={isSaving || !selectedCompanyId}
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-750 disabled:bg-neutral-200 dark:disabled:bg-neutral-800 disabled:text-neutral-400 dark:disabled:text-neutral-650 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-755 text-white disabled:bg-neutral-205 dark:disabled:bg-neutral-800 disabled:text-neutral-405 dark:disabled:text-neutral-650 transition shadow-sm"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>Sauvegarder</span>
           </button>
         </div>
       </div>
+
+      {/* OFFLINE BANNER */}
+      {isOfflineMode && (
+        <div className="flex items-start gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 rounded-2xl text-orange-700 dark:text-orange-400 animate-in fade-in duration-300">
+          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.36 5.64A9 9 0 01-1.64 12c0 2.21.89 4.21 2.34 5.66m13.66 0A9 9 0 0113.64 12c0-2.21-.89-4.21-2.34-5.66m0 0L12 12m0 0l3-3m-3 3l-3-3" />
+          </svg>
+          <div>
+            <p className="text-sm font-bold">Mode Hors-ligne (Données du cache)</p>
+            <p className="text-xs mt-0.5 opacity-90">
+              Les modifications de modèles et d&apos;entreprises effectuées seront sauvegardées localement et synchronisées plus tard.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* STUDIO WORKSPACE */}
       {!selectedCompanyId ? (

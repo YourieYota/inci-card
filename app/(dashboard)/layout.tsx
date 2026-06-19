@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, Settings, Users, Image as ImageIcon,
-  LogOut, UserCheck, UserCog, Shield, ChevronRight, Menu, X
+  LogOut, UserCheck, UserCog, Shield, ChevronRight, Menu, X, CreditCard
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -14,6 +14,7 @@ const navigation = [
   { name: "Dashboard",          href: "/dashboard",          icon: LayoutDashboard, roles: ['ADMIN', 'DESIGNER', 'OPERATEUR'] },
   { name: "Entreprises",        href: "/dashboard/companies", icon: Users,           roles: ['ADMIN', 'DESIGNER', 'OPERATEUR'] },
   { name: "Enrôlement",         href: "/dashboard/employees", icon: UserCheck,       roles: ['ADMIN', 'OPERATEUR'] },
+  { name: "Gestion Cartes",     href: "/dashboard/cards",     icon: CreditCard,      roles: ['ADMIN', 'DESIGNER'] },
   { name: "Studio (Création)",  href: "/dashboard/studio",   icon: ImageIcon,       roles: ['ADMIN', 'DESIGNER'] },
   { name: "Comptes",            href: "/dashboard/accounts", icon: UserCog,         roles: ['ADMIN'] },
   { name: "Rôles & Permissions",href: "/dashboard/roles",    icon: Shield,          roles: ['ADMIN'] },

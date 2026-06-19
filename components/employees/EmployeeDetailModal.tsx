@@ -4,12 +4,14 @@ import React, { useState } from 'react';
 import { Employee } from '@prisma/client';
 import { X, Camera, Upload, Printer, Check, Loader2, AlertCircle } from 'lucide-react';
 import { updateEmployeeStatus, saveEmployeePhoto, updateEmployeeData } from '@/app/actions/employees';
+import { addOfflineMutation } from '@/lib/offlineQueue';
 
 interface EmployeeDetailModalProps {
   employee: Employee;
   onClose: () => void;
   onRefresh: () => void;
   onTriggerWebcam: (employee: Employee) => void;
+  isOfflineMode?: boolean;
 }
 
 export default function EmployeeDetailModal({
@@ -17,6 +19,7 @@ export default function EmployeeDetailModal({
   onClose,
   onRefresh,
   onTriggerWebcam,
+  isOfflineMode = false,
 }: EmployeeDetailModalProps) {
   const [status, setStatus] = useState<string>(employee.status);
   const [formData, setFormData] = useState<Record<string, string>>(() => {
@@ -102,6 +105,73 @@ export default function EmployeeDetailModal({
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      if (isOfflineMode) {
+        // Prepare updated employee object
+        const updatedEmployee = {
+          ...employee,
+          status: uploadedPhoto ? 'PHOTO_VALIDEE' : status,
+          dynamicData: formData,
+        };
+        
+        if (uploadedPhoto) {
+          updatedEmployee.photoUrl = uploadedPhoto;
+          if (!updatedEmployee.enrollmentNumber) {
+            updatedEmployee.enrollmentNumber = `INCI-ENR-${new Date().getFullYear()}-TEMP (HORS-LIGNE)`;
+          }
+        }
+
+        // Queue mutations
+        const tempEmployeeKey = employee.id.startsWith('temp_employee_') ? {
+          companyId: employee.companyId,
+          uniqueIdentifier: employee.uniqueIdentifier,
+        } : undefined;
+
+        if (uploadedPhoto) {
+          addOfflineMutation(
+            'SAVE_EMPLOYEE_PHOTO',
+            { employeeId: employee.id, photoBase64: uploadedPhoto, tempEmployeeKey },
+            `Enregistrer la photo de ${employee.uniqueIdentifier} (Hors-ligne)`
+          );
+        }
+
+        addOfflineMutation(
+          'UPDATE_EMPLOYEE_DATA',
+          { employeeId: employee.id, dynamicData: formData, tempEmployeeKey },
+          `Modifier les informations de ${employee.uniqueIdentifier} (Hors-ligne)`
+        );
+
+        const targetStatus = uploadedPhoto 
+          ? (status === employee.status ? 'PHOTO_VALIDEE' : status)
+          : status;
+
+        if (targetStatus !== employee.status || uploadedPhoto) {
+          addOfflineMutation(
+            'UPDATE_EMPLOYEE_STATUS',
+            { employeeId: employee.id, status: targetStatus, tempEmployeeKey },
+            `Changer le statut de ${employee.uniqueIdentifier} à ${targetStatus} (Hors-ligne)`
+          );
+        }
+
+        // Update local storage cache
+        try {
+          const cachedRaw = localStorage.getItem(`inci-cache:employees:${employee.companyId}`);
+          if (cachedRaw) {
+            const cachedList: Employee[] = JSON.parse(cachedRaw);
+            const idx = cachedList.findIndex(e => e.id === employee.id);
+            if (idx !== -1) {
+              cachedList[idx] = updatedEmployee;
+              localStorage.setItem(`inci-cache:employees:${employee.companyId}`, JSON.stringify(cachedList));
+            }
+          }
+        } catch (e) {
+          console.error("Failed to write offline detail cache:", e);
+        }
+
+        onRefresh();
+        onClose();
+        return;
+      }
+
       // 1. Save Photo first (if new local upload)
       if (uploadedPhoto) {
         await saveEmployeePhoto(employee.id, uploadedPhoto);
@@ -160,6 +230,17 @@ export default function EmployeeDetailModal({
 
         {/* MODAL BODY */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {employee.photoConflict && (
+            <div className="p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-250 dark:border-rose-900/40 rounded-2xl flex items-start gap-3 text-rose-800 dark:text-rose-400 animate-pulse mb-2">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider">Alerte Doublon Détectée</p>
+                <p className="text-[11px] mt-1 leading-relaxed opacity-95">
+                  L&apos;empreinte de cette photo est identique à celle d&apos;un autre employé. Cette fiche a été verrouillée en statut <strong>&quot;À vérifier&quot;</strong> afin d&apos;éviter les doublons de cartes d&apos;identité.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* PHOTO COLUMN */}
@@ -247,32 +328,15 @@ export default function EmployeeDetailModal({
               <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 flex flex-col gap-2">
                 <label className="text-[11px] font-semibold text-neutral-450 dark:text-neutral-500">Statut de l&apos;enrôlement</label>
                 <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5 w-max">
-                  {(['A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME'] as const).map((st) => {
-                    const isActive = 
-                      st === 'A_ENROLER' ? status === 'A_ENROLER' :
-                      st === 'PHOTO_VALIDEE' ? (status === 'PHOTO_VALIDEE' || status === 'IMPRIME') :
-                      st === 'IMPRIME' ? status === 'IMPRIME' : false;
+                  {(['A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER'] as const).map((st) => {
+                    const isActive = status === st;
 
                     return (
                       <button
                         key={st}
                         type="button"
                         onClick={() => {
-                          if (st === 'A_ENROLER') {
-                            setStatus('A_ENROLER');
-                          } else if (st === 'PHOTO_VALIDEE') {
-                            if (status === 'PHOTO_VALIDEE' || status === 'IMPRIME') {
-                              setStatus('A_ENROLER');
-                            } else {
-                              setStatus('PHOTO_VALIDEE');
-                            }
-                          } else if (st === 'IMPRIME') {
-                            if (status === 'IMPRIME') {
-                              setStatus('PHOTO_VALIDEE');
-                            } else {
-                              setStatus('IMPRIME');
-                            }
-                          }
+                          setStatus(st);
                         }}
                         className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
                           isActive 
@@ -283,6 +347,7 @@ export default function EmployeeDetailModal({
                         {st === 'A_ENROLER' && 'À enrôler'}
                         {st === 'PHOTO_VALIDEE' && 'Validé'}
                         {st === 'IMPRIME' && 'Imprimé'}
+                        {st === 'A_VERIFIER' && 'À vérifier'}
                       </button>
                     );
                   })}

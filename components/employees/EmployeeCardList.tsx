@@ -11,11 +11,12 @@ interface EmployeeCardListProps {
   onTriggerWebcam: (employee: Employee) => void;
   onRefresh: () => void;
   onOpenDetail: (employee: Employee) => void;
+  isOfflineMode?: boolean;
 }
 
-type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME';
+type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME' | 'A_VERIFIER';
 
-export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh, onOpenDetail }: EmployeeCardListProps) {
+export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh, onOpenDetail, isOfflineMode = false }: EmployeeCardListProps) {
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
@@ -109,15 +110,40 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
     const data = emp.dynamicData as Record<string, any>;
     if (!data) return { name: 'Employé', fields: [] };
 
-    // Try common keys to construct a name
-    const firstName = data.Prenom || data.Prénom || data.firstname || '';
-    const lastName = data.Nom || data.nom || data.lastname || '';
-    const fullName = `${firstName} ${lastName}`.trim() || emp.enrollmentNumber || emp.uniqueIdentifier;
+    const keys = Object.keys(data);
+    const getValueForKeys = (possibleKeys: string[]) => {
+      const foundKey = keys.find(k => possibleKeys.includes(k.toLowerCase().trim()));
+      return foundKey ? String(data[foundKey]).trim() : '';
+    };
+
+    // 1. Try to find a single full name key
+    let fullName = getValueForKeys([
+      'noms et prénoms', 'noms et prenoms', 'nom et prénom', 'nom et prenom',
+      'nom & prénom', 'nom & prenom', 'nom complet', 'nom_prenom',
+      'name', 'fullname', 'employee name', 'employe', 'employé'
+    ]);
+
+    // 2. If no full name key, try to combine first name and last name
+    if (!fullName) {
+      const firstName = getValueForKeys(['prenom', 'prénom', 'prenoms', 'prénoms', 'firstname', 'firstnames']);
+      const lastName = getValueForKeys(['nom', 'noms', 'lastname', 'lastnames', 'surname', 'surnames', 'familyname']);
+      fullName = `${lastName} ${firstName}`.trim();
+    }
+
+    // 3. Fallback to enrollmentNumber or uniqueIdentifier
+    if (!fullName) {
+      fullName = emp.enrollmentNumber || emp.uniqueIdentifier;
+    }
 
     // Filter out name keys to show other attributes
-    const nameKeys = ['nom', 'prenom', 'prénom', 'firstname', 'lastname', 'name', 'fullname'];
+    const nameKeys = [
+      'nom', 'noms', 'prenom', 'prénom', 'prenoms', 'prénoms', 'firstname', 'lastname',
+      'name', 'fullname', 'employee name', 'employe', 'employé',
+      'noms et prénoms', 'noms et prenoms', 'nom et prénom', 'nom et prenom',
+      'nom & prénom', 'nom & prenom', 'nom complet', 'nom_prenom'
+    ];
     const fields = Object.entries(data)
-      .filter(([key]) => !nameKeys.includes(key.toLowerCase()))
+      .filter(([key]) => !nameKeys.includes(key.toLowerCase().trim()))
       .slice(0, 4); // Limit to 4 key info fields for aesthetics
 
     return { name: fullName, fields };
@@ -132,7 +158,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
       <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white dark:bg-neutral-850 p-4 rounded-2xl border border-blue-100/50 dark:border-neutral-800/80 shadow-sm">
         {/* Status Filters */}
         <div className="flex flex-wrap gap-1.5 p-1 bg-slate-50 dark:bg-neutral-900 border border-slate-200/60 dark:border-neutral-800/60 rounded-xl w-full lg:w-auto">
-          {(['ALL', 'A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME'] as FilterStatus[]).map((st) => (
+          {(['ALL', 'A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER'] as FilterStatus[]).map((st) => (
             <button
               key={st}
               onClick={() => setFilter(st)}
@@ -141,6 +167,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   ? st === 'ALL' ? 'bg-white dark:bg-neutral-800 text-slate-700 dark:text-slate-200 shadow-sm border border-slate-200/80 dark:border-neutral-700'
                   : st === 'A_ENROLER' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 shadow-sm border border-amber-200/60 dark:border-amber-900/40'
                   : st === 'PHOTO_VALIDEE' ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 shadow-sm border border-blue-200/60 dark:border-blue-900/40'
+                  : st === 'A_VERIFIER' ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 shadow-sm border border-rose-200/60 dark:border-rose-900/40'
                   : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm border border-emerald-200/60 dark:border-emerald-900/40'
                   : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300 hover:bg-white/60 dark:hover:bg-neutral-800/50'
               }`}
@@ -149,6 +176,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
               {st === 'A_ENROLER' && 'À enrôler'}
               {st === 'PHOTO_VALIDEE' && 'Photo Validée'}
               {st === 'IMPRIME' && 'Imprimés'}
+              {st === 'A_VERIFIER' && 'À vérifier'}
             </button>
           ))}
         </div>
@@ -226,6 +254,8 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                 className={`cursor-pointer group bg-white dark:bg-neutral-850 border rounded-2xl hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between ${
                   selectedIds.includes(emp.id)
                     ? 'border-indigo-400 ring-2 ring-indigo-500/15 shadow-sm'
+                    : emp.status === 'A_VERIFIER' || (emp as any).photoConflict
+                    ? 'border-rose-300 dark:border-rose-900/40 ring-1 ring-rose-500/10 shadow-sm'
                     : emp.status === 'A_ENROLER'
                     ? 'border-amber-100/80 dark:border-amber-900/20 hover:border-amber-300/60 dark:hover:border-amber-800/40'
                     : emp.status === 'PHOTO_VALIDEE'
@@ -235,6 +265,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
               >
                 {/* Top color strip by status */}
                 <div className={`h-0.5 w-full ${
+                  emp.status === 'A_VERIFIER' || (emp as any).photoConflict ? 'bg-rose-500' :
                   emp.status === 'A_ENROLER' ? 'bg-amber-400/60' :
                   emp.status === 'PHOTO_VALIDEE' ? 'bg-blue-400/60' :
                   'bg-emerald-400/60'
@@ -265,6 +296,13 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                         <span>Pas de photo</span>
                       </div>
                     )}
+                    {(emp as any).photoConflict && (
+                      <div className="absolute inset-0 bg-rose-500/10 flex items-center justify-center">
+                        <div className="bg-rose-600 text-white rounded-full p-1 shadow-sm">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Text details */}
@@ -276,13 +314,16 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                       {/* Status Tag */}
                       <span
                         className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                          emp.status === 'A_ENROLER'
+                          emp.status === 'A_VERIFIER' || (emp as any).photoConflict
+                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/70 dark:border-rose-800/40'
+                            : emp.status === 'A_ENROLER'
                             ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/40'
                             : emp.status === 'PHOTO_VALIDEE'
                             ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/40'
                             : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/40'
                         }`}
                       >
+                        {emp.status === 'A_VERIFIER' && 'À vérifier'}
                         {emp.status === 'A_ENROLER' && 'À enrôler'}
                         {emp.status === 'PHOTO_VALIDEE' && 'Validé'}
                         {emp.status === 'IMPRIME' && 'Imprimé'}
@@ -309,7 +350,9 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
                 {/* Card footer action buttons */}
                 <div className={`px-5 py-3 border-t flex gap-2.5 items-center justify-between ${
-                  emp.status === 'A_ENROLER'
+                  emp.status === 'A_VERIFIER' || (emp as any).photoConflict
+                    ? 'border-rose-100/50 dark:border-neutral-800/60 bg-rose-50/20 dark:bg-neutral-900/30'
+                    : emp.status === 'A_ENROLER'
                     ? 'border-amber-100/50 dark:border-neutral-800/60 bg-amber-50/30 dark:bg-neutral-900/30'
                     : emp.status === 'PHOTO_VALIDEE'
                     ? 'border-blue-100/50 dark:border-neutral-800/60 bg-blue-50/20 dark:bg-neutral-900/30'
@@ -320,12 +363,24 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   </div>
                   
                   <div className="flex gap-2">
-                    {/* Capture Webcam */}
-                    {(emp.status === 'A_ENROLER' || emp.status === 'PHOTO_VALIDEE') && (
+                     {/* Capture Webcam */}
+                    {(emp.status === 'A_ENROLER' || emp.status === 'PHOTO_VALIDEE' || emp.status === 'A_VERIFIER') && (
                       <button
-                        onClick={() => onTriggerWebcam(emp)}
-                        disabled={isSelfUpdating}
-                        className="flex items-center gap-1.5 py-1.5 px-3 border border-orange-200/70 dark:border-orange-800/30 bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-100 dark:hover:bg-orange-950/40 text-orange-700 dark:text-orange-400 rounded-xl text-xs font-semibold transition"
+                        onClick={() => {
+                          if (isOfflineMode) {
+                            alert("La capture photo est indisponible en mode hors-ligne.");
+                            return;
+                          }
+                          onTriggerWebcam(emp);
+                        }}
+                        disabled={isSelfUpdating || isOfflineMode}
+                        className={`flex items-center gap-1.5 py-1.5 px-3 border rounded-xl text-xs font-semibold transition ${
+                          isOfflineMode
+                            ? 'bg-slate-100 dark:bg-neutral-800 text-slate-405 dark:text-slate-500 border-neutral-200 dark:border-neutral-700 cursor-not-allowed opacity-50'
+                            : (emp as any).photoConflict || emp.status === 'A_VERIFIER'
+                            ? 'border-rose-200/70 dark:border-rose-800/30 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400'
+                            : 'border-orange-200/70 dark:border-orange-800/30 bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-100 dark:hover:bg-orange-950/40 text-orange-700 dark:text-orange-400'
+                        }`}
                       >
                         <Camera className="w-3.5 h-3.5" />
                         <span>{emp.photoUrl ? 'Reprendre' : 'Webcam'}</span>

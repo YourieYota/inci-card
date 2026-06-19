@@ -2,28 +2,63 @@
 
 import React, { useState, useEffect } from 'react';
 import { Company, Employee } from '@prisma/client';
-import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2, Users as UsersIcon, CreditCard, Clock } from 'lucide-react';
+import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2, Users as UsersIcon, CreditCard, Clock, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import ExcelImporter from './ExcelImporter';
 import EmployeeCardList from './EmployeeCardList';
 import WebcamModal from './WebcamModal';
 import EmployeeDetailModal from './EmployeeDetailModal';
 import { getEmployees, saveEmployeePhoto, getCompanyDashboardStats } from '@/app/actions/employees';
+import { addOfflineMutation } from '@/lib/offlineQueue';
 
 interface EmployeesClientProps {
   companies: Company[];
   initialCompanyId?: string;
   initialEmployees: Employee[];
+  dbError?: boolean;
 }
 
 export default function EmployeesClient({
   companies,
   initialCompanyId = '',
   initialEmployees,
+  dbError = false,
 }: EmployeesClientProps) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(initialCompanyId);
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
-  
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(dbError);
+  const [localCompanies, setLocalCompanies] = useState<Company[]>(companies);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Sync and cache companies list
+  useEffect(() => {
+    if (!dbError) {
+      setLocalCompanies(companies || []);
+      if (companies && companies.length > 0) {
+        try {
+          localStorage.setItem("inci-cache:companies-list", JSON.stringify(companies));
+        } catch (e) {
+          console.error("Failed to write companies list cache:", e);
+        }
+      }
+      setIsOfflineMode(false);
+    } else {
+      try {
+        const cached = localStorage.getItem("inci-cache:companies-list");
+        if (cached) {
+          setLocalCompanies(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.error("Failed to read companies list cache:", e);
+      }
+      setIsOfflineMode(true);
+    }
+  }, [companies, dbError]);
+
   // UI views / modals
   const [showImporter, setShowImporter] = useState<boolean>(false);
   const [activeWebcamEmployee, setActiveWebcamEmployee] = useState<Employee | null>(null);
@@ -38,9 +73,10 @@ export default function EmployeesClient({
     printedCount: number;
     pendingPhotoCount: number;
     validatedPhotoCount: number;
+    toVerifyCount: number;
   } | null>(null);
 
-  const activeCompany = companies.find((c) => c.id === selectedCompanyId);
+  const activeCompany = localCompanies.find((c) => c.id === selectedCompanyId);
 
   // Fetch employees when selected company changes
   useEffect(() => {
@@ -69,8 +105,32 @@ export default function EmployeesClient({
       ]);
       setEmployees(data);
       setCompanyStats(stats);
+      setIsOfflineMode(false);
+      try {
+        localStorage.setItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(data));
+        localStorage.setItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(stats));
+      } catch (e) {
+        console.error("Failed to write employees cache:", e);
+      }
     } catch (err: any) {
-      alert(err.message || 'Impossible de charger les employés.');
+      // Fetch failed, try local cache
+      try {
+        const cachedEmployees = localStorage.getItem(`inci-cache:employees:${selectedCompanyId}`);
+        const cachedStats = localStorage.getItem(`inci-cache:stats:${selectedCompanyId}`);
+        if (cachedEmployees) {
+          setEmployees(JSON.parse(cachedEmployees));
+          if (cachedStats) {
+            setCompanyStats(JSON.parse(cachedStats));
+          }
+          setIsOfflineMode(true);
+          console.warn("Loaded employees from local cache");
+        } else {
+          alert(err.message || 'Impossible de charger les employés.');
+        }
+      } catch (e) {
+        console.error("Failed to read employees cache:", e);
+        alert(err.message || 'Impossible de charger les employés.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -83,20 +143,137 @@ export default function EmployeesClient({
     refreshEmployees();
   };
 
-  const handleSavePhoto = async (photoBase64: string) => {
-    if (!activeWebcamEmployee) return;
+  const handleImportOffline = (uniqueField: string, rows: any[]) => {
+    const tempEmployees = rows.map((row) => {
+      const uniqueVal = row[uniqueField];
+      const uniqueIdentifier = uniqueVal !== undefined && uniqueVal !== null && uniqueVal !== ''
+        ? String(uniqueVal).trim()
+        : `temp_uid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      return {
+        id: `temp_employee_${selectedCompanyId}_${uniqueIdentifier}`,
+        companyId: selectedCompanyId,
+        uniqueIdentifier,
+        dynamicData: row,
+        status: 'A_ENROLER',
+        photoUrl: null,
+        photoHash: null,
+        photoConflict: false,
+        enrollmentNumber: null,
+        createdAt: new Date(),
+        printedAt: null,
+      } as Employee;
+    });
+
+    const merged = [...employees];
+    tempEmployees.forEach((newEmp) => {
+      const idx = merged.findIndex((e) => e.uniqueIdentifier === newEmp.uniqueIdentifier);
+      if (idx !== -1) {
+        merged[idx] = { ...merged[idx], dynamicData: newEmp.dynamicData };
+      } else {
+        merged.unshift(newEmp);
+      }
+    });
+
+    setEmployees(merged);
+
+    const newStats = {
+      totalEmployees: merged.length,
+      printedCount: merged.filter((e) => e.status === 'IMPRIME').length,
+      pendingPhotoCount: merged.filter((e) => e.status === 'A_ENROLER').length,
+      validatedPhotoCount: merged.filter((e) => e.status === 'PHOTO_VALIDEE').length,
+      toVerifyCount: merged.filter((e) => e.status === 'A_VERIFIER').length,
+    };
+    setCompanyStats(newStats);
 
     try {
-      const updatedEmployee = await saveEmployeePhoto(activeWebcamEmployee.id, photoBase64);
+      localStorage.setItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(merged));
+      localStorage.setItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(newStats));
+    } catch (e) {
+      console.error("Failed to write offline import cache:", e);
+    }
+
+    addOfflineMutation(
+      'IMPORT_EMPLOYEES',
+      { companyId: selectedCompanyId, uniqueField, rows },
+      `Importer ${rows.length} employés hors-ligne`
+    );
+
+    handleImportSuccess(rows.length);
+  };
+
+  const handleSavePhoto = async (photoUrl: string) => {
+    if (!activeWebcamEmployee) return;
+
+    if (isOfflineMode) {
+      const updated = employees.map((emp) => {
+        if (emp.id === activeWebcamEmployee.id) {
+          const updatedEmp = {
+            ...emp,
+            photoUrl,
+            status: 'PHOTO_VALIDEE',
+          };
+          if (!updatedEmp.enrollmentNumber) {
+            const count = employees.filter((e) => e.enrollmentNumber).length;
+            const num = String(count + 1).padStart(5, '0');
+            updatedEmp.enrollmentNumber = `INCI-ENR-${new Date().getFullYear()}-${num} (HORS-LIGNE)`;
+          }
+          return updatedEmp;
+        }
+        return emp;
+      });
+
+      setEmployees(updated);
+
+      const newStats = {
+        totalEmployees: updated.length,
+        printedCount: updated.filter((e) => e.status === 'IMPRIME').length,
+        pendingPhotoCount: updated.filter((e) => e.status === 'A_ENROLER').length,
+        validatedPhotoCount: updated.filter((e) => e.status === 'PHOTO_VALIDEE').length,
+        toVerifyCount: updated.filter((e) => e.status === 'A_VERIFIER').length,
+      };
+      setCompanyStats(newStats);
+
+      try {
+        localStorage.setItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(updated));
+        localStorage.setItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(newStats));
+      } catch (e) {
+        console.error("Failed to write photo cache offline:", e);
+      }
+
+      addOfflineMutation(
+        'SAVE_EMPLOYEE_PHOTO',
+        {
+          employeeId: activeWebcamEmployee.id,
+          photoUrl,           // URL ou Base64 selon le mode
+          photoBase64: photoUrl,  // Rétrocompat pour sync.ts
+          tempEmployeeKey: activeWebcamEmployee.id.startsWith('temp_employee_') ? {
+            companyId: activeWebcamEmployee.companyId,
+            uniqueIdentifier: activeWebcamEmployee.uniqueIdentifier,
+          } : undefined
+        },
+        `Enregistrer la photo de ${activeWebcamEmployee.uniqueIdentifier} (Hors-ligne)`
+      );
+
+      setSuccessBanner(`Photo enregistrée localement pour ${activeWebcamEmployee.uniqueIdentifier}.`);
+      setActiveWebcamEmployee(null);
+      setTimeout(() => setSuccessBanner(null), 4000);
+      return;
+    }
+
+    try {
+      const updatedEmployee = await saveEmployeePhoto(activeWebcamEmployee.id, photoUrl);
       setSuccessBanner(`Photo enregistrée pour ${updatedEmployee.enrollmentNumber || activeWebcamEmployee.uniqueIdentifier}.`);
       setActiveWebcamEmployee(null);
-      setSelectedEmployeeForDetail(updatedEmployee); // Re-open detail modal with the captured photo
+      setSelectedEmployeeForDetail(updatedEmployee);
       setTimeout(() => setSuccessBanner(null), 4000);
       refreshEmployees();
     } catch (err: any) {
       alert(err.message || "Erreur lors de l'enregistrement de la photo.");
     }
   };
+
+
+
 
   return (
     <div className="flex flex-col gap-6 min-h-screen">
@@ -127,7 +304,7 @@ export default function EmployeesClient({
             className="px-3.5 py-2.5 border border-blue-100 dark:border-neutral-700 bg-blue-50/30 dark:bg-neutral-900 rounded-xl text-sm font-medium min-w-[220px] focus:ring-2 focus:ring-blue-500/20 outline-none"
           >
             <option value="">Choisir une entreprise</option>
-            {companies.map((c) => (
+            {localCompanies.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -146,7 +323,7 @@ export default function EmployeesClient({
               </button>
               <button
                 onClick={refreshEmployees}
-                className="p-2.5 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-500 hover:text-blue-600 rounded-xl transition"
+                className="p-2.5 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-550 hover:text-blue-600 rounded-xl transition"
                 title="Rafraîchir"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -161,6 +338,21 @@ export default function EmployeesClient({
         <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-400 rounded-xl text-sm font-medium animate-in fade-in duration-300">
           <CheckCircle className="w-4.5 h-4.5 text-emerald-500" />
           <span>{successBanner}</span>
+        </div>
+      )}
+
+      {/* OFFLINE WARNING BANNER */}
+      {isOfflineMode && (
+        <div className="flex items-start gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 rounded-2xl text-orange-700 dark:text-orange-400 animate-in fade-in duration-300">
+          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.36 5.64A9 9 0 01-1.64 12c0 2.21.89 4.21 2.34 5.66m13.66 0A9 9 0 0113.64 12c0-2.21-.89-4.21-2.34-5.66m0 0L12 12m0 0l3-3m-3 3l-3-3" />
+          </svg>
+          <div>
+            <p className="text-sm font-bold">Mode Hors-ligne (Données du cache)</p>
+            <p className="text-xs mt-0.5 opacity-90">
+              Les captures photos et importations Excel effectuées seront sauvegardées localement et synchronisées plus tard.
+            </p>
+          </div>
         </div>
       )}
 
@@ -181,7 +373,7 @@ export default function EmployeesClient({
             className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-medium"
           >
             <option value="">Sélectionnez une entreprise...</option>
-            {companies.map((c) => (
+            {localCompanies.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -194,6 +386,8 @@ export default function EmployeesClient({
           companyId={selectedCompanyId}
           onImportSuccess={handleImportSuccess}
           onCancel={() => setShowImporter(false)}
+          isOfflineMode={isOfflineMode}
+          onImportOffline={handleImportOffline}
         />
       ) : isLoading ? (
         // VIEW: LOADING
@@ -206,13 +400,13 @@ export default function EmployeesClient({
         <div className="space-y-6">
           {/* Company Stats Summary */}
           {companyStats && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-in fade-in duration-300">
               <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-violet-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
                 <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/40">
                   <UsersIcon className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Total employés</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-550 uppercase tracking-wide">Total employés</p>
                   <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.totalEmployees}</p>
                 </div>
               </div>
@@ -221,7 +415,7 @@ export default function EmployeesClient({
                   <Clock className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">En attente de photo</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-550 uppercase tracking-wide">En attente de photo</p>
                   <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.pendingPhotoCount}</p>
                 </div>
               </div>
@@ -230,7 +424,7 @@ export default function EmployeesClient({
                   <CheckCircle className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Photos validées</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-550 uppercase tracking-wide">Photos validées</p>
                   <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.validatedPhotoCount}</p>
                 </div>
               </div>
@@ -239,8 +433,25 @@ export default function EmployeesClient({
                   <CreditCard className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Badges imprimés</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-550 uppercase tracking-wide">Badges imprimés</p>
                   <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.printedCount}</p>
+                </div>
+              </div>
+              <div className={`bg-white dark:bg-neutral-850 p-4 rounded-xl border shadow-sm flex items-center gap-3 transition-colors ${
+                companyStats.toVerifyCount > 0 
+                  ? 'border-rose-250 dark:border-rose-900/50 bg-rose-50/20 dark:bg-rose-950/10' 
+                  : 'border-neutral-200/70 dark:border-neutral-700/60'
+              }`}>
+                <div className={`p-3 rounded-xl border transition-colors ${
+                  companyStats.toVerifyCount > 0
+                    ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-150 dark:border-rose-900/40 animate-pulse'
+                    : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-450 dark:text-neutral-500 border-neutral-200 dark:border-neutral-700'
+                }`}>
+                  <AlertCircle className="w-4.5 h-4.5" style={{width:18,height:18}} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-555 uppercase tracking-wide">Fiches à vérifier</p>
+                  <p className={`text-xl font-extrabold mt-0.5 ${companyStats.toVerifyCount > 0 ? 'text-rose-600 dark:text-rose-455 font-black' : 'text-neutral-850 dark:text-white'}`}>{companyStats.toVerifyCount}</p>
                 </div>
               </div>
             </div>
@@ -257,8 +468,10 @@ export default function EmployeesClient({
             </div>
             {employees.length === 0 && (
               <button
-                onClick={() => setShowImporter(true)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 text-indigo-650 dark:text-indigo-400 rounded-xl text-xs font-bold border border-indigo-100 dark:border-indigo-900/50 transition"
+                onClick={() => {
+                  setShowImporter(true);
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-655 dark:text-indigo-400 rounded-xl text-xs font-bold border border-indigo-100 dark:border-indigo-900/50 transition hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Importer le premier Excel</span>
@@ -271,6 +484,7 @@ export default function EmployeesClient({
             onTriggerWebcam={setActiveWebcamEmployee}
             onRefresh={refreshEmployees}
             onOpenDetail={setSelectedEmployeeForDetail}
+            isOfflineMode={isOfflineMode}
           />
         </div>
       )}
@@ -284,6 +498,7 @@ export default function EmployeesClient({
           onTriggerWebcam={(emp) => {
             setActiveWebcamEmployee(emp);
           }}
+          isOfflineMode={isOfflineMode}
         />
       )}
 

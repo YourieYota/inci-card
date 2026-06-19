@@ -9,7 +9,7 @@ export async function getCompanies() {
       orderBy: { name: 'asc' },
     });
   } catch (error) {
-    console.error('Error fetching companies:', error);
+    console.warn('Error fetching companies:', error);
     throw new Error('Impossible de récupérer les entreprises');
   }
 }
@@ -28,7 +28,7 @@ export async function getCompaniesWithCounts() {
       orderBy: { name: 'asc' },
     });
   } catch (error) {
-    console.error('Error fetching companies with counts:', error);
+    console.warn('Error fetching companies with counts:', error);
     throw new Error('Impossible de récupérer les entreprises');
   }
 }
@@ -39,23 +39,22 @@ export async function createCompany(name: string) {
       data: { name },
     });
   } catch (error) {
-    console.error('Error creating company:', error);
+    console.warn('Error creating company:', error);
     throw new Error('Impossible de créer l\'entreprise (ce nom existe peut-être déjà)');
   }
 }
 
-export async function getTemplate(companyId: string, type: CardType) {
+export async function getTemplate(companyId: string, type: CardType, categoryId?: string | null) {
   try {
-    return await prisma.cardTemplate.findUnique({
+    return await prisma.cardTemplate.findFirst({
       where: {
-        companyId_type: {
-          companyId,
-          type,
-        },
+        companyId,
+        type,
+        categoryId: categoryId || null,
       },
     });
   } catch (error) {
-    console.error('Error fetching template:', error);
+    console.warn('Error fetching template:', error);
     throw new Error('Impossible de récupérer le modèle de carte');
   }
 }
@@ -63,6 +62,7 @@ export async function getTemplate(companyId: string, type: CardType) {
 export async function saveTemplate({
   companyId,
   type,
+  categoryId,
   width,
   height,
   backgroundUrl,
@@ -70,37 +70,47 @@ export async function saveTemplate({
 }: {
   companyId: string;
   type: CardType;
+  categoryId?: string | null;
   width: number;
   height: number;
   backgroundUrl?: string;
   layoutConfig: any;
 }) {
   try {
-    const template = await prisma.cardTemplate.upsert({
+    const cleanCategoryId = categoryId || null;
+    const existing = await prisma.cardTemplate.findFirst({
       where: {
-        companyId_type: {
-          companyId,
-          type,
-        },
-      },
-      update: {
-        width,
-        height,
-        backgroundUrl: backgroundUrl || null,
-        layoutConfig,
-      },
-      create: {
         companyId,
         type,
-        width,
-        height,
-        backgroundUrl: backgroundUrl || null,
-        layoutConfig,
+        categoryId: cleanCategoryId,
       },
     });
-    return template;
+
+    if (existing) {
+      return await prisma.cardTemplate.update({
+        where: { id: existing.id },
+        data: {
+          width,
+          height,
+          backgroundUrl: backgroundUrl || null,
+          layoutConfig,
+        },
+      });
+    } else {
+      return await prisma.cardTemplate.create({
+        data: {
+          companyId,
+          type,
+          categoryId: cleanCategoryId,
+          width,
+          height,
+          backgroundUrl: backgroundUrl || null,
+          layoutConfig,
+        },
+      });
+    }
   } catch (error) {
-    console.error('Error saving template:', error);
+    console.warn('Error saving template:', error);
     throw new Error('Impossible de sauvegarder le modèle de carte');
   }
 }
@@ -141,7 +151,7 @@ export async function getCompanyFields(companyId: string): Promise<string[]> {
 
     return Array.from(fieldsSet);
   } catch (error) {
-    console.error('Error fetching company fields:', error);
+    console.warn('Error fetching company fields:', error);
     return ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'];
   }
 }

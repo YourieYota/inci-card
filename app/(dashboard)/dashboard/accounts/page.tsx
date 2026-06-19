@@ -11,7 +11,7 @@ export default async function AccountsPage() {
   try {
     session = await getServerSession(authOptions);
   } catch (error) {
-    console.error("Session decryption error, redirecting to clear-session:", error);
+    console.warn("Session decryption error, redirecting to clear-session:", error);
     redirect("/api/auth/clear-session");
   }
 
@@ -28,14 +28,18 @@ export default async function AccountsPage() {
   // Get current logged in user details to prevent self-deletion or self-demotion
   let currentUser = null;
   if (session.user.email) {
-    currentUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-      }
-    });
+    try {
+      currentUser = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        }
+      });
+    } catch {
+      // DB inaccessible — currentUser reste null, AccountsClient gérera l'état vide
+    }
   }
 
   return (

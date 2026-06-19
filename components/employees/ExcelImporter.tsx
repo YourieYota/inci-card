@@ -9,9 +9,17 @@ interface ExcelImporterProps {
   companyId: string;
   onImportSuccess: (count: number) => void;
   onCancel: () => void;
+  isOfflineMode?: boolean;
+  onImportOffline?: (uniqueField: string, rows: any[]) => void;
 }
 
-export default function ExcelImporter({ companyId, onImportSuccess, onCancel }: ExcelImporterProps) {
+export default function ExcelImporter({ 
+  companyId, 
+  onImportSuccess, 
+  onCancel,
+  isOfflineMode = false,
+  onImportOffline
+}: ExcelImporterProps) {
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<any[]>([]);
@@ -115,6 +123,12 @@ export default function ExcelImporter({ companyId, onImportSuccess, onCancel }: 
 
     try {
       const cleanRows = JSON.parse(JSON.stringify(rows));
+      
+      if (isOfflineMode && onImportOffline) {
+        onImportOffline(uniqueField, cleanRows);
+        return;
+      }
+
       const res = await importEmployees({
         companyId,
         uniqueField,

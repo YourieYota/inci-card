@@ -9,6 +9,7 @@ import {
   getUsers, adminCreateUser, adminUpdateUser, adminDeleteUser 
 } from '@/app/actions/users';
 import { getRoles } from '@/app/actions/roles';
+import { addOfflineMutation } from '@/lib/offlineQueue';
 import Pagination from '@/components/ui/Pagination';
 
 interface AccountsClientProps {
@@ -43,6 +44,12 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [availableRoles, setAvailableRoles] = useState<RoleOption[]>([]);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Search and Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,8 +89,23 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
   const fetchRoles = async () => {
     try {
       const data = await getRoles();
-      setAvailableRoles(data.map(r => ({ id: r.id, name: r.name, slug: r.slug, color: r.color, isSystem: r.isSystem })));
-    } catch {}
+      const mapped = data.map(r => ({ id: r.id, name: r.name, slug: r.slug, color: r.color, isSystem: r.isSystem }));
+      setAvailableRoles(mapped);
+      try {
+        localStorage.setItem("inci-cache:roles-list", JSON.stringify(mapped));
+      } catch (e) {
+        console.error("Failed to write roles-list cache:", e);
+      }
+    } catch {
+      try {
+        const cached = localStorage.getItem("inci-cache:roles-list");
+        if (cached) {
+          setAvailableRoles(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.error("Failed to read roles-list cache:", e);
+      }
+    }
   };
 
   const fetchUsers = async () => {
@@ -97,8 +119,29 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
         createdAt: new Date(u.createdAt)
       }));
       setUsers(parsedData);
+      setIsOfflineMode(false);
+      try {
+        localStorage.setItem("inci-cache:users", JSON.stringify(parsedData));
+      } catch (e) {
+        console.error("Failed to write users cache:", e);
+      }
     } catch (err: any) {
-      setError(err.message || 'Impossible de charger les utilisateurs');
+      try {
+        const cached = localStorage.getItem("inci-cache:users");
+        if (cached) {
+          setUsers(JSON.parse(cached).map((u: any) => ({
+            ...u,
+            createdAt: new Date(u.createdAt)
+          })));
+          setIsOfflineMode(true);
+          setError(null);
+        } else {
+          setError(err.message || 'Impossible de charger les utilisateurs');
+        }
+      } catch (e) {
+        console.error("Failed to read users cache:", e);
+        setError(err.message || 'Impossible de charger les utilisateurs');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -151,6 +194,34 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
 
     setIsSubmitting(true);
     try {
+      if (isOfflineMode) {
+        const tempId = `temp_user_${Date.now()}`;
+        const mockUser = {
+          id: tempId,
+          name,
+          firstName: firstName || null,
+          phone: phone || null,
+          email,
+          login: login || null,
+          role,
+          createdAt: new Date(),
+        };
+
+        const updatedUsers = [mockUser, ...users];
+        setUsers(updatedUsers);
+        localStorage.setItem("inci-cache:users", JSON.stringify(updatedUsers));
+
+        addOfflineMutation(
+          'CREATE_USER',
+          { data: { name, firstName, phone, email, login, role, password } },
+          `Créer le compte pour ${firstName} ${name} (Hors-ligne)`
+        );
+
+        setActionSuccess('Compte créé localement !');
+        setTimeout(() => setIsCreateOpen(false), 1500);
+        return;
+      }
+
       const result = await adminCreateUser({
         name,
         firstName,
@@ -181,6 +252,35 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
 
     setIsSubmitting(true);
     try {
+      if (isOfflineMode) {
+        const updatedUsers = users.map((u) => {
+          if (u.id === selectedUser.id) {
+            return {
+              ...u,
+              name,
+              firstName: firstName || null,
+              phone: phone || null,
+              email,
+              login: login || null,
+              role,
+            };
+          }
+          return u;
+        });
+        setUsers(updatedUsers);
+        localStorage.setItem("inci-cache:users", JSON.stringify(updatedUsers));
+
+        addOfflineMutation(
+          'UPDATE_USER',
+          { id: selectedUser.id, data: { name, firstName, phone, email, login, role, newPassword: newPassword || undefined } },
+          `Modifier le compte de ${firstName} ${name} (Hors-ligne)`
+        );
+
+        setActionSuccess('Compte modifié localement !');
+        setTimeout(() => setIsEditOpen(false), 1500);
+        return;
+      }
+
       const result = await adminUpdateUser(selectedUser.id, {
         name,
         firstName,
@@ -208,6 +308,21 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
     setActionError(null);
     setIsSubmitting(true);
     try {
+      if (isOfflineMode) {
+        const updatedUsers = users.filter((u) => u.id !== selectedUser.id);
+        setUsers(updatedUsers);
+        localStorage.setItem("inci-cache:users", JSON.stringify(updatedUsers));
+
+        addOfflineMutation(
+          'DELETE_USER',
+          { id: selectedUser.id },
+          `Supprimer le compte de ${selectedUser.firstName} ${selectedUser.name} (Hors-ligne)`
+        );
+
+        setIsDeleteOpen(false);
+        return;
+      }
+
       const result = await adminDeleteUser(selectedUser.id);
       if (result.success) {
         fetchUsers();
@@ -260,8 +375,25 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
     );
   };
 
+
+
   return (
     <div className="space-y-6">
+      {/* Offline banner */}
+      {isOfflineMode && (
+        <div className="flex items-start gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 rounded-2xl text-orange-700 dark:text-orange-400 animate-in fade-in duration-300">
+          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.36 5.64A9 9 0 01-1.64 12c0 2.21.89 4.21 2.34 5.66m13.66 0A9 9 0 0113.64 12c0-2.21-.89-4.21-2.34-5.66m0 0L12 12m0 0l3-3m-3 3l-3-3" />
+          </svg>
+          <div>
+            <p className="text-sm font-bold">Mode Hors-ligne (Données du cache)</p>
+            <p className="text-xs mt-0.5 opacity-90">
+              Les créations, modifications ou suppressions de comptes effectuées seront sauvegardées localement et synchronisées plus tard.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Top Controls: Search and Add Button */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center">
         {/* Search & Filter Group */}
@@ -304,7 +436,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
         {/* Add User Button */}
         <button
           onClick={handleOpenCreate}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-650 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
         >
           <UserPlus className="w-4 h-4" />
           <span>Créer un compte</span>
@@ -318,7 +450,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
           <span className="text-sm font-semibold text-slate-400">Chargement des comptes...</span>
         </div>
       ) : error ? (
-        <div className="flex items-center gap-3 p-6 bg-red-55 dark:bg-red-950/20 border border-red-100 dark:border-red-900 rounded-2xl text-red-600 dark:text-red-400">
+        <div className="flex items-center gap-3 p-6 bg-red-55 dark:bg-red-950/20 border border-red-100 dark:border-red-900 rounded-2xl text-red-650 dark:text-red-400">
           <AlertCircle className="w-6 h-6 shrink-0" />
           <div>
             <h4 className="font-bold text-sm">Erreur</h4>
@@ -355,18 +487,22 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                       {getRoleBadge(user.role)}
                       <div className="flex gap-1">
                         <button 
-                          onClick={() => handleOpenEdit(user)}
-                          className="p-2 text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/20 rounded-xl transition"
+                          onClick={() => {
+                            handleOpenEdit(user);
+                          }}
+                          className="p-2 rounded-xl transition text-orange-400 hover:text-orange-655 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/20"
                           title="Modifier le compte"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button 
-                          onClick={() => handleOpenDelete(user)}
+                          onClick={() => {
+                            handleOpenDelete(user);
+                          }}
                           disabled={isMe}
                           className={`p-2 rounded-xl transition ${
                             isMe 
-                              ? 'text-slate-200 dark:text-slate-700 cursor-not-allowed' 
+                              ? 'text-slate-200 dark:text-slate-700 cursor-not-allowed opacity-50'
                               : 'text-red-400 hover:text-red-650 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20'
                           }`}
                           title={isMe ? "Vous ne pouvez pas supprimer votre propre compte" : "Supprimer le compte"}

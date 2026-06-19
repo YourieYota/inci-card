@@ -42,12 +42,10 @@ export default async function ReceiptPage({ searchParams }: PageProps) {
   }
 
   // Retrieve the custom RECEIPT template from database if it exists
-  const template = await prisma.cardTemplate.findUnique({
+  const template = await prisma.cardTemplate.findFirst({
     where: {
-      companyId_type: {
-        companyId: employee.companyId,
-        type: 'RECU',
-      },
+      companyId: employee.companyId,
+      type: 'RECU',
     },
   });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/components/ThemeProvider';
 import { User, Settings, Printer, Bell, Check, Save, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { updateUserProfile } from '@/app/actions/users';
 

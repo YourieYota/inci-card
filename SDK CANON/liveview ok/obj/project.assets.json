@@ -1,0 +1,132 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {
+      "EDSDKWrapper.Framework/1.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/EDSDKWrapper.Framework.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/EDSDKWrapper.Framework.dll": {}
+        }
+      }
+    },
+    "net8.0/win-x64": {
+      "EDSDKWrapper.Framework/1.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/EDSDKWrapper.Framework.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/EDSDKWrapper.Framework.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "EDSDKWrapper.Framework/1.0.0": {
+      "sha512": "L8mWnFYXq2EOEjnU4FE1671Wr/sOVpyq4uEGGOkXyP3gozg1abIq13msIVJUi4ypcMA5I7AAkev3VJNKFSQ8rw==",
+      "type": "package",
+      "path": "edsdkwrapper.framework/1.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "edsdkwrapper.framework.1.0.0.nupkg.sha512",
+        "edsdkwrapper.framework.nuspec",
+        "lib/netstandard2.0/EDSDKWrapper.Framework.dll"
+      ]
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0": [
+      "EDSDKWrapper.Framework >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\admin_civca\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "F:\\inci-card\\SDK CANON\\liveview ok\\LiveView90D.csproj",
+      "projectName": "LiveView90D",
+      "projectPath": "F:\\inci-card\\SDK CANON\\liveview ok\\LiveView90D.csproj",
+      "packagesPath": "C:\\Users\\admin_civca\\.nuget\\packages\\",
+      "outputPath": "F:\\inci-card\\SDK CANON\\liveview ok\\obj\\",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "C:\\Users\\admin_civca\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {}
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      }
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "dependencies": {
+          "EDSDKWrapper.Framework": {
+            "target": "Package",
+            "version": "[1.0.0, )"
+          }
+        },
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
+            "version": "[8.0.28, 8.0.28]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Runtime.win-x64",
+            "version": "[8.0.28, 8.0.28]"
+          },
+          {
+            "name": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
+            "version": "[8.0.28, 8.0.28]"
+          }
+        ],
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.422/PortableRuntimeIdentifierGraph.json"
+      }
+    },
+    "runtimes": {
+      "win-x64": {
+        "#import": []
+      }
+    }
+  }
+}

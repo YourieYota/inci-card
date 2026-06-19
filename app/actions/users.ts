@@ -100,7 +100,7 @@ export async function updateUserProfile({
       },
     };
   } catch (error: any) {
-    console.error('Error updating user profile:', error);
+    console.warn('Error updating user profile:', error);
     throw new Error(error.message || 'Impossible de mettre à jour le profil');
   }
 }
@@ -163,7 +163,7 @@ export async function getUsers() {
       createdAt: u.createdAt,
     }));
   } catch (error: any) {
-    console.error('Error fetching users:', error);
+    console.warn('Error fetching users:', error);
     throw new Error(error.message || 'Impossible de récupérer la liste des utilisateurs');
   }
 }
@@ -248,7 +248,7 @@ export async function adminCreateUser(data: {
       },
     };
   } catch (error: any) {
-    console.error('Error creating user:', error);
+    console.warn('Error creating user:', error);
     throw new Error(error.message || 'Impossible de créer le compte');
   }
 }
@@ -325,7 +325,7 @@ export async function adminUpdateUser(
       },
     };
   } catch (error: any) {
-    console.error('Error updating user:', error);
+    console.warn('Error updating user:', error);
     throw new Error(error.message || 'Impossible de modifier le compte');
   }
 }
@@ -351,7 +351,7 @@ export async function adminDeleteUser(id: string) {
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting user:', error);
+    console.warn('Error deleting user:', error);
     throw new Error(error.message || 'Impossible de supprimer le compte');
   }
 }

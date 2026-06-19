@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Company } from '@prisma/client';
 import { Building2, Plus, Search, Users, Layout, Calendar, ArrowUpRight, Loader2, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { createCompany } from '@/app/actions/templates';
+import { addOfflineMutation } from '@/lib/offlineQueue';
 
 interface CompanyWithCounts extends Company {
   _count: {
@@ -15,11 +16,42 @@ interface CompanyWithCounts extends Company {
 
 interface CompaniesClientProps {
   initialCompanies: CompanyWithCounts[];
+  dbError?: boolean;
 }
 
-export default function CompaniesClient({ initialCompanies }: CompaniesClientProps) {
+export default function CompaniesClient({ initialCompanies, dbError = false }: CompaniesClientProps) {
   const [companies, setCompanies] = useState<CompanyWithCounts[]>(initialCompanies);
   const [search, setSearch] = useState<string>('');
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!dbError) {
+      // Online: cache companies
+      try {
+        localStorage.setItem("inci-cache:companies", JSON.stringify(initialCompanies));
+      } catch (e) {
+        console.error("Failed to write companies cache:", e);
+      }
+      setCompanies(initialCompanies);
+      setIsOfflineMode(false);
+    } else {
+      // Offline: load from cache
+      try {
+        const cached = localStorage.getItem("inci-cache:companies");
+        if (cached) {
+          setCompanies(JSON.parse(cached));
+          setIsOfflineMode(true);
+        }
+      } catch (e) {
+        console.error("Failed to read companies cache:", e);
+      }
+    }
+  }, [initialCompanies, dbError]);
   
   // UI States
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
@@ -39,27 +71,66 @@ export default function CompaniesClient({ initialCompanies }: CompaniesClientPro
 
     setIsSubmitting(true);
     try {
-      const newCompany = await createCompany(newCompanyName.trim());
-      
-      const newCompanyWithCounts: CompanyWithCounts = {
-        ...newCompany,
-        _count: {
-          employees: 0,
-          templates: 0,
-        },
-      };
+      if (isOfflineMode) {
+        const tempId = `temp_company_${Date.now()}`;
+        const newCompanyWithCounts: CompanyWithCounts = {
+          id: tempId,
+          name: newCompanyName.trim(),
+          createdAt: new Date().toISOString() as any,
+          _count: {
+            employees: 0,
+            templates: 0,
+          },
+        };
 
-      setCompanies((prev) => [newCompanyWithCounts, ...prev].sort((a, b) => a.name.localeCompare(b.name)));
-      setSuccessMessage(`L'entreprise "${newCompany.name}" a été créée.`);
-      setNewCompanyName('');
-      setShowCreateModal(false);
-      setTimeout(() => setSuccessMessage(null), 4000);
+        const updatedCompanies = [newCompanyWithCounts, ...companies].sort((a, b) => a.name.localeCompare(b.name));
+        setCompanies(updatedCompanies);
+        
+        // Update local caches
+        localStorage.setItem("inci-cache:companies", JSON.stringify(updatedCompanies));
+        localStorage.setItem("inci-cache:companies-list", JSON.stringify(updatedCompanies));
+
+        addOfflineMutation(
+          'CREATE_COMPANY', 
+          { name: newCompanyName.trim(), tempId }, 
+          `Créer l'entreprise "${newCompanyName.trim()}"`
+        );
+
+        setSuccessMessage(`L'entreprise "${newCompanyName.trim()}" a été créée localement.`);
+        setNewCompanyName('');
+        setShowCreateModal(false);
+        setTimeout(() => setSuccessMessage(null), 4000);
+      } else {
+        const newCompany = await createCompany(newCompanyName.trim());
+        
+        const newCompanyWithCounts: CompanyWithCounts = {
+          ...newCompany,
+          _count: {
+            employees: 0,
+            templates: 0,
+          },
+        };
+
+        const updatedCompanies = [newCompanyWithCounts, ...companies].sort((a, b) => a.name.localeCompare(b.name));
+        setCompanies(updatedCompanies);
+        
+        // Update local caches
+        localStorage.setItem("inci-cache:companies", JSON.stringify(updatedCompanies));
+        localStorage.setItem("inci-cache:companies-list", JSON.stringify(updatedCompanies));
+
+        setSuccessMessage(`L'entreprise "${newCompany.name}" a été créée.`);
+        setNewCompanyName('');
+        setShowCreateModal(false);
+        setTimeout(() => setSuccessMessage(null), 4000);
+      }
     } catch (err: any) {
       alert(err.message || "Impossible de créer l'entreprise.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+
 
   return (
     <div className="space-y-8">
@@ -73,13 +144,30 @@ export default function CompaniesClient({ initialCompanies }: CompaniesClientPro
         </div>
 
         <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition shadow-sm"
+          onClick={() => {
+            setShowCreateModal(true);
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition shadow-sm"
         >
           <Plus className="w-4 h-4" />
           <span>Nouvelle Entreprise</span>
         </button>
       </div>
+
+      {/* OFFLINE BANNER */}
+      {isOfflineMode && (
+        <div className="flex items-start gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 rounded-2xl text-orange-700 dark:text-orange-400 animate-in fade-in duration-300">
+          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.36 5.64A9 9 0 01-1.64 12c0 2.21.89 4.21 2.34 5.66m13.66 0A9 9 0 0113.64 12c0-2.21-.89-4.21-2.34-5.66m0 0L12 12m0 0l3-3m-3 3l-3-3" />
+          </svg>
+          <div>
+            <p className="text-sm font-bold">Mode Hors-ligne (Données du cache)</p>
+            <p className="text-xs mt-0.5 opacity-90">
+              Affichage des entreprises enregistrées dans le cache local. Les modifications sont désactivées pour le moment.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* SUCCESS MESSAGE */}
       {successMessage && (
@@ -140,13 +228,13 @@ export default function CompaniesClient({ initialCompanies }: CompaniesClientPro
 
                 {/* Counters */}
                 <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/40 p-3 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-450 text-xs">
+                  <div className="bg-slate-55 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/40 p-3 rounded-xl">
+                    <div className="flex items-center gap-2 text-slate-455 text-xs">
                       <Users className="w-3.5 h-3.5 text-slate-400" />
                       <span>Employés</span>
                     </div>
                     <p className="text-lg font-bold text-slate-850 dark:text-white mt-1">
-                      {company._count.employees}
+                      {company._count?.employees ?? 0}
                     </p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/40 p-3 rounded-xl">
@@ -155,7 +243,7 @@ export default function CompaniesClient({ initialCompanies }: CompaniesClientPro
                       <span>Modèles</span>
                     </div>
                     <p className="text-lg font-bold text-slate-850 dark:text-white mt-1">
-                      {company._count.templates}
+                      {company._count?.templates ?? 0}
                     </p>
                   </div>
                 </div>

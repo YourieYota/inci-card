@@ -49,12 +49,16 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
       } else if (token.sub) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.sub },
-          select: { role: true }
-        });
-        if (dbUser) {
-          token.role = dbUser.role;
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: { role: true }
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+          }
+        } catch (err) {
+          console.warn("Database offline during jwt verification, retaining current session token:", err);
         }
       }
       return token;

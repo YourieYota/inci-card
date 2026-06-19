@@ -26,24 +26,19 @@ interface DimensionInputProps {
   onChange: (val: number) => void;
   min?: number;
   elementId?: string; // used to reset state when a different element is selected
+  isMm?: boolean;
 }
 
-function DimensionInput({ label, value, onChange, min, elementId }: DimensionInputProps) {
-  const [localValue, setLocalValue] = useState<string>(value.toString());
+function DimensionInput({ label, value, onChange, min, elementId, isMm = false }: DimensionInputProps) {
+  const getDisplayVal = (val: number) => isMm ? (val * 0.264583).toFixed(1) : val.toString();
+  const [localValue, setLocalValue] = useState<string>(getDisplayVal(value));
   const isFocused = React.useRef(false);
 
   // Sync from prop when a DIFFERENT element is selected (elementId changes)
   useEffect(() => {
     isFocused.current = false;
-    setLocalValue(value.toString());
-  }, [elementId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Or when value changes outside of active editing (not focused, e.g. during dragging on canvas)
-  useEffect(() => {
-    if (!isFocused.current) {
-      setLocalValue(value.toString());
-    }
-  }, [value]);
+    setLocalValue(getDisplayVal(value));
+  }, [elementId, value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Also resync when focus is lost so we have the latest committed value
   const handleFocus = () => {
@@ -54,19 +49,19 @@ function DimensionInput({ label, value, onChange, min, elementId }: DimensionInp
     const valStr = e.target.value;
     setLocalValue(valStr);
 
-    const parsed = parseInt(valStr);
+    const parsed = parseFloat(valStr);
     if (!isNaN(parsed) && (min === undefined || parsed >= min)) {
-      onChange(parsed);
+      onChange(isMm ? Math.round(parsed / 0.264583) : Math.round(parsed));
     }
   };
 
   const handleBlur = () => {
     isFocused.current = false;
-    const parsed = parseInt(localValue);
+    const parsed = parseFloat(localValue);
     if (isNaN(parsed) || (min !== undefined && parsed < min)) {
-      setLocalValue(value.toString());
+      setLocalValue(getDisplayVal(value));
     } else {
-      onChange(parsed);
+      onChange(isMm ? Math.round(parsed / 0.264583) : Math.round(parsed));
     }
   };
 
@@ -83,6 +78,7 @@ function DimensionInput({ label, value, onChange, min, elementId }: DimensionInp
       </label>
       <input
         type="number"
+        step={isMm ? "0.1" : "1"}
         value={localValue}
         onFocus={handleFocus}
         onChange={handleChange}
@@ -196,28 +192,32 @@ export default function PropertiesPanel({
           {/* Sizing & Position (x, y, w, h) */}
           <div className="grid grid-cols-2 gap-3">
             <DimensionInput
-              label="Largeur (px)"
+              label="Largeur (mm)"
               value={selectedElement.width}
               min={1}
+              isMm={true}
               elementId={selectedElement.id}
               onChange={(val) => onUpdateElement({ ...selectedElement, width: val })}
             />
             <DimensionInput
-              label="Hauteur (px)"
+              label="Hauteur (mm)"
               value={selectedElement.height}
               min={1}
+              isMm={true}
               elementId={selectedElement.id}
               onChange={(val) => onUpdateElement({ ...selectedElement, height: val })}
             />
             <DimensionInput
-              label="Position X"
+              label="Position X (mm)"
               value={selectedElement.x}
+              isMm={true}
               elementId={selectedElement.id}
               onChange={(val) => onUpdateElement({ ...selectedElement, x: val })}
             />
             <DimensionInput
-              label="Position Y"
+              label="Position Y (mm)"
               value={selectedElement.y}
+              isMm={true}
               elementId={selectedElement.id}
               onChange={(val) => onUpdateElement({ ...selectedElement, y: val })}
             />
@@ -597,15 +597,17 @@ export default function PropertiesPanel({
           {/* Width & Height */}
           <div className="grid grid-cols-2 gap-3">
             <DimensionInput
-              label="Largeur (px)"
+              label="Largeur (mm)"
               value={canvasWidth}
-              min={100}
+              min={10}
+              isMm={true}
               onChange={(val) => onUpdateCanvas(val, canvasHeight, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
             />
             <DimensionInput
-              label="Hauteur (px)"
+              label="Hauteur (mm)"
               value={canvasHeight}
-              min={100}
+              min={10}
+              isMm={true}
               onChange={(val) => onUpdateCanvas(canvasWidth, val, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
             />
           </div>
@@ -614,19 +616,19 @@ export default function PropertiesPanel({
               onClick={() => onUpdateCanvas(324, 204, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
               className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
-              CR80 Paysage (324x204)
+              CR80 Paysage (85.6 x 54.0 mm)
             </button>
             <button
               onClick={() => onUpdateCanvas(204, 324, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
               className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
-              CR80 Portrait (204x324)
+              CR80 Portrait (54.0 x 85.6 mm)
             </button>
             <button
               onClick={() => onUpdateCanvas(700, 450, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
               className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
-              Grand Badge (700x450)
+              Grand Badge (185.2 x 119.1 mm)
             </button>
           </div>
 
