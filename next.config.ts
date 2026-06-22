@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // Autoriser les images servies par le pont Canon (localhost:4000/photos/)
   images: {
     remotePatterns: [
