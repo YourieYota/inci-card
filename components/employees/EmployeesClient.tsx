@@ -81,7 +81,6 @@ export default function EmployeesClient({
       ]);
       setEmployees(data);
       setCompanyStats(stats);
-      setIsOfflineMode(false);
       try {
         localStorage.setItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(data));
         localStorage.setItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(stats));
@@ -98,7 +97,6 @@ export default function EmployeesClient({
           if (cachedStats) {
             setCompanyStats(JSON.parse(cachedStats));
           }
-          setIsOfflineMode(true);
           console.warn("Loaded employees from local cache");
         } else {
           alert(err.message || 'Impossible de charger les employés.');
