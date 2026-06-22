@@ -1,58 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
-
-// Intercept and downgrade server-side Prisma connection/timeout errors in development
-// to prevent Next.js from displaying a Redbox overlay on client browsers.
-if (typeof window === "undefined" && process.env.NODE_ENV === "development") {
-  const origError = console.error;
-  console.error = (...args: any[]) => {
-    const isDbOfflineWarning = args.some(arg => {
-      if (!arg) return false;
-      
-      if (arg instanceof Error) {
-        const name = arg.name || "";
-        const msg = arg.message || "";
-        const stack = arg.stack || "";
-        return (
-          name.includes("Prisma") ||
-          msg.includes("ETIMEDOUT") ||
-          msg.includes("Can't reach database") ||
-          msg.includes("prisma") ||
-          stack.includes("Prisma")
-        );
-      }
-      
-      if (typeof arg === "string") {
-        return (
-          arg.includes("ETIMEDOUT") ||
-          arg.includes("PrismaClientKnownRequestError") ||
-          arg.includes("PrismaClientInitializationError") ||
-          arg.includes("PrismaClientUnknownRequestError") ||
-          arg.includes("prisma") ||
-          arg.includes("SECURITY WARNING: The SSL modes") ||
-          arg.includes("pg-connection-string") ||
-          arg.includes("sslmode")
-        );
-      }
-      
-      const strVal = String(arg);
-      return (
-        strVal.includes("Prisma") ||
-        strVal.includes("ETIMEDOUT") ||
-        strVal.includes("prisma") ||
-        strVal.includes("SECURITY WARNING: The SSL modes") ||
-        strVal.includes("sslmode")
-      );
-    });
-
-    if (isDbOfflineWarning) {
-      console.warn("[DB Intercepted Warning]:", ...args);
-      return;
-    }
-    origError.apply(console, args);
-  };
-}
+import { PrismaNeonHttp } from '@prisma/adapter-neon';
+import { neon } from '@neondatabase/serverless';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -60,9 +8,15 @@ const globalForPrisma = globalThis as unknown as {
 
 const createPrismaClient = () => {
   const connectionString = process.env.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy';
-  const pool = new pg.Pool({ connectionString });
-  const adapter = new PrismaPg(pool);
-  return new PrismaClient({ adapter });
+  
+  if (connectionString.includes('neon.tech') || process.env.NODE_ENV === 'production') {
+    // Use Neon's HTTP adapter which is perfect for Serverless (no connection limits, no WebSockets required)
+    const adapter = new PrismaNeonHttp(connectionString, { schema: 'public' } as any);
+    return new PrismaClient({ adapter });
+  }
+
+  // Fallback for non-Neon local databases if any
+  return new PrismaClient();
 };
 
 export const prisma =
