@@ -95,14 +95,27 @@ export default function PrintQueueClient({ initialCompanies, initialQueue, dbErr
             ))}
           </select>
 
-          <button
-            onClick={handleMarkPrinted}
-            disabled={selectedEmployeeIds.length === 0 || isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition shadow-sm whitespace-nowrap"
-          >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckSquare className="w-4 h-4" />}
-            <span>Marquer imprimé(s) ({selectedEmployeeIds.length})</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (selectedEmployeeIds.length === 0) return;
+                window.open(`/dashboard/employees/print?ids=${selectedEmployeeIds.join(',')}`, '_blank');
+              }}
+              disabled={selectedEmployeeIds.length === 0 || isSubmitting}
+              className="flex items-center gap-2 px-4 py-2 border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold rounded-xl transition shadow-sm whitespace-nowrap"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Générer PDF d'impression</span>
+            </button>
+            <button
+              onClick={handleMarkPrinted}
+              disabled={selectedEmployeeIds.length === 0 || isSubmitting}
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition shadow-sm whitespace-nowrap"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckSquare className="w-4 h-4" />}
+              <span>Marquer imprimé(s) ({selectedEmployeeIds.length})</span>
+            </button>
+          </div>
         </div>
       </div>
 
