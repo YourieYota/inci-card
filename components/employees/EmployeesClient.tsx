@@ -123,12 +123,26 @@ export default function EmployeesClient({
     try {
       let finalPhotoUrl = photoUrl;
       
-      // Upload Base64 to our server to get a real URL
-      if (photoUrl.startsWith('data:image')) {
+      // If photo comes from the bridge (localhost:4000) or is base64, we upload it to Next.js
+      if (photoUrl.startsWith('data:image') || photoUrl.includes('localhost:4000')) {
+        let base64 = photoUrl;
+        
+        if (photoUrl.includes('localhost:4000')) {
+          // Fetch the image from the local bridge and convert to base64
+          const res = await fetch(photoUrl);
+          const blob = await res.blob();
+          base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+
         const uploadRes = await fetch('/api/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: photoUrl, employeeId: activeWebcamEmployee.id })
+          body: JSON.stringify({ imageBase64: base64, employeeId: activeWebcamEmployee.id })
         });
         const uploadData = await uploadRes.json();
         if (uploadData.success && uploadData.url) {
