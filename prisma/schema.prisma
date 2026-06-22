@@ -58,6 +58,7 @@ model Company {
   cardFormats    CardFormat[]
   cardCategories CardCategory[]
   physicalTypes  CardPhysicalType[]
+  deliveryBatches DeliveryBatch[]
 }
 
 // Employés des entreprises clientes
@@ -79,6 +80,10 @@ model Employee {
   status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME, A_VERIFIER
   printedAt        DateTime? 
   createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+  
+  deliveryBatchId  String?
+  deliveryBatch    DeliveryBatch? @relation(fields: [deliveryBatchId], references: [id], onDelete: SetNull)
   
   // Un employé est unique au sein de son entreprise
   @@unique([companyId, uniqueIdentifier]) 
@@ -153,3 +158,15 @@ model CardPhysicalType {
   @@unique([companyId, slug])
 }
 
+model DeliveryBatch {
+  id          String   @id @default(uuid())
+  batchNumber String?  @unique
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status      String   @default("PREPARE") // PREPARE, EN_TRANSIT, LIVRE
+  employees   Employee[]
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}

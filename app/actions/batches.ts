@@ -1,0 +1,122 @@
+'use server';
+
+import { prisma } from '@/lib/prisma';
+import { revalidatePath } from 'next/cache';
+
+export async function getDeliveryBatches(companyId?: string) {
+  try {
+    const where = companyId ? { companyId } : {};
+    return await prisma.deliveryBatch.findMany({
+      where,
+      include: {
+        company: {
+          select: { name: true }
+        },
+        _count: {
+          select: { employees: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  } catch (error) {
+    console.warn('Error fetching delivery batches:', error);
+    throw new Error('Impossible de récupérer les lots d\'expédition');
+  }
+}
+
+export async function createDeliveryBatch({ companyId, employeeIds }: { companyId: string, employeeIds: string[] }) {
+  if (!employeeIds.length) throw new Error('Aucun employé sélectionné');
+  
+  try {
+    const timestamp = Date.now().toString().slice(-6);
+    const company = await prisma.company.findUnique({ where: { id: companyId } });
+    if (!company) throw new Error('Entreprise introuvable');
+    
+    // Create a readable batch number like LOT-ACME-123456
+    const batchNumber = `LOT-${company.name.substring(0, 4).toUpperCase()}-${timestamp}`;
+
+    const batch = await prisma.deliveryBatch.create({
+      data: {
+        batchNumber,
+        companyId,
+        status: 'PREPARE',
+        employees: {
+          connect: employeeIds.map(id => ({ id }))
+        }
+      }
+    });
+    
+    revalidatePath('/dashboard/delivery-batches');
+    return batch;
+  } catch (error) {
+    console.warn('Error creating delivery batch:', error);
+    throw new Error('Impossible de créer le lot d\'expédition');
+  }
+}
+
+export async function updateBatchStatus(batchId: string, status: string) {
+  try {
+    const data: any = { status };
+    if (status === 'EN_TRANSIT') {
+      data.shippedAt = new Date();
+    } else if (status === 'LIVRE') {
+      data.deliveredAt = new Date();
+    }
+    
+    const batch = await prisma.deliveryBatch.update({
+      where: { id: batchId },
+      data
+    });
+    
+    revalidatePath('/dashboard/delivery-batches');
+    return batch;
+  } catch (error) {
+    console.warn('Error updating batch status:', error);
+    throw new Error('Impossible de mettre à jour le statut du lot');
+  }
+}
+
+export async function getPrintQueue(companyId?: string) {
+  try {
+    // A card is ready to print if it has a photo (enrollment completed)
+    // and hasn't been printed yet
+    const where: any = {
+      printedAt: null,
+      photoUrl: { not: null },
+    };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+    
+    return await prisma.employee.findMany({
+      where,
+      include: {
+        company: {
+          select: { name: true }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+  } catch (error) {
+    console.warn('Error fetching print queue:', error);
+    throw new Error('Impossible de récupérer la file d\'impression');
+  }
+}
+
+export async function markAsPrinted(employeeIds: string[]) {
+  if (!employeeIds.length) return;
+  try {
+    await prisma.employee.updateMany({
+      where: { id: { in: employeeIds } },
+      data: { 
+        printedAt: new Date(),
+        status: 'IMPRIME'
+      }
+    });
+    revalidatePath('/dashboard/print-queue');
+    revalidatePath('/dashboard/delivery-batches');
+  } catch (error) {
+    console.warn('Error marking as printed:', error);
+    throw new Error('Impossible de marquer les cartes comme imprimées');
+  }
+}
