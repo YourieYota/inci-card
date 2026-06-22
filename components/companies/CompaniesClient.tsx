@@ -96,20 +96,7 @@ export default function CompaniesClient({ initialCompanies }: CompaniesClientPro
         </button>
       </div>
 
-      {/* OFFLINE BANNER */}
-      {isOfflineMode && (
-        <div className="flex items-start gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 rounded-2xl text-orange-700 dark:text-orange-400 animate-in fade-in duration-300">
-          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.36 5.64A9 9 0 01-1.64 12c0 2.21.89 4.21 2.34 5.66m13.66 0A9 9 0 0113.64 12c0-2.21-.89-4.21-2.34-5.66m0 0L12 12m0 0l3-3m-3 3l-3-3" />
-          </svg>
-          <div>
-            <p className="text-sm font-bold">Mode Hors-ligne (Données du cache)</p>
-            <p className="text-xs mt-0.5 opacity-90">
-              Affichage des entreprises enregistrées dans le cache local. Les modifications sont désactivées pour le moment.
-            </p>
-          </div>
-        </div>
-      )}
+
 
       {/* SUCCESS MESSAGE */}
       {successMessage && (
