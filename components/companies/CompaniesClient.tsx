@@ -5,7 +5,6 @@ import { Company } from '@prisma/client';
 import { Building2, Plus, Search, Users, Layout, Calendar, ArrowUpRight, Loader2, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { createCompany } from '@/app/actions/templates';
-import { addOfflineMutation } from '@/lib/offlineQueue';
 
 interface CompanyWithCounts extends Company {
   _count: {
@@ -16,13 +15,11 @@ interface CompanyWithCounts extends Company {
 
 interface CompaniesClientProps {
   initialCompanies: CompanyWithCounts[];
-  dbError?: boolean;
 }
 
-export default function CompaniesClient({ initialCompanies, dbError = false }: CompaniesClientProps) {
+export default function CompaniesClient({ initialCompanies }: CompaniesClientProps) {
   const [companies, setCompanies] = useState<CompanyWithCounts[]>(initialCompanies);
   const [search, setSearch] = useState<string>('');
-  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
 
   useEffect(() => {
@@ -30,28 +27,8 @@ export default function CompaniesClient({ initialCompanies, dbError = false }: C
   }, []);
 
   useEffect(() => {
-    if (!dbError) {
-      // Online: cache companies
-      try {
-        localStorage.setItem("inci-cache:companies", JSON.stringify(initialCompanies));
-      } catch (e) {
-        console.error("Failed to write companies cache:", e);
-      }
-      setCompanies(initialCompanies);
-      setIsOfflineMode(false);
-    } else {
-      // Offline: load from cache
-      try {
-        const cached = localStorage.getItem("inci-cache:companies");
-        if (cached) {
-          setCompanies(JSON.parse(cached));
-          setIsOfflineMode(true);
-        }
-      } catch (e) {
-        console.error("Failed to read companies cache:", e);
-      }
-    }
-  }, [initialCompanies, dbError]);
+    setCompanies(initialCompanies);
+  }, [initialCompanies]);
   
   // UI States
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
@@ -71,58 +48,23 @@ export default function CompaniesClient({ initialCompanies, dbError = false }: C
 
     setIsSubmitting(true);
     try {
-      if (isOfflineMode) {
-        const tempId = `temp_company_${Date.now()}`;
-        const newCompanyWithCounts: CompanyWithCounts = {
-          id: tempId,
-          name: newCompanyName.trim(),
-          createdAt: new Date().toISOString() as any,
-          _count: {
-            employees: 0,
-            templates: 0,
-          },
-        };
+      const newCompany = await createCompany(newCompanyName.trim());
+      
+      const newCompanyWithCounts: CompanyWithCounts = {
+        ...newCompany,
+        _count: {
+          employees: 0,
+          templates: 0,
+        },
+      };
 
-        const updatedCompanies = [newCompanyWithCounts, ...companies].sort((a, b) => a.name.localeCompare(b.name));
-        setCompanies(updatedCompanies);
-        
-        // Update local caches
-        localStorage.setItem("inci-cache:companies", JSON.stringify(updatedCompanies));
-        localStorage.setItem("inci-cache:companies-list", JSON.stringify(updatedCompanies));
-
-        addOfflineMutation(
-          'CREATE_COMPANY', 
-          { name: newCompanyName.trim(), tempId }, 
-          `Créer l'entreprise "${newCompanyName.trim()}"`
-        );
-
-        setSuccessMessage(`L'entreprise "${newCompanyName.trim()}" a été créée localement.`);
-        setNewCompanyName('');
-        setShowCreateModal(false);
-        setTimeout(() => setSuccessMessage(null), 4000);
-      } else {
-        const newCompany = await createCompany(newCompanyName.trim());
-        
-        const newCompanyWithCounts: CompanyWithCounts = {
-          ...newCompany,
-          _count: {
-            employees: 0,
-            templates: 0,
-          },
-        };
-
-        const updatedCompanies = [newCompanyWithCounts, ...companies].sort((a, b) => a.name.localeCompare(b.name));
-        setCompanies(updatedCompanies);
-        
-        // Update local caches
-        localStorage.setItem("inci-cache:companies", JSON.stringify(updatedCompanies));
-        localStorage.setItem("inci-cache:companies-list", JSON.stringify(updatedCompanies));
-
-        setSuccessMessage(`L'entreprise "${newCompany.name}" a été créée.`);
-        setNewCompanyName('');
-        setShowCreateModal(false);
-        setTimeout(() => setSuccessMessage(null), 4000);
-      }
+      const updatedCompanies = [newCompanyWithCounts, ...companies].sort((a, b) => a.name.localeCompare(b.name));
+      setCompanies(updatedCompanies);
+      
+      setSuccessMessage(`L'entreprise "${newCompany.name}" a été créée.`);
+      setNewCompanyName('');
+      setShowCreateModal(false);
+      setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       alert(err.message || "Impossible de créer l'entreprise.");
     } finally {

@@ -9,24 +9,20 @@ import EmployeeCardList from './EmployeeCardList';
 import WebcamModal from './WebcamModal';
 import EmployeeDetailModal from './EmployeeDetailModal';
 import { getEmployees, saveEmployeePhoto, getCompanyDashboardStats } from '@/app/actions/employees';
-import { addOfflineMutation } from '@/lib/offlineQueue';
 
 interface EmployeesClientProps {
   companies: Company[];
   initialCompanyId?: string;
   initialEmployees: Employee[];
-  dbError?: boolean;
 }
 
 export default function EmployeesClient({
   companies,
   initialCompanyId = '',
   initialEmployees,
-  dbError = false,
 }: EmployeesClientProps) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(initialCompanyId);
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
-  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(dbError);
   const [localCompanies, setLocalCompanies] = useState<Company[]>(companies);
   const [mounted, setMounted] = useState<boolean>(false);
 
@@ -34,30 +30,10 @@ export default function EmployeesClient({
     setMounted(true);
   }, []);
 
-  // Sync and cache companies list
+  // Sync companies list
   useEffect(() => {
-    if (!dbError) {
-      setLocalCompanies(companies || []);
-      if (companies && companies.length > 0) {
-        try {
-          localStorage.setItem("inci-cache:companies-list", JSON.stringify(companies));
-        } catch (e) {
-          console.error("Failed to write companies list cache:", e);
-        }
-      }
-      setIsOfflineMode(false);
-    } else {
-      try {
-        const cached = localStorage.getItem("inci-cache:companies-list");
-        if (cached) {
-          setLocalCompanies(JSON.parse(cached));
-        }
-      } catch (e) {
-        console.error("Failed to read companies list cache:", e);
-      }
-      setIsOfflineMode(true);
-    }
-  }, [companies, dbError]);
+    setLocalCompanies(companies || []);
+  }, [companies]);
 
   // UI views / modals
   const [showImporter, setShowImporter] = useState<boolean>(false);
@@ -143,122 +119,9 @@ export default function EmployeesClient({
     refreshEmployees();
   };
 
-  const handleImportOffline = (uniqueField: string, rows: any[]) => {
-    const tempEmployees = rows.map((row) => {
-      const uniqueVal = row[uniqueField];
-      const uniqueIdentifier = uniqueVal !== undefined && uniqueVal !== null && uniqueVal !== ''
-        ? String(uniqueVal).trim()
-        : `temp_uid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      return {
-        id: `temp_employee_${selectedCompanyId}_${uniqueIdentifier}`,
-        companyId: selectedCompanyId,
-        uniqueIdentifier,
-        dynamicData: row,
-        status: 'A_ENROLER',
-        photoUrl: null,
-        photoHash: null,
-        photoConflict: false,
-        enrollmentNumber: null,
-        createdAt: new Date(),
-        printedAt: null,
-      } as Employee;
-    });
-
-    const merged = [...employees];
-    tempEmployees.forEach((newEmp) => {
-      const idx = merged.findIndex((e) => e.uniqueIdentifier === newEmp.uniqueIdentifier);
-      if (idx !== -1) {
-        merged[idx] = { ...merged[idx], dynamicData: newEmp.dynamicData };
-      } else {
-        merged.unshift(newEmp);
-      }
-    });
-
-    setEmployees(merged);
-
-    const newStats = {
-      totalEmployees: merged.length,
-      printedCount: merged.filter((e) => e.status === 'IMPRIME').length,
-      pendingPhotoCount: merged.filter((e) => e.status === 'A_ENROLER').length,
-      validatedPhotoCount: merged.filter((e) => e.status === 'PHOTO_VALIDEE').length,
-      toVerifyCount: merged.filter((e) => e.status === 'A_VERIFIER').length,
-    };
-    setCompanyStats(newStats);
-
-    try {
-      localStorage.setItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(merged));
-      localStorage.setItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(newStats));
-    } catch (e) {
-      console.error("Failed to write offline import cache:", e);
-    }
-
-    addOfflineMutation(
-      'IMPORT_EMPLOYEES',
-      { companyId: selectedCompanyId, uniqueField, rows },
-      `Importer ${rows.length} employés hors-ligne`
-    );
-
-    handleImportSuccess(rows.length);
-  };
-
   const handleSavePhoto = async (photoUrl: string) => {
     if (!activeWebcamEmployee) return;
 
-    if (isOfflineMode) {
-      const updated = employees.map((emp) => {
-        if (emp.id === activeWebcamEmployee.id) {
-          const updatedEmp = {
-            ...emp,
-            photoUrl,
-            status: 'PHOTO_VALIDEE',
-          };
-          if (!updatedEmp.enrollmentNumber) {
-            const count = employees.filter((e) => e.enrollmentNumber).length;
-            const num = String(count + 1).padStart(5, '0');
-            updatedEmp.enrollmentNumber = `INCI-ENR-${new Date().getFullYear()}-${num} (HORS-LIGNE)`;
-          }
-          return updatedEmp;
-        }
-        return emp;
-      });
-
-      setEmployees(updated);
-
-      const newStats = {
-        totalEmployees: updated.length,
-        printedCount: updated.filter((e) => e.status === 'IMPRIME').length,
-        pendingPhotoCount: updated.filter((e) => e.status === 'A_ENROLER').length,
-        validatedPhotoCount: updated.filter((e) => e.status === 'PHOTO_VALIDEE').length,
-        toVerifyCount: updated.filter((e) => e.status === 'A_VERIFIER').length,
-      };
-      setCompanyStats(newStats);
-
-      try {
-        localStorage.setItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(updated));
-        localStorage.setItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(newStats));
-      } catch (e) {
-        console.error("Failed to write photo cache offline:", e);
-      }
-
-      addOfflineMutation(
-        'SAVE_EMPLOYEE_PHOTO',
-        {
-          employeeId: activeWebcamEmployee.id,
-          photoUrl,           // URL ou Base64 selon le mode
-          photoBase64: photoUrl,  // Rétrocompat pour sync.ts
-          tempEmployeeKey: activeWebcamEmployee.id.startsWith('temp_employee_') ? {
-            companyId: activeWebcamEmployee.companyId,
-            uniqueIdentifier: activeWebcamEmployee.uniqueIdentifier,
-          } : undefined
-        },
-        `Enregistrer la photo de ${activeWebcamEmployee.uniqueIdentifier} (Hors-ligne)`
-      );
-
-      setSuccessBanner(`Photo enregistrée localement pour ${activeWebcamEmployee.uniqueIdentifier}.`);
-      setActiveWebcamEmployee(null);
-      setTimeout(() => setSuccessBanner(null), 4000);
-      return;
-    }
 
     try {
       const updatedEmployee = await saveEmployeePhoto(activeWebcamEmployee.id, photoUrl);
@@ -341,21 +204,6 @@ export default function EmployeesClient({
         </div>
       )}
 
-      {/* OFFLINE WARNING BANNER */}
-      {isOfflineMode && (
-        <div className="flex items-start gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 rounded-2xl text-orange-700 dark:text-orange-400 animate-in fade-in duration-300">
-          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.36 5.64A9 9 0 01-1.64 12c0 2.21.89 4.21 2.34 5.66m13.66 0A9 9 0 0113.64 12c0-2.21-.89-4.21-2.34-5.66m0 0L12 12m0 0l3-3m-3 3l-3-3" />
-          </svg>
-          <div>
-            <p className="text-sm font-bold">Mode Hors-ligne (Données du cache)</p>
-            <p className="text-xs mt-0.5 opacity-90">
-              Les captures photos et importations Excel effectuées seront sauvegardées localement et synchronisées plus tard.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* VIEWPORT CONTROLLER */}
       {!selectedCompanyId ? (
         // VIEW: SELECT A COMPANY
@@ -386,8 +234,6 @@ export default function EmployeesClient({
           companyId={selectedCompanyId}
           onImportSuccess={handleImportSuccess}
           onCancel={() => setShowImporter(false)}
-          isOfflineMode={isOfflineMode}
-          onImportOffline={handleImportOffline}
         />
       ) : isLoading ? (
         // VIEW: LOADING
@@ -484,7 +330,6 @@ export default function EmployeesClient({
             onTriggerWebcam={setActiveWebcamEmployee}
             onRefresh={refreshEmployees}
             onOpenDetail={setSelectedEmployeeForDetail}
-            isOfflineMode={isOfflineMode}
           />
         </div>
       )}
@@ -498,7 +343,6 @@ export default function EmployeesClient({
           onTriggerWebcam={(emp) => {
             setActiveWebcamEmployee(emp);
           }}
-          isOfflineMode={isOfflineMode}
         />
       )}
 

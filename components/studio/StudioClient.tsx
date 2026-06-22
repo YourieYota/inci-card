@@ -8,7 +8,6 @@ import Canvas, { StudioElement } from './Canvas';
 import Toolbar from './Toolbar';
 import PropertiesPanel from './PropertiesPanel';
 import { getTemplate, saveTemplate, createCompany, getCompanyFields } from '@/app/actions/templates';
-import { addOfflineMutation } from '@/lib/offlineQueue';
 
 const getDefaultElements = (width: number, height: number, type?: CardType): StudioElement[] => {
   const isPortrait = height > width;
@@ -1167,24 +1166,8 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
         } as any,
       };
 
-      if (isOfflineMode) {
-        // Save to cache local
-        localStorage.setItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`, JSON.stringify({
-          ...templateData,
-          id: `temp_template_${selectedCompanyId}_${cardType}_${selectedCategoryId || 'default'}`,
-        }));
-
-        addOfflineMutation(
-          'SAVE_TEMPLATE',
-          templateData,
-          `Sauvegarder le modèle ${cardType} pour ${companies.find(c => c.id === selectedCompanyId)?.name || 'l\'entreprise'} (Hors-ligne)`
-        );
-
-        setNotification({ type: 'success', message: 'Le modèle a été enregistré localement.' });
-      } else {
-        await saveTemplate(templateData);
-        setNotification({ type: 'success', message: 'Le modèle a été sauvegardé avec succès.' });
-      }
+      await saveTemplate(templateData);
+      setNotification({ type: 'success', message: 'Le modèle a été sauvegardé avec succès.' });
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Erreur lors de la sauvegarde.' });
     } finally {
@@ -1199,40 +1182,12 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
     if (!newCompanyName.trim()) return;
 
     try {
-      if (isOfflineMode) {
-        const tempId = `temp_company_${Date.now()}`;
-        const newCompany = {
-          id: tempId,
-          name: newCompanyName.trim(),
-          createdAt: new Date().toISOString() as any,
-          updatedAt: new Date().toISOString() as any,
-        };
-
-        const updatedCompanies = [...companies, newCompany].sort((a, b) => a.name.localeCompare(b.name));
-        setCompanies(updatedCompanies);
-        setSelectedCompanyId(tempId);
-        
-        // Save to caches
-        localStorage.setItem("inci-cache:companies", JSON.stringify(updatedCompanies));
-        localStorage.setItem("inci-cache:companies-list", JSON.stringify(updatedCompanies));
-
-        addOfflineMutation(
-          'CREATE_COMPANY',
-          { name: newCompanyName.trim(), tempId },
-          `Créer l'entreprise "${newCompanyName.trim()}" (Hors-ligne)`
-        );
-
-        setNewCompanyName('');
-        setShowCreateCompanyModal(false);
-        setNotification({ type: 'success', message: `Entreprise "${newCompanyName.trim()}" créée localement !` });
-      } else {
-        const newCompany = await createCompany(newCompanyName.trim());
-        setCompanies((prev) => [...prev, newCompany].sort((a, b) => a.name.localeCompare(b.name)));
-        setSelectedCompanyId(newCompany.id);
-        setNewCompanyName('');
-        setShowCreateCompanyModal(false);
-        setNotification({ type: 'success', message: `Entreprise "${newCompany.name}" créée !` });
-      }
+      const newCompany = await createCompany(newCompanyName.trim());
+      setCompanies((prev) => [...prev, newCompany].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedCompanyId(newCompany.id);
+      setNewCompanyName('');
+      setShowCreateCompanyModal(false);
+      setNotification({ type: 'success', message: `Entreprise "${newCompany.name}" créée !` });
     } catch (err: any) {
       alert(err.message || "Impossible d'ajouter cette entreprise.");
     }
