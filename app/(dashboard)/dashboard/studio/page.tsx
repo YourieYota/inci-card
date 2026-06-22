@@ -21,9 +21,21 @@ export default async function StudioPage() {
     dbError = true;
   }
 
+  const serializedCompanies = companies.map(c => ({
+    ...c,
+    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
+  }));
+
+  const serializedCategories = categories.map(c => ({
+    ...c,
+    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
+  }));
+
   return (
     <div className="w-full py-1">
-      <StudioClient initialCompanies={companies} initialCategories={categories} dbError={dbError} />
+      <StudioClient initialCompanies={serializedCompanies} initialCategories={serializedCategories} dbError={dbError} />
     </div>
   );
 }
