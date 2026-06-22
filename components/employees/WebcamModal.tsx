@@ -86,7 +86,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
         setState('liveview');
         startLiveViewPolling();
       } else {
-        setErrorMsg(data.error || 'Impossible de démarrer le live view.');
+        setErrorMsg(data.error || data.message || 'Impossible de démarrer le live view. Veuillez vérifier que l\'appareil photo est branché, allumé, et que Canon EOS Utility est complètement fermé.');
         setState('error');
       }
     } catch {

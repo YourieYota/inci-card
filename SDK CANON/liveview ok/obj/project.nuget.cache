@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "lHuUVE9Jaqc=",
+  "success": true,
+  "projectFilePath": "F:\\inci-card\\SDK CANON\\liveview ok\\LiveView90D.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\admin_civca\\.nuget\\packages\\edsdkwrapper.framework\\1.0.0\\edsdkwrapper.framework.1.0.0.nupkg.sha512",
+    "C:\\Users\\admin_civca\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.28\\microsoft.netcore.app.runtime.win-x64.8.0.28.nupkg.sha512",
+    "C:\\Users\\admin_civca\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.28\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.28.nupkg.sha512",
+    "C:\\Users\\admin_civca\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.28\\microsoft.aspnetcore.app.runtime.win-x64.8.0.28.nupkg.sha512"
+  ],
+  "logs": []
+}
