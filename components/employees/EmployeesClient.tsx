@@ -122,9 +122,25 @@ export default function EmployeesClient({
   const handleSavePhoto = async (photoUrl: string) => {
     if (!activeWebcamEmployee) return;
 
-
     try {
-      const updatedEmployee = await saveEmployeePhoto(activeWebcamEmployee.id, photoUrl);
+      let finalPhotoUrl = photoUrl;
+      
+      // Upload Base64 to our server to get a real URL
+      if (photoUrl.startsWith('data:image')) {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: photoUrl, employeeId: activeWebcamEmployee.id })
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData.success && uploadData.url) {
+          finalPhotoUrl = uploadData.url;
+        } else {
+          throw new Error('Erreur lors de la sauvegarde de la photo sur le serveur.');
+        }
+      }
+
+      const updatedEmployee = await saveEmployeePhoto(activeWebcamEmployee.id, finalPhotoUrl);
       setSuccessBanner(`Photo enregistrée pour ${updatedEmployee.enrollmentNumber || activeWebcamEmployee.uniqueIdentifier}.`);
       setActiveWebcamEmployee(null);
       setSelectedEmployeeForDetail(updatedEmployee);

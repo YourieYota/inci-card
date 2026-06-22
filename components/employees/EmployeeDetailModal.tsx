@@ -173,8 +173,22 @@ export default function EmployeeDetailModal({
       }
 
       // 1. Save Photo first (if new local upload)
+      let finalPhotoUrl = employee.photoUrl;
       if (uploadedPhoto) {
-        await saveEmployeePhoto(employee.id, uploadedPhoto);
+        // Upload Base64 to our server to get a real URL
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: uploadedPhoto, employeeId: employee.id })
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData.success && uploadData.url) {
+          finalPhotoUrl = uploadData.url;
+        } else {
+          throw new Error('Erreur lors de la sauvegarde du fichier image sur le serveur.');
+        }
+
+        await saveEmployeePhoto(employee.id, finalPhotoUrl);
       }
 
       // 2. Update Excel Data

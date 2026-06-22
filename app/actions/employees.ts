@@ -11,6 +11,20 @@ async function computePhotoHash(photoUrl: string): Promise<string> {
     return crypto.createHash('sha256').update(buffer).digest('hex');
   }
 
+  if (photoUrl.startsWith('/image-carte/')) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(process.cwd(), 'public', photoUrl);
+      if (fs.existsSync(filePath)) {
+        const buffer = fs.readFileSync(filePath);
+        return crypto.createHash('sha256').update(buffer).digest('hex');
+      }
+    } catch (err) {
+      console.warn('Error reading local image for hashing:', err);
+    }
+  }
+
   if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
     try {
       const response = await fetch(photoUrl);

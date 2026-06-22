@@ -1,2 +1,0 @@
-C:\Users\botos\OneDrive\Bureau\Nouveau dossier\bin\Release\net8.0\win-x64\publish\CanonCapture.pdb
-C:\Users\botos\OneDrive\Bureau\Nouveau dossier\bin\Release\net8.0\win-x64\publish\CanonCapture.exe
