@@ -20,7 +20,7 @@ export async function getDeliveryBatches(companyId?: string) {
     });
   } catch (error) {
     console.warn('Error fetching delivery batches:', error);
-    throw new Error('Impossible de récupérer les lots d\'expédition');
+    throw new Error("Impossible de récupérer les lots d'expédition");
   }
 }
 
@@ -50,7 +50,7 @@ export async function createDeliveryBatch({ companyId, employeeIds }: { companyI
     return batch;
   } catch (error) {
     console.warn('Error creating delivery batch:', error);
-    throw new Error('Impossible de créer le lot d\'expédition');
+    throw new Error("Impossible de créer le lot d'expédition");
   }
 }
 
@@ -120,3 +120,73 @@ export async function markAsPrinted(employeeIds: string[]) {
     throw new Error('Impossible de marquer les cartes comme imprimées');
   }
 }
+
+export async function getUnassignedPrintedEmployees(companyId: string) {
+  try {
+    return await prisma.employee.findMany({
+      where: {
+        companyId,
+        status: 'IMPRIME',
+        deliveryBatchId: null
+      },
+      orderBy: { printedAt: 'desc' }
+    });
+  } catch (error) {
+    console.warn('Error fetching unassigned printed employees:', error);
+    throw new Error('Impossible de récupérer les employés imprimés non assignés');
+  }
+}
+
+export async function getBatchEmployees(batchId: string) {
+  try {
+    return await prisma.employee.findMany({
+      where: { deliveryBatchId: batchId },
+      include: {
+        company: {
+          select: { name: true }
+        }
+      },
+      orderBy: { uniqueIdentifier: 'asc' }
+    });
+  } catch (error) {
+    console.warn('Error fetching batch employees:', error);
+    throw new Error('Impossible de récupérer les employés du lot');
+  }
+}
+
+export async function deleteDeliveryBatch(batchId: string) {
+  try {
+    await prisma.deliveryBatch.delete({
+      where: { id: batchId }
+    });
+    revalidatePath('/dashboard/delivery-batches');
+  } catch (error) {
+    console.warn('Error deleting delivery batch:', error);
+    throw new Error("Impossible de supprimer le lot d'expédition");
+  }
+}
+
+export async function updateDeliveryBatch(batchId: string, customBatchNumber: string, employeeIds: string[]) {
+  if (!employeeIds.length) throw new Error('Aucun employé sélectionné');
+  
+  try {
+    // We update the batch number, and set the new list of employees
+    // 'set' will connect the provided IDs and disconnect any previous ones not in the list
+    const batch = await prisma.deliveryBatch.update({
+      where: { id: batchId },
+      data: {
+        batchNumber: customBatchNumber,
+        employees: {
+          set: employeeIds.map(id => ({ id }))
+        }
+      }
+    });
+    
+    revalidatePath('/dashboard/delivery-batches');
+    return batch;
+  } catch (error) {
+    console.warn('Error updating delivery batch:', error);
+    throw new Error("Impossible de mettre à jour le lot d'expédition");
+  }
+}
+

@@ -6,18 +6,21 @@ import { Loader2 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PrintQueuePage() {
+interface PageProps {
+  searchParams: Promise<{
+    companyId?: string;
+  }>;
+}
+
+export default async function PrintQueuePage({ searchParams }: PageProps) {
+  const resolvedSearchParams = await searchParams;
+  const companyId = resolvedSearchParams.companyId || '';
+
   let companies: any[] = [];
-  let printQueue: any[] = [];
   let dbError = false;
 
   try {
-    const [companiesData, queueData] = await Promise.all([
-      getCompanies(),
-      getPrintQueue()
-    ]);
-    companies = companiesData;
-    printQueue = queueData;
+    companies = await getCompanies();
   } catch (error) {
     console.error('Error fetching print queue data:', error);
     dbError = true;
@@ -30,18 +33,11 @@ export default async function PrintQueuePage() {
     updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
   }));
 
-  const serializedQueue = printQueue.map(emp => ({
-    ...emp,
-    createdAt: emp.createdAt instanceof Date ? emp.createdAt.toISOString() : emp.createdAt,
-    updatedAt: emp.updatedAt instanceof Date ? emp.updatedAt.toISOString() : emp.updatedAt,
-    printedAt: emp.printedAt instanceof Date ? emp.printedAt.toISOString() : emp.printedAt,
-  }));
-
   return (
     <div className="max-w-7xl mx-auto py-2">
       <PrintQueueClient 
         initialCompanies={serializedCompanies} 
-        initialQueue={serializedQueue} 
+        initialCompanyId={companyId}
         dbError={dbError} 
       />
     </div>
