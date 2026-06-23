@@ -128,27 +128,60 @@ export default function EmployeesClient({
         let base64 = photoUrl;
         
         if (photoUrl.includes('localhost:4000')) {
-          // Fetch the image from the local bridge and convert to base64
+          // Fetch the image from the local bridge and convert to a COMPRESSED base64
           const res = await fetch(photoUrl);
           const blob = await res.blob();
           base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 1200;
+              const MAX_HEIGHT = 1600;
+              let width = img.width;
+              let height = img.height;
+              
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.8)); // 80% quality JPEG
+            };
+            img.onerror = reject;
+            img.src = URL.createObjectURL(blob);
           });
         }
-
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, employeeId: activeWebcamEmployee.id })
-        });
-        const uploadData = await uploadRes.json();
-        if (uploadData.success && uploadData.url) {
-          finalPhotoUrl = uploadData.url;
-        } else {
-          throw new Error('Erreur lors de la sauvegarde de la photo sur le serveur.');
+        
+        // Use the base64 directly to avoid Vercel Read-Only File System errors
+        // and Payload Too Large limits on /api/upload
+        finalPhotoUrl = base64;
+        
+        // Save the compressed photo back to the local computer's "Pictures/image-carte" folder
+        try {
+          // Extraire un nom ou utiliser l'identifiant
+          const empData = activeWebcamEmployee.dynamicData as any;
+          const empName = empData?.nom || empData?.name || activeWebcamEmployee.uniqueIdentifier;
+          const cleanName = String(empName).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          const filename = `photo_${cleanName}_${Date.now()}.jpg`;
+          
+          await fetch('http://localhost:4000/api/save-local', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64: finalPhotoUrl, filename })
+          });
+        } catch (localErr) {
+          console.warn("Le pont local n'est pas joignable pour sauvegarder l'image :", localErr);
         }
       }
 

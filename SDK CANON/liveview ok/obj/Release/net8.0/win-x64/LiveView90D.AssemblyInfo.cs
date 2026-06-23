@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LiveView90D")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+32a3f75ad633642d521a64baf33cd20dae79145a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b91d0f92bc884694de2fde8ad7b1d4f5adee9bfa")]
 [assembly: System.Reflection.AssemblyProductAttribute("LiveView90D")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LiveView90D")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
