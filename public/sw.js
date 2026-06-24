@@ -20,7 +20,7 @@ const PRECACHE = [
   '/logo-imprimerie.png',
 ];
 
-// ─── Install ──────────────────────────────────────────────────────────────────
+// --- Install ------------------------------------------------------------------
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
@@ -32,7 +32,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// ─── Activate : supprime tous les anciens caches (v1, v2…) ───────────────────
+// --- Activate : supprime tous les anciens caches (v1, v2…) --------------------
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -44,7 +44,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// ─── Fetch ────────────────────────────────────────────────────────────────────
+// --- Fetch --------------------------------------------------------------------
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);

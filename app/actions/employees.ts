@@ -2,6 +2,8 @@
 
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 async function computePhotoHash(photoUrl: string): Promise<string> {
   if (photoUrl.startsWith('data:image/')) {
@@ -43,6 +45,42 @@ async function computePhotoHash(photoUrl: string): Promise<string> {
   return crypto.createHash('sha256').update(photoUrl).digest('hex');
 }
 
+async function generateEnrollmentNumber(companyId: string): Promise<string> {
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { identifierPrefix: true },
+  });
+
+  const count = await prisma.employee.count({
+    where: { 
+      companyId: companyId,
+      enrollmentNumber: { not: null } 
+    },
+  });
+
+  if (company?.identifierPrefix) {
+    const prefix = company.identifierPrefix;
+    const num = String(count + 1).padStart(3, '0');
+    return `${prefix}${num}`;
+  }
+
+  const physicalType = await prisma.cardPhysicalType.findFirst({
+    where: { 
+      companyId: companyId || null,
+      cardCode: { not: "" }
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (physicalType && physicalType.cardCode) {
+    const num = String(count + 1).padStart(4, '0');
+    return `${physicalType.cardCode}${num}`;
+  }
+
+  const num = String(count + 1).padStart(5, '0');
+  return `INCI-ENR-${new Date().getFullYear()}-${num}`;
+}
+
 export async function getEmployees(companyId: string) {
   try {
     return await prisma.employee.findMany({
@@ -65,6 +103,9 @@ export async function importEmployees({
   rows: any[];
 }) {
   try {
+    const session = await getServerSession(authOptions);
+    const operatorName = session?.user?.name || session?.user?.email || "Système";
+
     const importPromises = rows.map(async (row) => {
       const uniqueVal = row[uniqueField];
       if (uniqueVal === undefined || uniqueVal === null || uniqueVal === '') {
@@ -88,6 +129,7 @@ export async function importEmployees({
           uniqueIdentifier,
           dynamicData: row,
           status: 'A_ENROLER',
+          enrolledBy: operatorName,
         },
       });
     });
@@ -102,37 +144,26 @@ export async function importEmployees({
 
 export async function updateEmployeeStatus(employeeId: string, status: string) {
   try {
+    const session = await getServerSession(authOptions);
+    const operatorName = session?.user?.name || session?.user?.email || "Système";
+
     const data: any = { status };
     if (status === 'IMPRIME') {
       data.printedAt = new Date();
+      data.printedBy = operatorName;
     }
 
     if (status === 'PHOTO_VALIDEE' || status === 'IMPRIME') {
       const emp = await prisma.employee.findUnique({
         where: { id: employeeId },
-        select: { enrollmentNumber: true, companyId: true },
+        select: { enrollmentNumber: true, companyId: true, enrolledBy: true },
       });
-      if (emp && !emp.enrollmentNumber) {
-        const physicalType = await prisma.cardPhysicalType.findFirst({
-          where: { 
-            companyId: emp.companyId || null,
-            cardCode: { not: "" }
-          },
-          orderBy: { createdAt: 'asc' },
-        });
-
-        const count = await prisma.employee.count({
-          where: { 
-            companyId: emp.companyId,
-            enrollmentNumber: { not: null } 
-          },
-        });
-        const num = String(count + 1).padStart(4, '0');
-
-        if (physicalType && physicalType.cardCode) {
-          data.enrollmentNumber = `${physicalType.cardCode}${num}`;
-        } else {
-          data.enrollmentNumber = `INCI-ENR-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+      if (emp) {
+        if (!emp.enrollmentNumber) {
+          data.enrollmentNumber = await generateEnrollmentNumber(emp.companyId);
+        }
+        if (!emp.enrolledBy) {
+          data.enrolledBy = operatorName;
         }
       }
     }
@@ -149,9 +180,13 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
 
 export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: string) {
   try {
+    const session = await getServerSession(authOptions);
+    const operatorName = session?.user?.name || session?.user?.email || "Système";
+
     const data: any = { status };
     if (status === 'IMPRIME') {
       data.printedAt = new Date();
+      data.printedBy = operatorName;
     }
     
     // Process sequentially to avoid duplicate sequential enrollmentNumbers
@@ -159,31 +194,16 @@ export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: st
     for (const id of employeeIds) {
       const emp = await prisma.employee.findUnique({
         where: { id },
-        select: { enrollmentNumber: true, companyId: true },
+        select: { enrollmentNumber: true, companyId: true, enrolledBy: true },
       });
       
       const singleData = { ...data };
-      if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME') && emp && !emp.enrollmentNumber) {
-        const physicalType = await prisma.cardPhysicalType.findFirst({
-          where: { 
-            companyId: emp.companyId || null,
-            cardCode: { not: "" }
-          },
-          orderBy: { createdAt: 'asc' },
-        });
-
-        const count = await prisma.employee.count({
-          where: { 
-            companyId: emp.companyId,
-            enrollmentNumber: { not: null } 
-          },
-        });
-        const num = String(count + 1).padStart(4, '0');
-
-        if (physicalType && physicalType.cardCode) {
-          singleData.enrollmentNumber = `${physicalType.cardCode}${num}`;
-        } else {
-          singleData.enrollmentNumber = `INCI-ENR-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+      if (emp) {
+        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME') && !emp.enrollmentNumber) {
+          singleData.enrollmentNumber = await generateEnrollmentNumber(emp.companyId);
+        }
+        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME') && !emp.enrolledBy) {
+          singleData.enrolledBy = operatorName;
         }
       }
       
@@ -209,9 +229,12 @@ export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: st
  */
 export async function saveEmployeePhoto(employeeId: string, photoUrl: string) {
   try {
+    const session = await getServerSession(authOptions);
+    const operatorName = session?.user?.name || session?.user?.email || "Système";
+
     const emp = await prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { enrollmentNumber: true, photoHash: true },
+      select: { enrollmentNumber: true, photoHash: true, companyId: true, enrolledBy: true },
     });
 
     const oldHash = emp?.photoHash;
@@ -248,11 +271,11 @@ export async function saveEmployeePhoto(employeeId: string, photoUrl: string) {
     }
 
     if (emp && !emp.enrollmentNumber) {
-      const count = await prisma.employee.count({
-        where: { enrollmentNumber: { not: null } },
-      });
-      const num = String(count + 1).padStart(5, '0');
-      data.enrollmentNumber = `INCI-ENR-${new Date().getFullYear()}-${num}`;
+      data.enrollmentNumber = await generateEnrollmentNumber(emp.companyId);
+    }
+
+    if (emp && !emp.enrolledBy) {
+      data.enrolledBy = operatorName;
     }
 
     const updatedEmployee = await prisma.employee.update({
@@ -360,20 +383,27 @@ export async function getCompanyDashboardStats(companyId: string) {
   }
 }
 
-export async function getDashboardRecentActivities() {
+export async function getDashboardRecentActivities(page: number = 1, limit: number = 10) {
   try {
-    const recentEnrollments = await prisma.employee.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: { company: { select: { name: true } } },
-    });
+    const fetchLimit = page * limit;
 
-    const recentPrints = await prisma.employee.findMany({
-      where: { status: 'IMPRIME', printedAt: { not: null } },
-      take: 5,
-      orderBy: { printedAt: 'desc' },
-      include: { company: { select: { name: true } } },
-    });
+    const [recentEnrollments, recentPrints, totalEnrollments, totalPrints] = await Promise.all([
+      prisma.employee.findMany({
+        take: fetchLimit,
+        orderBy: { createdAt: 'desc' },
+        include: { company: { select: { name: true } } },
+      }),
+      prisma.employee.findMany({
+        where: { status: 'IMPRIME', printedAt: { not: null } },
+        take: fetchLimit,
+        orderBy: { printedAt: 'desc' },
+        include: { company: { select: { name: true } } },
+      }),
+      prisma.employee.count(),
+      prisma.employee.count({
+        where: { status: 'IMPRIME', printedAt: { not: null } },
+      }),
+    ]);
 
     const activities: Array<{
       id: string;
@@ -382,6 +412,8 @@ export async function getDashboardRecentActivities() {
       employeeName: string;
       enrollmentNumber: string | null;
       companyName: string;
+      enrolledBy?: string | null;
+      printedBy?: string | null;
     }> = [];
 
     recentEnrollments.forEach((emp) => {
@@ -394,6 +426,7 @@ export async function getDashboardRecentActivities() {
         employeeName: name || emp.uniqueIdentifier,
         enrollmentNumber: emp.enrollmentNumber,
         companyName: emp.company.name,
+        enrolledBy: emp.enrolledBy,
       });
     });
 
@@ -407,15 +440,48 @@ export async function getDashboardRecentActivities() {
         employeeName: name || emp.uniqueIdentifier,
         enrollmentNumber: emp.enrollmentNumber,
         companyName: emp.company.name,
+        printedBy: emp.printedBy,
       });
     });
 
     activities.sort((a, b) => b.date.getTime() - a.date.getTime());
-    
-    // Return unique items up to 10
-    return activities.slice(0, 10);
+
+    const total = totalEnrollments + totalPrints;
+    const start = (page - 1) * limit;
+    const paginated = activities.slice(start, start + limit);
+
+    return {
+      activities: paginated,
+      total,
+    };
   } catch (error) {
     console.warn('Error fetching recent activities:', error);
     throw new Error('Impossible de récupérer les activités récentes');
+  }
+}
+
+export async function deleteEmployee(employeeId: string) {
+  try {
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: { company: true },
+    });
+
+    if (!emp) {
+      throw new Error("Employé introuvable");
+    }
+
+    if (emp.company.isLocked) {
+      throw new Error("L'entreprise de cet employé est verrouillée. Impossible de le supprimer.");
+    }
+
+    await prisma.employee.delete({
+      where: { id: employeeId },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.warn('Error deleting employee:', error);
+    throw new Error(error.message || 'Impossible de supprimer l\'employé');
   }
 }

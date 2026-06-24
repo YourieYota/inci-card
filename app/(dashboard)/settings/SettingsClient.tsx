@@ -132,7 +132,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar */}
-        <div className="md:col-span-4 bg-white dark:bg-neutral-850 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible">
+        <div className="md:col-span-4 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible">
           <button
             onClick={() => setActiveTab('profile')}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap md:whitespace-normal ${
@@ -183,13 +183,13 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
         </div>
 
         {/* Form panel */}
-        <div className="md:col-span-8 bg-white dark:bg-neutral-850 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden min-h-[420px]">
+        <div className="md:col-span-8 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden min-h-[420px]">
           {/* Notification Banner */}
           {message && (
             <div className={`flex items-center gap-2.5 px-6 py-4 border-b text-xs font-semibold ${
               message.type === 'success'
                 ? 'bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400'
-                : 'bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900 dark:text-rose-450'
+                : 'bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900 dark:text-rose-400'
             }`}>
               {message.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
               <span>{message.text}</span>
@@ -200,7 +200,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
           {activeTab === 'profile' && (
             <form onSubmit={handleProfileSubmit} className="p-6 space-y-5">
               <div className="border-b border-neutral-100 dark:border-neutral-800 pb-3">
-                <h3 className="text-sm font-bold text-neutral-850 dark:text-white uppercase tracking-wide">Informations du profil</h3>
+                <h3 className="text-sm font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Informations du profil</h3>
                 <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">Modifiez vos informations d&apos;accès et votre mot de passe.</p>
               </div>
 
@@ -212,7 +212,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -221,7 +221,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
                   />
                 </div>
               </div>
@@ -233,7 +233,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     type="text"
                     value={login}
                     onChange={(e) => setLogin(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -255,7 +255,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -264,14 +264,14 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     type="text"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
                   />
                 </div>
               </div>
 
               {/* Password change divider */}
               <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 mt-6">
-                <h4 className="text-xs font-bold text-neutral-850 dark:text-white uppercase mb-3">Changer le mot de passe</h4>
+                <h4 className="text-xs font-bold text-neutral-800 dark:text-white uppercase mb-3">Changer le mot de passe</h4>
                 <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mb-4">Laissez ces champs vides si vous ne souhaitez pas modifier votre mot de passe.</p>
                 
                 <div className="space-y-4">
@@ -283,12 +283,12 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition pr-10"
+                        className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition pr-10"
                       />
                       <button
                         type="button"
                         onClick={() => setShowCurrentPass(!showCurrentPass)}
-                        className="absolute right-3 top-2.5 text-neutral-450 hover:text-neutral-600 transition"
+                        className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-600 transition"
                       >
                         {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -304,12 +304,12 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Min 6 caractères"
-                          className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition pr-10"
+                          className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition pr-10"
                         />
                         <button
                           type="button"
                           onClick={() => setShowNewPass(!showNewPass)}
-                          className="absolute right-3 top-2.5 text-neutral-450 hover:text-neutral-600 transition"
+                          className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-600 transition"
                         >
                           {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -323,12 +323,12 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder="Confirmer"
-                          className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition pr-10"
+                          className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition pr-10"
                         />
                         <button
                           type="button"
                           onClick={() => setShowConfirmPass(!showConfirmPass)}
-                          className="absolute right-3 top-2.5 text-neutral-450 hover:text-neutral-600 transition"
+                          className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-600 transition"
                         >
                           {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -343,7 +343,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
                 >
                   {isLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -360,7 +360,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
           {activeTab === 'preferences' && (
             <div className="p-6 space-y-6">
               <div className="border-b border-neutral-100 dark:border-neutral-800 pb-3">
-                <h3 className="text-sm font-bold text-neutral-850 dark:text-white uppercase tracking-wide">Préférences de l&apos;application</h3>
+                <h3 className="text-sm font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Préférences de l&apos;application</h3>
                 <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">Personnalisez votre environnement de travail global.</p>
               </div>
 
@@ -443,7 +443,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
           {activeTab === 'printing' && (
             <div className="p-6 space-y-6">
               <div className="border-b border-neutral-100 dark:border-neutral-800 pb-3">
-                <h3 className="text-sm font-bold text-neutral-850 dark:text-white uppercase tracking-wide">Paramètres d&apos;impression physique</h3>
+                <h3 className="text-sm font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Paramètres d&apos;impression physique</h3>
                 <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">Ajustez les réglages de calibration avec l&apos;imprimante thermique ou papier.</p>
               </div>
 
@@ -463,7 +463,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     }}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-850 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
 
@@ -483,7 +483,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     }}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-850 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
 
@@ -502,7 +502,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                         setOffsetX(val);
                         saveLocalPreference('pref_offset_x', val.toString());
                       }}
-                      className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+                      className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
                     />
                   </div>
                   <div>
@@ -516,7 +516,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                         setOffsetY(val);
                         saveLocalPreference('pref_offset_y', val.toString());
                       }}
-                      className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+                      className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
                     />
                   </div>
                 </div>
@@ -529,7 +529,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
           {activeTab === 'notifications' && (
             <div className="p-6 space-y-6">
               <div className="border-b border-neutral-100 dark:border-neutral-800 pb-3">
-                <h3 className="text-sm font-bold text-neutral-850 dark:text-white uppercase tracking-wide">Préférences de notifications</h3>
+                <h3 className="text-sm font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Préférences de notifications</h3>
                 <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">Décidez des alertes générées par l&apos;activité du personnel.</p>
               </div>
 
@@ -549,7 +549,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     }}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-850 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
 
@@ -569,7 +569,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     }}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-850 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
 
@@ -589,7 +589,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     }}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-850 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
             </div>

@@ -5,6 +5,7 @@ import { WifiOff, Wifi, X, RefreshCw, Loader2 } from 'lucide-react';
 import { getOfflineQueue, clearOfflineQueue, OfflineMutation } from '@/lib/offlineQueue';
 import { syncOfflineMutations } from '@/app/actions/sync';
 import { fetchAllPreCacheData } from '@/app/actions/preCache';
+import { safeSetItem } from '@/lib/storage';
 
 export default function OfflineBanner() {
   const [isOnline, setIsOnline] = useState(true);
@@ -65,15 +66,15 @@ export default function OfflineBanner() {
           const data = await fetchAllPreCacheData();
           if (data && data.success) {
             // 1. Companies & lists
-            localStorage.setItem("inci-cache:companies", JSON.stringify(data.companies));
-            localStorage.setItem("inci-cache:companies-list", JSON.stringify(data.companies));
+            safeSetItem("inci-cache:companies", JSON.stringify(data.companies));
+            safeSetItem("inci-cache:companies-list", JSON.stringify(data.companies));
 
             // 2. Roles & list
-            localStorage.setItem("inci-cache:roles", JSON.stringify(data.roles));
-            localStorage.setItem("inci-cache:roles-list", JSON.stringify(data.roles));
+            safeSetItem("inci-cache:roles", JSON.stringify(data.roles));
+            safeSetItem("inci-cache:roles-list", JSON.stringify(data.roles));
 
             // 3. Users
-            localStorage.setItem("inci-cache:users", JSON.stringify(data.users));
+            safeSetItem("inci-cache:users", JSON.stringify(data.users));
 
             // 4. Employees & stats by company
             const empsByCo: Record<string, any[]> = {};
@@ -88,7 +89,7 @@ export default function OfflineBanner() {
             if (data.companies) {
               data.companies.forEach(co => {
                 const coEmps = empsByCo[co.id] || [];
-                localStorage.setItem(`inci-cache:employees:${co.id}`, JSON.stringify(coEmps));
+                safeSetItem(`inci-cache:employees:${co.id}`, JSON.stringify(coEmps));
                 
                 const total = coEmps.length;
                 const printed = coEmps.filter(e => e.status === 'IMPRIME').length;
@@ -103,14 +104,14 @@ export default function OfflineBanner() {
                   validatedPhotoCount: validated,
                   toVerifyCount: toVerify,
                 };
-                localStorage.setItem(`inci-cache:stats:${co.id}`, JSON.stringify(stats));
+                safeSetItem(`inci-cache:stats:${co.id}`, JSON.stringify(stats));
               });
             }
 
             // 5. Templates by company & type
             if (data.templates) {
               data.templates.forEach(t => {
-                localStorage.setItem(`inci-cache:template:${t.companyId}:${t.type}`, JSON.stringify(t));
+                safeSetItem(`inci-cache:template:${t.companyId}:${t.type}`, JSON.stringify(t));
               });
             }
           }
@@ -139,7 +140,7 @@ export default function OfflineBanner() {
         const remainingQueue = queue.filter(mut => failedIds.includes(mut.id));
         
         // Save only remaining failed mutations
-        localStorage.setItem('inci-offline-mutations', JSON.stringify(remainingQueue));
+        safeSetItem('inci-offline-mutations', JSON.stringify(remainingQueue));
         window.dispatchEvent(new CustomEvent('inci-offline-mutations-changed'));
 
         setSyncError(`Certaines modifications n'ont pas pu être synchronisées. Veuillez réessayer.`);
@@ -154,7 +155,7 @@ export default function OfflineBanner() {
   // 1. Sync Banner (User is online, but has mutations queued)
   if (isOnline && queueSize > 0 && !dismissed) {
     return (
-      <div className="fixed top-0 left-0 right-0 z-[9999] flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2.5 bg-indigo-650 text-white text-xs font-semibold shadow-lg">
+      <div className="fixed top-0 left-0 right-0 z-[9999] flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2.5 bg-indigo-600 text-white text-xs font-semibold shadow-lg">
         <div className="flex items-center gap-2.5">
           {isSyncing ? (
             <Loader2 className="w-4 h-4 shrink-0 animate-spin text-indigo-200" />

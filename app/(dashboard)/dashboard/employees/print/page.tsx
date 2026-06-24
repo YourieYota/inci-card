@@ -19,10 +19,10 @@ export default async function PrintPage({ searchParams }: PageProps) {
 
   if (ids.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] p-6 bg-white dark:bg-neutral-850 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center shadow-sm">
+      <div className="flex flex-col items-center justify-center min-h-[400px] p-6 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center shadow-sm">
         <AlertCircle className="w-10 h-10 text-rose-500 mb-3" />
-        <h2 className="text-lg font-bold text-neutral-850 dark:text-white">Aucun employé sélectionné</h2>
-        <p className="text-sm text-neutral-450 mt-1 max-w-sm">Veuillez sélectionner au moins un employé pour générer une planche d&apos;impression.</p>
+        <h2 className="text-lg font-bold text-neutral-800 dark:text-white">Aucun employé sélectionné</h2>
+        <p className="text-sm text-neutral-400 mt-1 max-w-sm">Veuillez sélectionner au moins un employé pour générer une planche d&apos;impression.</p>
         <Link href="/dashboard/employees" className="mt-5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2">
           <ArrowLeft className="w-4 h-4" />
           <span>Retour à l&apos;enrôlement</span>
@@ -43,10 +43,10 @@ export default async function PrintPage({ searchParams }: PageProps) {
 
   if (employees.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] p-6 bg-white dark:bg-neutral-850 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center shadow-sm">
+      <div className="flex flex-col items-center justify-center min-h-[400px] p-6 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center shadow-sm">
         <AlertCircle className="w-10 h-10 text-rose-500 mb-3" />
-        <h2 className="text-lg font-bold text-neutral-850 dark:text-white">Employés introuvables</h2>
-        <p className="text-sm text-neutral-450 mt-1 max-w-sm">Les employés sélectionnés n&apos;existent pas ou ont été supprimés.</p>
+        <h2 className="text-lg font-bold text-neutral-800 dark:text-white">Employés introuvables</h2>
+        <p className="text-sm text-neutral-400 mt-1 max-w-sm">Les employés sélectionnés n&apos;existent pas ou ont été supprimés.</p>
         <Link href="/dashboard/employees" className="mt-5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2">
           <ArrowLeft className="w-4 h-4" />
           <span>Retour</span>

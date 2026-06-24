@@ -197,14 +197,14 @@ export default function PrintQueueClient({
   return (
     <div className="space-y-6">
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-neutral-850 p-6 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-neutral-800 p-6 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-2.5">
           <div className="p-3 bg-indigo-50 dark:bg-neutral-900 text-indigo-500 rounded-xl border border-indigo-100 dark:border-neutral-800 shadow-sm">
             <Printer className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-neutral-855 dark:text-white">File d&apos;impression</h1>
-            <p className="text-xs text-neutral-450 dark:text-neutral-500">
+            <h1 className="text-xl font-bold text-neutral-800 dark:text-white">File d&apos;impression</h1>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">
               Gérez, filtrez et lancez l&apos;impression des badges pour l&apos;entreprise sélectionnée.
             </p>
           </div>
@@ -216,7 +216,7 @@ export default function PrintQueueClient({
             Entreprise :
           </label>
           <div className="relative w-full sm:w-auto">
-            <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-450" />
+            <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <select
               value={selectedCompanyId}
               onChange={(e) => setSelectedCompanyId(e.target.value)}
@@ -242,11 +242,11 @@ export default function PrintQueueClient({
               className={`pb-3 px-4 text-xs font-bold transition-all relative ${
                 activeTab === 'ready'
                   ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400'
-                  : 'text-neutral-450 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                  : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
               }`}
             >
               <span>Prêt à imprimer</span>
-              <span className="ml-2 py-0.5 px-2 bg-indigo-50 dark:bg-indigo-950/50 text-[10px] text-indigo-650 dark:text-indigo-400 rounded-full font-mono font-bold">
+              <span className="ml-2 py-0.5 px-2 bg-indigo-50 dark:bg-indigo-950/50 text-[10px] text-indigo-600 dark:text-indigo-400 rounded-full font-mono font-bold">
                 {readyToPrintList.length}
               </span>
             </button>
@@ -255,12 +255,12 @@ export default function PrintQueueClient({
               onClick={() => setActiveTab('not-ready')}
               className={`pb-3 px-4 text-xs font-bold transition-all relative ${
                 activeTab === 'not-ready'
-                  ? 'text-rose-600 dark:text-rose-455 border-b-2 border-rose-600 dark:border-rose-455'
-                  : 'text-neutral-450 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                  ? 'text-rose-600 dark:text-rose-400 border-b-2 border-rose-600 dark:border-rose-400'
+                  : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
               }`}
             >
               <span>Pas prêt</span>
-              <span className="ml-2 py-0.5 px-2 bg-rose-50 dark:bg-rose-950/50 text-[10px] text-rose-650 dark:text-rose-400 rounded-full font-mono font-bold">
+              <span className="ml-2 py-0.5 px-2 bg-rose-50 dark:bg-rose-950/50 text-[10px] text-rose-600 dark:text-rose-400 rounded-full font-mono font-bold">
                 {notReadyList.length}
               </span>
             </button>
@@ -270,11 +270,11 @@ export default function PrintQueueClient({
               className={`pb-3 px-4 text-xs font-bold transition-all relative ${
                 activeTab === 'printed'
                   ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400'
-                  : 'text-neutral-450 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                  : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
               }`}
             >
               <span>Déjà imprimé</span>
-              <span className="ml-2 py-0.5 px-2 bg-emerald-50 dark:bg-emerald-950/50 text-[10px] text-emerald-650 dark:text-emerald-400 rounded-full font-mono font-bold">
+              <span className="ml-2 py-0.5 px-2 bg-emerald-50 dark:bg-emerald-950/50 text-[10px] text-emerald-600 dark:text-emerald-400 rounded-full font-mono font-bold">
                 {alreadyPrintedList.length}
               </span>
             </button>
@@ -284,17 +284,17 @@ export default function PrintQueueClient({
               className={`pb-3 px-4 text-xs font-bold transition-all relative ${
                 activeTab === 'history'
                   ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400'
-                  : 'text-neutral-450 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                  : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
               }`}
             >
               <span>Historique</span>
-              <span className="ml-2 py-0.5 px-2 bg-indigo-50 dark:bg-indigo-950/50 text-[10px] text-indigo-650 dark:text-indigo-400 rounded-full font-mono font-bold">
+              <span className="ml-2 py-0.5 px-2 bg-indigo-50 dark:bg-indigo-950/50 text-[10px] text-indigo-600 dark:text-indigo-400 rounded-full font-mono font-bold">
                 {historyList.length}
               </span>
             </button>
           </div>
 
-          <div className="bg-white dark:bg-neutral-850 rounded-3xl border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-neutral-800 rounded-3xl border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-sm">
             {/* ACTIONS BAR */}
             <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               {/* Search Bar */}
@@ -327,7 +327,7 @@ export default function PrintQueueClient({
                         type="button"
                         onClick={handleMarkPrintedSelected}
                         disabled={isSubmitting}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-650 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap"
                       >
                         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckSquare className="w-4 h-4" />}
                         <span>Marquer imprimé(s)</span>
@@ -339,7 +339,7 @@ export default function PrintQueueClient({
                 <button
                   type="button"
                   onClick={fetchQueue}
-                  className="inline-flex items-center justify-center p-2.5 border border-neutral-250 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 transition"
+                  className="inline-flex items-center justify-center p-2.5 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 transition"
                   title="Actualiser la file"
                 >
                   <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -351,14 +351,14 @@ export default function PrintQueueClient({
             <div className="overflow-x-auto">
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
-                  <Loader2 className="w-8 h-8 text-indigo-550 animate-spin" />
-                  <p className="text-xs text-neutral-450 dark:text-neutral-550">Chargement de la file d&apos;impression...</p>
+                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500">Chargement de la file d&apos;impression...</p>
                 </div>
               ) : filteredEmployees.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center px-4">
                   <Printer className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mb-3" />
-                  <h3 className="text-sm font-bold text-neutral-805 dark:text-neutral-250">Aucun badge</h3>
-                  <p className="text-xs text-neutral-450 dark:text-neutral-500 mt-1 max-w-sm">
+                  <h3 className="text-sm font-bold text-neutral-800 dark:text-neutral-200">Aucun badge</h3>
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 max-w-sm">
                     {searchTerm 
                       ? "Aucun résultat ne correspond à votre recherche."
                       : "Il n'y a aucun employé répertorié sous cet onglet actuellement."}
@@ -367,7 +367,7 @@ export default function PrintQueueClient({
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-150 dark:border-neutral-800/80 text-[10px] font-bold text-neutral-450 dark:text-neutral-500 uppercase tracking-wider">
+                    <tr className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800/80 text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
                       <th className="py-4 px-6 w-12 text-center">
                         {(activeTab === 'ready' || activeTab === 'printed' || activeTab === 'history') && (
                           <button 
@@ -376,7 +376,7 @@ export default function PrintQueueClient({
                             className="text-neutral-400 hover:text-neutral-600 dark:hover:text-white transition"
                           >
                             {selectedIds.length === filteredEmployees.length ? (
-                              <CheckSquare className="w-4.5 h-4.5 text-indigo-550" />
+                              <CheckSquare className="w-4.5 h-4.5 text-indigo-500" />
                             ) : (
                               <Square className="w-4.5 h-4.5" />
                             )}
@@ -413,10 +413,10 @@ export default function PrintQueueClient({
                               <button
                                 type="button"
                                 onClick={() => toggleSelect(emp.id)}
-                                className="text-neutral-400 hover:text-indigo-550 dark:hover:text-indigo-400 transition"
+                                className="text-neutral-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition"
                               >
                                 {isSelected ? (
-                                  <CheckSquare className="w-4.5 h-4.5 text-indigo-550 dark:text-indigo-400" />
+                                  <CheckSquare className="w-4.5 h-4.5 text-indigo-500 dark:text-indigo-400" />
                                 ) : (
                                   <Square className="w-4.5 h-4.5" />
                                 )}
@@ -445,13 +445,13 @@ export default function PrintQueueClient({
                           </td>
                           <td className="py-4 px-4">
                             {activeTab === 'ready' && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-650 dark:text-indigo-400 border border-indigo-250/25 dark:border-indigo-900/30">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/25 dark:border-indigo-900/30">
                                 Prêt à imprimer
                               </span>
                             )}
                             {activeTab === 'printed' && (
                               <div className="flex flex-col gap-0.5">
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-650 dark:text-emerald-400 border border-emerald-250/25 dark:border-emerald-900/30 w-max">
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/25 dark:border-emerald-900/30 w-max">
                                   Imprimé
                                 </span>
                                 {emp.printedAt && (
@@ -465,10 +465,10 @@ export default function PrintQueueClient({
                               <div className="flex flex-col gap-0.5">
                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold w-max ${
                                   emp.status === 'IMPRIME'
-                                    ? 'bg-emerald-500/15 text-emerald-650 dark:text-emerald-400 border border-emerald-250/25 dark:border-emerald-900/30'
+                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/25 dark:border-emerald-900/30'
                                     : emp.status === 'A_VERIFIER'
-                                    ? 'bg-rose-500/15 text-rose-650 dark:text-rose-455 border border-rose-250/25 dark:border-rose-900/30'
-                                    : 'bg-indigo-500/15 text-indigo-650 dark:text-indigo-400 border border-indigo-250/25 dark:border-indigo-900/30'
+                                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200/25 dark:border-rose-900/30'
+                                    : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/25 dark:border-indigo-900/30'
                                 }`}>
                                   {emp.status === 'IMPRIME' && 'Imprimé'}
                                   {emp.status === 'A_ENROLER' && 'À enrôler'}
@@ -487,7 +487,7 @@ export default function PrintQueueClient({
                                 {getNotReadyReasons(emp).map((reason) => (
                                   <span 
                                     key={reason}
-                                    className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/20 text-[9px] font-bold text-rose-650 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30"
+                                    className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/20 text-[9px] font-bold text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30"
                                   >
                                     {reason}
                                   </span>
@@ -500,7 +500,7 @@ export default function PrintQueueClient({
                               <button
                                 type="button"
                                 onClick={() => window.open(`/dashboard/employees/print?ids=${encodeURIComponent(emp.id)}`, '_blank')}
-                                className="inline-flex items-center justify-center p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-neutral-550 dark:text-neutral-400 hover:text-indigo-650 dark:hover:text-indigo-400 transition"
+                                className="inline-flex items-center justify-center p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-neutral-500 dark:text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                                 title="Imprimer ce badge"
                               >
                                 <Printer className="w-4 h-4" />
@@ -519,7 +519,7 @@ export default function PrintQueueClient({
 
             {/* Pagination */}
             {filteredEmployees.length > 0 && (
-              <div className="bg-white dark:bg-neutral-850 border-t border-neutral-100 dark:border-neutral-800 px-6 py-3">
+              <div className="bg-white dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-800 px-6 py-3">
                 <Pagination
                   currentPage={currentPage}
                   totalItems={filteredEmployees.length}
@@ -534,10 +534,10 @@ export default function PrintQueueClient({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-neutral-850 rounded-3xl border border-neutral-200 dark:border-neutral-800 text-center shadow-sm">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-neutral-800 rounded-3xl border border-neutral-200 dark:border-neutral-800 text-center shadow-sm">
           <Printer className="w-16 h-16 text-neutral-300 dark:text-neutral-700 mb-4 animate-pulse" />
-          <h2 className="text-lg font-bold text-neutral-850 dark:text-white">Sélectionnez une entreprise</h2>
-          <p className="text-xs text-neutral-450 mt-1 max-w-sm">
+          <h2 className="text-lg font-bold text-neutral-800 dark:text-white">Sélectionnez une entreprise</h2>
+          <p className="text-xs text-neutral-400 mt-1 max-w-sm">
             Veuillez sélectionner une entreprise cliente dans la liste déroulante ci-dessus pour charger sa file d&apos;impression.
           </p>
         </div>

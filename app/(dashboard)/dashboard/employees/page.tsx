@@ -39,7 +39,6 @@ export default async function EmployeesPage({ searchParams }: PageProps) {
   const serializedCompanies = companies.map(c => ({
     ...c,
     createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
   }));
 
   const serializedEmployees = initialEmployees.map(emp => ({

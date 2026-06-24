@@ -5,6 +5,7 @@ import { Employee, CardTemplate, CardType } from '@prisma/client';
 import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle } from 'lucide-react';
 import { bulkUpdateEmployeeStatus } from '@/app/actions/employees';
 import { StudioElement } from '@/components/studio/Canvas';
+import QRCode from 'react-qr-code';
 
 interface PrintClientProps {
   employees: (Employee & { company: { name: string } })[];
@@ -186,15 +187,69 @@ const getFieldValue = (emp: Employee & { company?: { name: string } }, field?: s
     return emp.id.slice(0, 8).toUpperCase();
   }
   if (normalizedTarget === 'date d\'enrolement' || normalizedTarget === 'date d\'enrôlement' || normalizedTarget === 'date') {
-    return new Date(emp.createdAt).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const d = new Date(emp.createdAt);
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    return `${day}/${month}/${year}`;
   }
 
+  const data = emp.dynamicData as Record<string, any>;
+  if (data) {
+    let rawVal: any = undefined;
+    if (data[field] !== undefined) {
+      rawVal = data[field];
+    } else {
+      for (const key of Object.keys(data)) {
+        if (key.toLowerCase().trim() === targetKey && data[key] !== undefined) {
+          rawVal = data[key];
+          break;
+        }
+        if (normalize(key) === normalizedTarget && data[key] !== undefined) {
+          rawVal = data[key];
+          break;
+        }
+      }
+    }
+
+    if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+      const isDateField = normalizedTarget.startsWith('date') ||
+        (typeof rawVal === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(rawVal));
+
+      if (isDateField) {
+        const dateObj = new Date(rawVal);
+        if (!isNaN(dateObj.getTime())) {
+          const day = String(dateObj.getUTCDate()).padStart(2, '0');
+          const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+          const year = dateObj.getUTCFullYear();
+          return `${day}/${month}/${year}`;
+        }
+      }
+      return String(rawVal);
+    }
+
+    // 3. Synonym mapping fallback (common Excel column alternatives)
+    const synonyms: Record<string, string[]> = {
+      nom: ['lastname', 'nom de famille', 'name', 'nom'],
+      prenom: ['firstname', 'prénom', 'prenoms', 'prénoms', 'prenom'],
+      role: ['fonction', 'poste', 'job', 'role', 'rôle', 'title', 'roles'],
+      matricule: ['id', 'uuid', 'code', 'identifiant', 'matricule', 'numéro', 'numero'],
+    };
+
+    const cleanField = normalizedTarget;
+    if (synonyms[cleanField]) {
+      for (const alt of synonyms[cleanField]) {
+        const normalizedAlt = normalize(alt);
+        for (const key of Object.keys(data)) {
+          if (normalize(key) === normalizedAlt && data[key] !== undefined && data[key] !== null && data[key] !== '') {
+            return String(data[key]);
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Fallback for general identifier fields to use enrollmentNumber
   const isIdentifierField = [
     'matricule', 'id', 'uuid', 'code', 'identifiant', 'numéro', 'numero'
   ].includes(normalizedTarget);
@@ -203,44 +258,8 @@ const getFieldValue = (emp: Employee & { company?: { name: string } }, field?: s
     return emp.enrollmentNumber;
   }
 
-  const data = emp.dynamicData as Record<string, any>;
-  if (!data) return `{${field}}`;
-
-  // 1. Try exact match
-  if (data[field] !== undefined) return String(data[field]);
-
-  // 2. Try case and accent-insensitive match
-  for (const key of Object.keys(data)) {
-    if (key.toLowerCase().trim() === targetKey && data[key] !== undefined) {
-      return String(data[key]);
-    }
-    if (normalize(key) === normalizedTarget && data[key] !== undefined) {
-      return String(data[key]);
-    }
-  }
-
-  // 3. Synonym mapping fallback (common Excel column alternatives)
-  const synonyms: Record<string, string[]> = {
-    nom: ['lastname', 'nom de famille', 'name', 'nom'],
-    prenom: ['firstname', 'prénom', 'prenoms', 'prénoms', 'prenom'],
-    role: ['fonction', 'poste', 'job', 'role', 'rôle', 'title', 'roles'],
-    matricule: ['id', 'uuid', 'code', 'identifiant', 'matricule', 'numéro', 'numero'],
-  };
-
-  const cleanField = normalizedTarget;
-  if (synonyms[cleanField]) {
-    for (const alt of synonyms[cleanField]) {
-      const normalizedAlt = normalize(alt);
-      for (const key of Object.keys(data)) {
-        if (normalize(key) === normalizedAlt && data[key] !== undefined) {
-          return String(data[key]);
-        }
-      }
-    }
-  }
-
-  // 4. Combined name splitting fallback (e.g. when Excel has combined "Noms et prénoms" but template expects separate "Nom" / "Prenom")
-  if (normalizedTarget === 'nom' || normalizedTarget === 'prenom') {
+  // 5. Combined name splitting fallback (e.g. when Excel has combined "Noms et prénoms" but template expects separate "Nom" / "Prenom")
+  if (data && (normalizedTarget === 'nom' || normalizedTarget === 'prenom')) {
     const combinedKeys = [
       'noms et prenoms', 'noms et prenom', 'nom et prenom',
       'noms & prenoms', 'nom & prenom', 'nom complet', 'fullname', 'nom prenom',
@@ -439,19 +458,16 @@ function CardRender({ emp, template, side }: CardRenderProps) {
                         borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
                         borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                         borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                        padding: '5%',
                       }}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                      <QRCode
+                        value={
                           getFieldValue(emp, el.field) || emp.enrollmentNumber || emp.uniqueIdentifier
-                        )}`}
-                        style={{
-                          width: '90%',
-                          height: '90%',
-                          objectFit: 'contain',
-                        }}
-                        alt="QR Code"
+                        }
+                        size={150}
+                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                        viewBox="0 0 256 256"
                       />
                     </div>
                   )}
@@ -571,11 +587,11 @@ export default function PrintClient({ employees, templates, companyName }: Print
               }`}
             >
               <div className="flex flex-col items-center">
-                <span className="text-[8px] font-bold text-neutral-450 dark:text-neutral-500 uppercase tracking-wide mb-1 no-print">RECTO</span>
+                <span className="text-[8px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1 no-print">RECTO</span>
                 <CardRender emp={emp} template={template} side="recto" />
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-[8px] font-bold text-neutral-450 dark:text-neutral-500 uppercase tracking-wide mb-1 no-print">VERSO</span>
+                <span className="text-[8px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1 no-print">VERSO</span>
                 <CardRender emp={emp} template={template} side="verso" />
               </div>
             </div>
@@ -655,14 +671,14 @@ export default function PrintClient({ employees, templates, companyName }: Print
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 pb-12">
       {/* ON-SCREEN CONTROL BAR */}
-      <div className="no-print sticky top-0 z-50 bg-white dark:bg-neutral-850 border-b border-neutral-200 dark:border-neutral-800 shadow-sm px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="no-print sticky top-0 z-50 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-800 shadow-sm px-6 py-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400">
             <Printer className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-neutral-850 dark:text-white">Impression de Badges - {companyName}</h1>
-            <p className="text-xs text-neutral-450 dark:text-neutral-500">
+            <h1 className="text-base font-bold text-neutral-800 dark:text-white">Impression de Badges - {companyName}</h1>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">
               Préparez le fichier de sortie pour {employees.length} employé{employees.length > 1 ? 's' : ''}.
             </p>
           </div>
@@ -673,7 +689,7 @@ export default function PrintClient({ employees, templates, companyName }: Print
           {/* Template Selection if multiple exist */}
           {templates.length > 1 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-neutral-450 dark:text-neutral-500">Gabarit:</span>
+              <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Gabarit:</span>
               <select
                 value={selectedTemplateType}
                 onChange={(e) => setSelectedTemplateType(e.target.value as CardType)}
@@ -687,12 +703,12 @@ export default function PrintClient({ employees, templates, companyName }: Print
 
           {/* Layout Mode */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-neutral-450 dark:text-neutral-500">Mise en page:</span>
+            <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Mise en page:</span>
             <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5">
               <button
                 onClick={() => setLayoutMode('side-by-side')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
-                  layoutMode === 'side-by-side' ? 'bg-white dark:bg-neutral-800 text-indigo-650 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+                  layoutMode === 'side-by-side' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
                 }`}
                 title="Pliage Recto/Verso côte à côte"
               >
@@ -702,7 +718,7 @@ export default function PrintClient({ employees, templates, companyName }: Print
               <button
                 onClick={() => setLayoutMode('duplex')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
-                  layoutMode === 'duplex' ? 'bg-white dark:bg-neutral-800 text-indigo-650 dark:text-indigo-400 shadow-sm' : 'text-neutral-550 hover:text-neutral-700'
+                  layoutMode === 'duplex' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
                 }`}
                 title="Duplex pages recto puis pages verso"
               >
@@ -712,7 +728,7 @@ export default function PrintClient({ employees, templates, companyName }: Print
               <button
                 onClick={() => setLayoutMode('recto-only')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  layoutMode === 'recto-only' ? 'bg-white dark:bg-neutral-800 text-indigo-650 dark:text-indigo-400 shadow-sm' : 'text-neutral-550 hover:text-neutral-700'
+                  layoutMode === 'recto-only' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
                 }`}
               >
                 Recto seul
@@ -720,7 +736,7 @@ export default function PrintClient({ employees, templates, companyName }: Print
               <button
                 onClick={() => setLayoutMode('verso-only')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  layoutMode === 'verso-only' ? 'bg-white dark:bg-neutral-800 text-indigo-650 dark:text-indigo-400 shadow-sm' : 'text-neutral-550 hover:text-neutral-700'
+                  layoutMode === 'verso-only' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
                 }`}
               >
                 Verso seul
@@ -732,7 +748,7 @@ export default function PrintClient({ employees, templates, companyName }: Print
           <div className="flex gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimer</span>
@@ -740,7 +756,7 @@ export default function PrintClient({ employees, templates, companyName }: Print
             <button
               onClick={handleValidatePrint}
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-4 py-2 border border-emerald-250 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold transition shadow-sm"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               <span>Valider &amp; Fermer</span>

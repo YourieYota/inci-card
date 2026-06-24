@@ -18,7 +18,7 @@ export default function Toolbar({
   suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise']
 }: ToolbarProps) {
   return (
-    <div className="w-full bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col gap-6">
+    <div className="w-full bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col gap-6">
       <div>
         <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Outils de création</h3>
         <p className="text-xs text-neutral-400 dark:text-neutral-500">Ajoutez des éléments sur votre canevas.</p>
@@ -74,7 +74,7 @@ export default function Toolbar({
         </button>
       </div>
 
-      <div className="border-t border-neutral-150 dark:border-neutral-800 pt-5">
+      <div className="border-t border-neutral-200 dark:border-neutral-800 pt-5">
         <h4 className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mb-3">Champs Excel Dynamiques</h4>
         <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-1">
           {suggestedFields.map((field) => (
@@ -94,14 +94,14 @@ export default function Toolbar({
       </div>
 
       {(onApplyDefaultLayout || onClearCanvas) && (
-        <div className="border-t border-neutral-150 dark:border-neutral-800 pt-5 flex flex-col gap-2">
+        <div className="border-t border-neutral-200 dark:border-neutral-800 pt-5 flex flex-col gap-2">
           <h4 className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mb-2">Gabarits & Canevas</h4>
           <div className="grid grid-cols-2 gap-2">
             {onApplyDefaultLayout && (
               <button
                 type="button"
                 onClick={onApplyDefaultLayout}
-                className="py-2.5 px-2 rounded-xl border border-indigo-100 hover:border-indigo-200 dark:border-indigo-900/50 dark:hover:border-indigo-900 bg-indigo-50/30 hover:bg-indigo-50 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-750 dark:text-indigo-400 text-[10px] font-bold transition shadow-sm"
+                className="py-2.5 px-2 rounded-xl border border-indigo-100 hover:border-indigo-200 dark:border-indigo-900/50 dark:hover:border-indigo-900 bg-indigo-50/30 hover:bg-indigo-50 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold transition shadow-sm"
               >
                 Gabarit par défaut
               </button>
@@ -110,7 +110,7 @@ export default function Toolbar({
               <button
                 type="button"
                 onClick={onClearCanvas}
-                className="py-2.5 px-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-rose-250 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 text-neutral-600 dark:text-neutral-400 text-[10px] font-bold transition"
+                className="py-2.5 px-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 text-neutral-600 dark:text-neutral-400 text-[10px] font-bold transition"
               >
                 Vider le canevas
               </button>

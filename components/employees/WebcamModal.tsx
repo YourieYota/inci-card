@@ -46,7 +46,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
   const liveViewInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // ─── Vérification du pont au montage ──────────────────────────────────────
+  // --- Vérification du pont au montage --------------------------------------
   useEffect(() => {
     const checkAndStart = async () => {
       try {
@@ -76,7 +76,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Démarrer le live view ────────────────────────────────────────────────
+  // --- Démarrer le live view ------------------------------------------------
   const startLiveView = useCallback(async () => {
     setState('init');
     try {
@@ -95,7 +95,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     }
   }, []);
 
-  // ─── Polling : rafraîchit l'image du live view toutes les 150ms ───────────
+  // --- Polling : rafraîchit l'image du live view toutes les 150ms -----------
   const startLiveViewPolling = useCallback(() => {
     stopLiveViewPolling();
     liveViewInterval.current = setInterval(() => {
@@ -110,7 +110,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     }
   }, []);
 
-  // ─── Analyse d'image par Canvas ──────────────────────────────────────────
+  // --- Analyse d'image par Canvas ------------------------------------------
   const analyzeCapturedImage = (url: string) => {
     setIsAnalyzing(true);
     const img = new Image();
@@ -226,7 +226,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     img.src = url;
   };
 
-  // ─── Capture ──────────────────────────────────────────────────────────────
+  // --- Capture --------------------------------------------------------------
   const handleCapture = async () => {
     setState('capturing');
     setErrorMsg(null);
@@ -283,7 +283,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     }
   };
 
-  // ─── Reprendre (retake) ───────────────────────────────────────────────────
+  // --- Reprendre (retake) ---------------------------------------------------
   const handleRetake = async () => {
     setCapturedUrl(null);
     setAnalysis(null);
@@ -294,7 +294,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     }
   };
 
-  // ─── Valider ──────────────────────────────────────────────────────────────
+  // --- Valider --------------------------------------------------------------
   const handleSave = async () => {
     if (!capturedUrl) return;
     setIsSaving(true);
@@ -305,7 +305,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     }
   };
 
-  // ─── Réessayer après erreur ───────────────────────────────────────────────
+  // --- Réessayer après erreur -----------------------------------------------
   const handleRetry = async () => {
     setErrorMsg(null);
     if (liveViewAvailable) {
@@ -333,7 +333,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     checklist.framing &&
     checklist.margins;
 
-  // ─── Rendu de la zone centrale ────────────────────────────────────────────
+  // --- Rendu de la zone centrale --------------------------------------------
   const renderViewport = () => {
     // ÉTAT : Aperçu capturé
     if (state === 'preview' && capturedUrl) {
@@ -437,7 +437,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
             {state === 'init' ? 'Connexion à la caméra…' : 'Prêt à capturer'}
           </p>
           {state !== 'init' && (
-            <p className="text-xs text-neutral-400 dark:text-neutral-550 mt-1">
+            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
               Cliquez &quot;Capturer&quot; pour déclencher l&apos;obturateur Canon
             </p>
           )}
@@ -446,13 +446,13 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     );
   };
 
-  // ─── Boutons ──────────────────────────────────────────────────────────────
+  // --- Boutons --------------------------------------------------------------
   const renderButtons = () => {
     if (state === 'preview') {
       return (
         <>
           <button onClick={handleRetake}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-750 text-neutral-700 dark:text-neutral-200 rounded-xl text-xs font-bold transition">
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-xl text-xs font-bold transition">
             <RefreshCw className="w-4 h-4" /> Reprendre
           </button>
           <button onClick={handleSave} disabled={isSaving || isAnalyzing}
@@ -472,7 +472,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
       return (
         <>
           <button onClick={onClose}
-            className="flex-1 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 text-neutral-650 dark:text-neutral-300 rounded-xl text-xs font-bold transition">
+            className="flex-1 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 text-neutral-600 dark:text-neutral-300 rounded-xl text-xs font-bold transition">
             Annuler
           </button>
           <button onClick={handleRetry}
@@ -487,7 +487,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
     return (
       <>
         <button onClick={onClose}
-          className="flex-1 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 text-neutral-650 dark:text-neutral-300 rounded-xl text-xs font-bold transition">
+          className="flex-1 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 text-neutral-600 dark:text-neutral-300 rounded-xl text-xs font-bold transition">
           Annuler
         </button>
         <button onClick={handleCapture} disabled={!isReady || state === 'capturing'}
@@ -504,7 +504,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className={`relative w-full bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-250 dark:border-neutral-800 overflow-hidden transition-all duration-300 ${
+      <div className={`relative w-full bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden transition-all duration-300 ${
         showSidebar ? 'max-w-3xl' : 'max-w-md'
       }`}>
 
@@ -562,7 +562,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-neutral-450 dark:text-neutral-500 uppercase tracking-wider">
+                    <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
                       Conformité Norme ICAO
                     </span>
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
@@ -575,7 +575,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                   </div>
 
                   {/* 1. AUTOMATED TESTS */}
-                  <div className="space-y-3 bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-2xl border border-neutral-150 dark:border-neutral-800">
+                  <div className="space-y-3 bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800">
                     <h4 className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-wider mb-1">
                       Analyses d&apos;image automatiques
                     </h4>
@@ -590,7 +590,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                         {/* Éclairage */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] font-semibold">
-                            <span className="text-neutral-600 dark:text-neutral-350">Éclairage suffisant</span>
+                            <span className="text-neutral-600 dark:text-neutral-300">Éclairage suffisant</span>
                             <span className={analysis.brightnessOk ? "text-emerald-600 dark:text-emerald-400" : "text-amber-500"}>
                               {analysis.brightness}%
                             </span>
@@ -603,7 +603,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                         {/* Netteté */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] font-semibold">
-                            <span className="text-neutral-600 dark:text-neutral-350">Netteté / Contraste</span>
+                            <span className="text-neutral-600 dark:text-neutral-300">Netteté / Contraste</span>
                             <span className={analysis.sharpnessOk ? "text-emerald-600 dark:text-emerald-400" : "text-amber-500"}>
                               {analysis.sharpness}%
                             </span>
@@ -616,7 +616,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                         {/* Fond uni */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] font-semibold">
-                            <span className="text-neutral-600 dark:text-neutral-350">Fond neutre & uni</span>
+                            <span className="text-neutral-600 dark:text-neutral-300">Fond neutre & uni</span>
                             <span className={analysis.backgroundOk ? "text-emerald-600 dark:text-emerald-400" : "text-amber-500"}>
                               {analysis.backgroundUniformity}%
                             </span>
@@ -629,7 +629,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                         {/* Absence ombres */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-[11px] font-semibold">
-                            <span className="text-neutral-600 dark:text-neutral-350">Lumière équilibrée (sans ombres)</span>
+                            <span className="text-neutral-600 dark:text-neutral-300">Lumière équilibrée (sans ombres)</span>
                             <span className={analysis.shadowOk ? "text-emerald-600 dark:text-emerald-400" : "text-amber-500"}>
                               {analysis.shadowBalance}%
                             </span>
@@ -654,7 +654,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                       <button 
                         type="button"
                         onClick={() => toggleChecklist('centered')}
-                        className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-neutral-150 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition"
+                        className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition"
                       >
                         {checklist.centered ? (
                           <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -667,7 +667,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                       <button 
                         type="button"
                         onClick={() => toggleChecklist('framing')}
-                        className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-neutral-150 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition"
+                        className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition"
                       >
                         {checklist.framing ? (
                           <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -680,7 +680,7 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
                       <button 
                         type="button"
                         onClick={() => toggleChecklist('margins')}
-                        className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-neutral-150 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition"
+                        className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition"
                       >
                         {checklist.margins ? (
                           <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />

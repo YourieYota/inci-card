@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from "react";
-import { Building2, Users as UsersIcon, CreditCard, Clock, TrendingUp, AlertTriangle, WifiOff } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Building2, Users as UsersIcon, CreditCard, Clock, TrendingUp, AlertTriangle, WifiOff, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { safeSetItem, safeGetItem } from "@/lib/storage";
+import { getDashboardRecentActivities } from "@/app/actions/employees";
 
 interface StatsData {
   companiesCount: number;
@@ -17,41 +19,50 @@ interface Activity {
   employeeName: string;
   enrollmentNumber: string | null;
   companyName: string;
+  enrolledBy?: string | null;
+  printedBy?: string | null;
 }
 
 interface DashboardClientProps {
   initialStats: StatsData;
   initialActivities: Activity[];
+  initialTotalActivities: number;
   dbError: boolean;
 }
 
 export default function DashboardClient({
   initialStats,
   initialActivities,
+  initialTotalActivities,
   dbError,
 }: DashboardClientProps) {
   const [statsData, setStatsData] = useState<StatsData>(initialStats);
   const [activities, setActivities] = useState<Activity[]>(initialActivities);
+  const [totalActivities, setTotalActivities] = useState<number>(initialTotalActivities);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isLoadingActivities, setIsLoadingActivities] = useState<boolean>(false);
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [cacheLoaded, setCacheLoaded] = useState<boolean>(false);
 
+  const isFirstMount = useRef(true);
+
+  // Sync with props when server-side data refreshes (on initial render or layout transitions)
   useEffect(() => {
     if (!dbError) {
       // DB is online, save data to cache
-      try {
-        localStorage.setItem("inci-cache:dashboard-stats", JSON.stringify(initialStats));
-        localStorage.setItem("inci-cache:dashboard-activities", JSON.stringify(initialActivities));
-      } catch (e) {
-        console.error("Failed to write dashboard cache:", e);
-      }
+      safeSetItem("inci-cache:dashboard-stats", JSON.stringify(initialStats));
+      safeSetItem("inci-cache:dashboard-activities", JSON.stringify(initialActivities));
+      safeSetItem("inci-cache:dashboard-total-activities", String(initialTotalActivities));
       setStatsData(initialStats);
       setActivities(initialActivities);
+      setTotalActivities(initialTotalActivities);
       setIsOfflineMode(false);
     } else {
       // DB is offline/inaccessible, read from cache
       try {
-        const cachedStats = localStorage.getItem("inci-cache:dashboard-stats");
-        const cachedActivities = localStorage.getItem("inci-cache:dashboard-activities");
+        const cachedStats = safeGetItem("inci-cache:dashboard-stats");
+        const cachedActivities = safeGetItem("inci-cache:dashboard-activities");
+        const cachedTotal = safeGetItem("inci-cache:dashboard-total-activities");
         
         if (cachedStats) {
           setStatsData(JSON.parse(cachedStats));
@@ -61,15 +72,79 @@ export default function DashboardClient({
           setActivities(JSON.parse(cachedActivities));
           setCacheLoaded(true);
         }
+        if (cachedTotal) {
+          setTotalActivities(Number(cachedTotal));
+        }
         
         if (cachedStats || cachedActivities) {
           setIsOfflineMode(true);
         }
       } catch (e) {
-        console.error("Failed to read dashboard cache:", e);
+        console.warn("Failed to read dashboard cache:", e);
       }
     }
-  }, [initialStats, initialActivities, dbError]);
+  }, [initialStats, initialActivities, initialTotalActivities, dbError]);
+
+  // Fetch new page dynamically
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+
+    const fetchPage = async () => {
+      setIsLoadingActivities(true);
+      try {
+        const res = await getDashboardRecentActivities(currentPage, 10);
+        const serialized = res.activities.map(act => ({
+          ...act,
+          date: act.date.toISOString(),
+        }));
+        setActivities(serialized);
+        setTotalActivities(res.total);
+      } catch (err) {
+        console.warn("Failed to fetch paginated activities:", err);
+      } finally {
+        setIsLoadingActivities(false);
+      }
+    };
+
+    fetchPage();
+  }, [currentPage]);
+
+  const totalPages = Math.ceil(totalActivities / 10);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      
+      if (start > 2) {
+        pages.push('...');
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      if (end < totalPages - 1) {
+        pages.push('...');
+      }
+      
+      pages.push(totalPages);
+    }
+    
+    return pages;
+  };
 
   const stats = [
     {
@@ -205,7 +280,12 @@ export default function DashboardClient({
             {isOfflineMode ? "Dernières activités (Enregistrées)" : "Dernières activités"}
           </h3>
         </div>
-        {activities.length === 0 ? (
+        {isLoadingActivities ? (
+          <div className="p-12 text-center flex flex-col items-center justify-center">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-semibold">Chargement des activités...</p>
+          </div>
+        ) : activities.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
               <Clock className="w-6 h-6 text-slate-400" />
@@ -216,40 +296,119 @@ export default function DashboardClient({
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100/80 dark:divide-slate-700/40">
-            {activities.map((act) => (
-              <div key={act.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition">
-                <div className="flex items-center gap-4">
-                  <div className={`p-2.5 rounded-xl border ${
-                    act.type === 'print'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/40 text-blue-600 dark:text-blue-400'
-                  }`}>
-                    {act.type === 'print' ? <CreditCard className="w-4 h-4" /> : <UsersIcon className="w-4 h-4" />}
+          <>
+            <div className="divide-y divide-slate-100/80 dark:divide-slate-700/40">
+              {activities.map((act) => (
+                <div key={act.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-2.5 rounded-xl border ${
+                      act.type === 'print'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/40 text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {act.type === 'print' ? <CreditCard className="w-4 h-4" /> : <UsersIcon className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                        {act.type === 'print' ? 'Impression de carte réussie' : 'Nouvel enrôlement enregistré'}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">{act.employeeName}</span>
+                        {act.enrollmentNumber ? <span className="text-slate-400 dark:text-slate-500"> ({act.enrollmentNumber})</span> : ''}
+                        {' · '}
+                        <span className="font-medium text-blue-600 dark:text-blue-400">{act.companyName}</span>
+                        {act.type === 'print' && (
+                          <>
+                            {' · '}
+                            <span className="text-slate-450 dark:text-slate-500">par <strong className="font-semibold text-slate-700 dark:text-slate-300">{act.printedBy || "Système"}</strong></span>
+                          </>
+                        )}
+                        {act.type === 'enrollment' && (
+                          <>
+                            {' · '}
+                            <span className="text-slate-450 dark:text-slate-500">par <strong className="font-semibold text-slate-700 dark:text-slate-300">{act.enrolledBy || "Système"}</strong></span>
+                          </>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                      {act.type === 'print' ? 'Impression de carte réussie' : 'Nouvel enrôlement enregistré'}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      <span className="font-medium text-slate-700 dark:text-slate-300">{act.employeeName}</span>
-                      {act.enrollmentNumber ? <span className="text-slate-400 dark:text-slate-500"> ({act.enrollmentNumber})</span> : ''}
-                      {' · '}
-                      <span className="font-medium text-blue-600 dark:text-blue-400">{act.companyName}</span>
-                    </p>
-                  </div>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono shrink-0">
+                    {new Date(act.date).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
                 </div>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono shrink-0">
-                  {new Date(act.date).toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalActivities > 10 && (
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Affichage de <span className="font-semibold text-slate-700 dark:text-slate-300">{(currentPage - 1) * 10 + 1}</span> à <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.min(currentPage * 10, totalActivities)}</span> sur <span className="font-semibold text-slate-700 dark:text-slate-300">{totalActivities}</span> activités
                 </span>
+                <div className="flex items-center gap-2">
+                  {/* Previous button */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1 || isLoadingActivities}
+                    className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {getPageNumbers().map((pageNum, idx) => {
+                      if (pageNum === '...') {
+                        return (
+                          <span
+                            key={`ellipsis-${idx}`}
+                            className="px-2 py-1 text-xs font-semibold text-slate-400 dark:text-slate-500 select-none"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+
+                      const pageVal = pageNum as number;
+                      const isActive = pageVal === currentPage;
+
+                      return (
+                        <button
+                          key={pageVal}
+                          type="button"
+                          onClick={() => setCurrentPage(pageVal)}
+                          disabled={isLoadingActivities}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm border ${
+                            isActive
+                              ? 'bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500'
+                              : 'bg-white border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 text-slate-650 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                          }`}
+                        >
+                          {pageVal}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next button */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage >= totalPages || isLoadingActivities}
+                    className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -34,7 +34,7 @@ const ROLE_COLORS: Record<string, string> = {
   OPERATEUR: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
 };
 
-// ─── Sidebar content (shared between desktop & mobile) ────────────────────────
+// --- Sidebar content (shared between desktop & mobile) ------------------------
 function SidebarContent({ pathname, role, name, onClose }: {
   pathname: string;
   role: string;
@@ -120,7 +120,7 @@ function SidebarContent({ pathname, role, name, onClose }: {
   );
 }
 
-// ─── Layout ───────────────────────────────────────────────────────────────────
+// --- Layout -------------------------------------------------------------------
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -132,12 +132,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="h-screen bg-slate-50/80 dark:bg-slate-900 flex overflow-hidden">
 
-      {/* ── Desktop sidebar ─────────────────────────────────────────── */}
+      {/* -- Desktop sidebar ------------------------------------------- */}
       <div className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200/60 dark:border-slate-700/60 hidden md:flex flex-col h-full shadow-sm">
         <SidebarContent pathname={pathname} role={role} name={name} />
       </div>
 
-      {/* ── Mobile overlay sidebar ──────────────────────────────────── */}
+      {/* -- Mobile overlay sidebar ------------------------------------ */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           {/* Backdrop */}
@@ -157,7 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      {/* ── Main content ─────────────────────────────────────────────── */}
+      {/* -- Main content ----------------------------------------------- */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile top bar */}
         <div className="h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 gap-3 md:hidden shrink-0">

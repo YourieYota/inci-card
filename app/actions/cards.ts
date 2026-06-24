@@ -55,9 +55,12 @@ export async function createCardFormat(data: {
         companyId: data.companyId || null,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Error creating card format:', error);
-    throw new Error('Impossible de créer le format de carte. Le nom existe peut-être déjà pour cette entreprise.');
+    if (error.code === 'P2002') {
+      throw new Error('Impossible de créer le format de carte. Le nom existe déjà pour cette entreprise.');
+    }
+    throw new Error(`Impossible de créer le format de carte: ${error.message || error}`);
   }
 }
 
@@ -115,7 +118,7 @@ export async function createCardCategory(data: {
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    return await prisma.cardCategory.create({
+    const category = await prisma.cardCategory.create({
       data: {
         name: data.name,
         slug,
@@ -124,13 +127,23 @@ export async function createCardCategory(data: {
         formatId: data.formatId,
         companyId: data.companyId || null,
       },
-      include: {
-        format: true,
-      },
     });
-  } catch (error) {
+
+    const format = await prisma.cardFormat.findUnique({
+      where: { id: data.formatId },
+    });
+    if (!format) throw new Error("Format de carte introuvable");
+
+    return {
+      ...category,
+      format,
+    };
+  } catch (error: any) {
     console.warn('Error creating card category:', error);
-    throw new Error('Impossible de créer la catégorie. Le nom existe peut-être déjà pour cette entreprise.');
+    if (error.code === 'P2002') {
+      throw new Error('Impossible de créer la catégorie. Le nom existe déjà pour cette entreprise.');
+    }
+    throw new Error(`Impossible de créer la catégorie: ${error.message || error}`);
   }
 }
 
@@ -185,9 +198,12 @@ export async function createCardPhysicalType(data: {
         companyId: data.companyId || null,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Error creating card physical type:', error);
-    throw new Error('Impossible de créer le type de carte. Le nom existe peut-être déjà pour cette entreprise.');
+    if (error.code === 'P2002') {
+      throw new Error('Impossible de créer le type de carte. Le nom existe déjà pour cette entreprise.');
+    }
+    throw new Error(`Impossible de créer le type de carte: ${error.message || error}`);
   }
 }
 

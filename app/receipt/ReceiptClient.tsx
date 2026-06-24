@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { Printer, X, User, QrCode } from 'lucide-react';
+import QRCode from 'react-qr-code';
 
 interface SerializedEmployee {
   id: string;
@@ -48,15 +49,70 @@ const getFieldValue = (emp: SerializedEmployee, field?: string) => {
     return emp.id.slice(0, 8).toUpperCase();
   }
   if (normalizedTarget === 'date d\'enrolement' || normalizedTarget === 'date d\'enrôlement' || normalizedTarget === 'date') {
-    return new Date(emp.createdAt).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const d = new Date(emp.createdAt);
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    return `${day}/${month}/${year}`;
   }
 
+  const data = emp.dynamicData as Record<string, any>;
+  if (data) {
+    const targetKey = field.toLowerCase().trim();
+    let rawVal: any = undefined;
+    if (data[field] !== undefined) {
+      rawVal = data[field];
+    } else {
+      for (const key of Object.keys(data)) {
+        if (key.toLowerCase().trim() === targetKey && data[key] !== undefined) {
+          rawVal = data[key];
+          break;
+        }
+        if (normalize(key) === normalizedTarget && data[key] !== undefined) {
+          rawVal = data[key];
+          break;
+        }
+      }
+    }
+
+    if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+      const isDateField = normalizedTarget.startsWith('date') ||
+        (typeof rawVal === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(rawVal));
+
+      if (isDateField) {
+        const dateObj = new Date(rawVal);
+        if (!isNaN(dateObj.getTime())) {
+          const day = String(dateObj.getUTCDate()).padStart(2, '0');
+          const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+          const year = dateObj.getUTCFullYear();
+          return `${day}/${month}/${year}`;
+        }
+      }
+      return String(rawVal);
+    }
+
+    // 3. Synonym mapping fallback (common Excel column alternatives)
+    const synonyms: Record<string, string[]> = {
+      nom: ['lastname', 'nom de famille', 'name', 'nom'],
+      prenom: ['firstname', 'prénom', 'prenoms', 'prénoms', 'prenom'],
+      role: ['fonction', 'poste', 'job', 'role', 'rôle', 'title', 'roles'],
+      matricule: ['id', 'uuid', 'code', 'identifiant', 'matricule', 'numéro', 'numero'],
+    };
+
+    const cleanField = normalizedTarget;
+    if (synonyms[cleanField]) {
+      for (const alt of synonyms[cleanField]) {
+        const normalizedAlt = normalize(alt);
+        for (const key of Object.keys(data)) {
+          if (normalize(key) === normalizedAlt && data[key] !== undefined && data[key] !== null && data[key] !== '') {
+            return String(data[key]);
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Fallback for general identifier fields to use enrollmentNumber
   const isIdentifierField = [
     'matricule', 'id', 'uuid', 'code', 'identifiant', 'numéro', 'numero'
   ].includes(normalizedTarget);
@@ -65,45 +121,8 @@ const getFieldValue = (emp: SerializedEmployee, field?: string) => {
     return emp.enrollmentNumber;
   }
 
-  const data = emp.dynamicData as Record<string, any>;
-  if (!data) return `{${field}}`;
-
-  // 1. Try exact match
-  if (data[field] !== undefined) return String(data[field]);
-
-  // 2. Try case and accent-insensitive match
-  const targetKey = field.toLowerCase().trim();
-  for (const key of Object.keys(data)) {
-    if (key.toLowerCase().trim() === targetKey && data[key] !== undefined) {
-      return String(data[key]);
-    }
-    if (normalize(key) === normalizedTarget && data[key] !== undefined) {
-      return String(data[key]);
-    }
-  }
-
-  // 3. Synonym mapping fallback (common Excel column alternatives)
-  const synonyms: Record<string, string[]> = {
-    nom: ['lastname', 'nom de famille', 'name', 'nom'],
-    prenom: ['firstname', 'prénom', 'prenoms', 'prénoms', 'prenom'],
-    role: ['fonction', 'poste', 'job', 'role', 'rôle', 'title', 'roles'],
-    matricule: ['id', 'uuid', 'code', 'identifiant', 'matricule', 'numéro', 'numero'],
-  };
-
-  const cleanField = normalizedTarget;
-  if (synonyms[cleanField]) {
-    for (const alt of synonyms[cleanField]) {
-      const normalizedAlt = normalize(alt);
-      for (const key of Object.keys(data)) {
-        if (normalize(key) === normalizedAlt && data[key] !== undefined) {
-          return String(data[key]);
-        }
-      }
-    }
-  }
-
-  // 4. Combined name splitting fallback
-  if (normalizedTarget === 'nom' || normalizedTarget === 'prenom') {
+  // 5. Combined name splitting fallback
+  if (data && (normalizedTarget === 'nom' || normalizedTarget === 'prenom')) {
     const combinedKeys = [
       'noms et prenoms', 'noms et prenom', 'nom et prenom',
       'noms & prenoms', 'nom & prenom', 'nom complet', 'fullname', 'nom prenom',
@@ -193,14 +212,14 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
       <div className="no-print mb-6 flex justify-between gap-4" style={{ width: `${mmWidth}mm` }}>
         <button
           onClick={() => window.close()}
-          className="flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-750 text-neutral-700 dark:text-neutral-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
         >
           <X className="w-4 h-4" />
           <span>Fermer</span>
         </button>
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
+          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
         >
           <Printer className="w-4 h-4" />
           <span>Imprimer le Reçu</span>
@@ -300,7 +319,7 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                             alt="Photo"
                           />
                         ) : (
-                          <User className="w-8 h-8 text-neutral-450" />
+                          <User className="w-8 h-8 text-neutral-400" />
                         )}
                       </div>
                     )}
@@ -313,19 +332,16 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                           borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
                           borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                           borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                          padding: '5%',
                         }}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                        <QRCode
+                          value={
                             getFieldValue(employee, el.field) || employee.enrollmentNumber || employee.uniqueIdentifier
-                          )}`}
-                          style={{
-                            width: '90%',
-                            height: '90%',
-                            objectFit: 'contain',
-                          }}
-                          alt="QR Code"
+                          }
+                          size={150}
+                          style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                          viewBox="0 0 256 256"
                         />
                       </div>
                     )}

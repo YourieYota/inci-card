@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaNeonHttp } from '@prisma/adapter-neon';
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy';
-const adapter = new PrismaNeonHttp(connectionString);
+const adapter = new PrismaNeonHttp(connectionString, { schema: 'public' } as any);
 const prisma = new PrismaClient({ adapter });
 
 prisma.company.findMany()

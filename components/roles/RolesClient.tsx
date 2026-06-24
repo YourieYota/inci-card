@@ -11,8 +11,9 @@ import {
 } from '@/app/actions/roles';
 import { addOfflineMutation } from '@/lib/offlineQueue';
 import { PERMISSION_KEYS } from '@/lib/permissions';
+import { safeSetItem, safeGetItem } from '@/lib/storage';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types --------------------------------------------------------------------
 interface RoleData {
   id: string;
   name: string;
@@ -25,7 +26,7 @@ interface RoleData {
   createdAt: Date;
 }
 
-// ─── Colour presets ───────────────────────────────────────────────────────────
+// --- Colour presets -----------------------------------------------------------
 const COLOR_PRESETS = [
   '#f43f5e', '#f97316', '#eab308', '#22c55e',
   '#06b6d4', '#6366f1', '#8b5cf6', '#ec4899',
@@ -39,7 +40,7 @@ const PERM_GROUPS = PERMISSION_KEYS.reduce((acc, p) => {
   return acc;
 }, {} as Record<string, typeof PERMISSION_KEYS[number][]>);
 
-// ─── Role Form (shared Create / Edit) ─────────────────────────────────────────
+// --- Role Form (shared Create / Edit) -----------------------------------------
 function RoleForm({
   initial,
   isSystem,
@@ -254,7 +255,7 @@ function RoleForm({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// --- Main Component -----------------------------------------------------------
 export default function RolesClient({ currentUserSlug }: { currentUserSlug: string }) {
   const [roles, setRoles] = useState<RoleData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -282,14 +283,10 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
       const parsed = data.map(r => ({ ...r, createdAt: new Date(r.createdAt) }));
       setRoles(parsed);
       setIsOfflineMode(false);
-      try {
-        localStorage.setItem("inci-cache:roles", JSON.stringify(parsed));
-      } catch (e) {
-        console.error("Failed to write roles cache:", e);
-      }
+      safeSetItem("inci-cache:roles", JSON.stringify(parsed));
     } catch (e: any) {
       try {
-        const cached = localStorage.getItem("inci-cache:roles");
+        const cached = safeGetItem("inci-cache:roles");
         if (cached) {
           setRoles(JSON.parse(cached).map((r: any) => ({ ...r, createdAt: new Date(r.createdAt) })));
           setIsOfflineMode(true);
@@ -298,7 +295,7 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
           setError(e.message || 'Impossible de charger les rôles');
         }
       } catch (err) {
-        console.error("Failed to read roles cache:", err);
+        console.warn("Failed to read roles cache:", err);
         setError(e.message || 'Impossible de charger les rôles');
       }
     } finally {
@@ -329,7 +326,7 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
       };
       const updatedRoles = [...roles, mockRole].sort((a, b) => a.name.localeCompare(b.name));
       setRoles(updatedRoles);
-      localStorage.setItem("inci-cache:roles", JSON.stringify(updatedRoles));
+      safeSetItem("inci-cache:roles", JSON.stringify(updatedRoles));
       
       addOfflineMutation(
         'CREATE_ROLE',
@@ -366,7 +363,7 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
         return r;
       });
       setRoles(updatedRoles);
-      localStorage.setItem("inci-cache:roles", JSON.stringify(updatedRoles));
+      safeSetItem("inci-cache:roles", JSON.stringify(updatedRoles));
 
       addOfflineMutation(
         'UPDATE_ROLE',
@@ -395,7 +392,7 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
       if (isOfflineMode) {
         const updatedRoles = roles.filter((r) => r.id !== deletingRole.id);
         setRoles(updatedRoles);
-        localStorage.setItem("inci-cache:roles", JSON.stringify(updatedRoles));
+        safeSetItem("inci-cache:roles", JSON.stringify(updatedRoles));
 
         addOfflineMutation(
           'DELETE_ROLE',
@@ -426,7 +423,7 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
 
 
 
-  // ── CREATE/EDIT form view ─────────────────────────────────────────────────
+  // -- CREATE/EDIT form view -------------------------------------------------
   if (mode === 'create') {
     return (
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -485,7 +482,7 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
     );
   }
 
-  // ── LIST view ─────────────────────────────────────────────────────────────
+  // -- LIST view -------------------------------------------------------------
   return (
     <div className="space-y-6">
       {/* Success banner */}

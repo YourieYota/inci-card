@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { PERMISSION_KEYS } from '@/lib/permissions';
 
-// ─── System roles default permissions ─────────────────────────────────────────
+// --- System roles default permissions -----------------------------------------
 const SYSTEM_ROLES = [
   {
     name: 'Administrateur',
@@ -45,7 +45,7 @@ const SYSTEM_ROLES = [
   },
 ];
 
-// ─── Ensure system roles exist in DB ─────────────────────────────────────────
+// --- Ensure system roles exist in DB -----------------------------------------
 async function ensureSystemRoles() {
   for (const role of SYSTEM_ROLES) {
     await prisma.customRole.upsert({
@@ -56,7 +56,7 @@ async function ensureSystemRoles() {
   }
 }
 
-// ─── Get all roles ────────────────────────────────────────────────────────────
+// --- Get all roles ------------------------------------------------------------
 export async function getRoles() {
   try {
     const session = await getServerSession(authOptions);
@@ -84,7 +84,7 @@ export async function getRoles() {
   }
 }
 
-// ─── Create a role ────────────────────────────────────────────────────────────
+// --- Create a role ------------------------------------------------------------
 export async function createRole(data: {
   name: string;
   slug: string;
@@ -120,7 +120,7 @@ export async function createRole(data: {
   }
 }
 
-// ─── Update a role ────────────────────────────────────────────────────────────
+// --- Update a role ------------------------------------------------------------
 export async function updateRole(id: string, data: {
   name: string;
   description?: string;
@@ -149,7 +149,7 @@ export async function updateRole(id: string, data: {
   }
 }
 
-// ─── Delete a role ────────────────────────────────────────────────────────────
+// --- Delete a role ------------------------------------------------------------
 export async function deleteRole(id: string) {
   try {
     const session = await getServerSession(authOptions);

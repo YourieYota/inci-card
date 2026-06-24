@@ -8,6 +8,8 @@ import Canvas, { StudioElement } from './Canvas';
 import Toolbar from './Toolbar';
 import PropertiesPanel from './PropertiesPanel';
 import { getTemplate, saveTemplate, createCompany, getCompanyFields } from '@/app/actions/templates';
+import { getCardCategories, getCardFormats, getCardPhysicalTypes } from '@/app/actions/cards';
+import { safeSetItem, safeGetItem } from '@/lib/storage';
 
 const getDefaultElements = (width: number, height: number, type?: CardType): StudioElement[] => {
   const isPortrait = height > width;
@@ -399,32 +401,63 @@ const getDefaultElements = (width: number, height: number, type?: CardType): Stu
 interface StudioClientProps {
   initialCompanies: Company[];
   initialCategories: any[];
+  initialFormats: any[];
+  initialPhysicalTypes: any[];
   dbError?: boolean;
 }
 
-export default function StudioClient({ initialCompanies, initialCategories, dbError = false }: StudioClientProps) {
+export default function StudioClient({ 
+  initialCompanies, 
+  initialCategories, 
+  initialFormats,
+  initialPhysicalTypes,
+  dbError = false 
+}: StudioClientProps) {
   const [companies, setCompanies] = useState<Company[]>(initialCompanies);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [cardType, setCardType] = useState<CardType>('BADGE');
+  const [categories, setCategories] = useState<any[]>(initialCategories);
+  const [formats, setFormats] = useState<any[]>(initialFormats);
+  const [physicalTypes, setPhysicalTypes] = useState<any[]>(initialPhysicalTypes);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [selectedPhysicalTypeId, setSelectedPhysicalTypeId] = useState<string>('');
   const [dynamicFields, setDynamicFields] = useState<string[]>(['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise']);
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(dbError);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  // Load categories, formats, and physical types dynamically when selectedCompanyId changes
+  useEffect(() => {
+    const loadCompanyConfigData = async () => {
+      try {
+        const [cList, fList, tList] = await Promise.all([
+          getCardCategories(selectedCompanyId || null),
+          getCardFormats(selectedCompanyId || null),
+          getCardPhysicalTypes(selectedCompanyId || null),
+        ]);
+        setCategories(cList);
+        setFormats(fList);
+        setPhysicalTypes(tList);
+      } catch (err) {
+        console.warn("Failed to load company config data in studio:", err);
+      }
+    };
+    
+    if (mounted && !isOfflineMode) {
+      loadCompanyConfigData();
+    }
+  }, [selectedCompanyId, mounted, isOfflineMode]);
 
   // Sync and cache companies list
   useEffect(() => {
     if (!dbError) {
       setCompanies(initialCompanies || []);
       if (initialCompanies && initialCompanies.length > 0) {
-        try {
-          localStorage.setItem("inci-cache:companies", JSON.stringify(initialCompanies));
-        } catch (e) {
-          console.warn("Failed to write companies cache:", e);
-        }
+        safeSetItem("inci-cache:companies", JSON.stringify(initialCompanies));
       }
       setIsOfflineMode(false);
     } else {
       try {
-        const cached = localStorage.getItem("inci-cache:companies");
+        const cached = safeGetItem("inci-cache:companies");
         if (cached) {
           setCompanies(JSON.parse(cached));
         }
@@ -468,8 +501,6 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
   const [showCreateCompanyModal, setShowCreateCompanyModal] = useState<boolean>(false);
   const [newCompanyName, setNewCompanyName] = useState<string>('');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [mounted, setMounted] = useState<boolean>(false);
-
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -855,13 +886,14 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
       
       // Parse layoutConfig
       const config = template.layoutConfig as any;
+      let loadedRadius = 8;
+      let loadedPhysicalTypeId = '';
       let loadedRectoElements: StudioElement[] = [];
       let loadedVersoElements: StudioElement[] = [];
       let loadedRectoBg = '';
       let loadedVersoBg = '';
       let loadedRectoOpacity = 1;
       let loadedVersoOpacity = 1;
-      let loadedRadius = 8;
 
       if (config && typeof config === 'object') {
         if ('recto' in config || 'verso' in config) {
@@ -876,11 +908,13 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
           loadedVersoOpacity = verso.backgroundOpacity !== undefined ? verso.backgroundOpacity : 1;
           
           loadedRadius = config.borderRadius !== undefined ? config.borderRadius : 8;
+          loadedPhysicalTypeId = config.physicalTypeId || '';
         } else if ('elements' in config) {
           loadedRectoElements = config.elements || [];
           loadedRectoOpacity = config.backgroundOpacity !== undefined ? config.backgroundOpacity : 1;
           loadedRectoBg = template.backgroundUrl || '';
           loadedRadius = config.borderRadius !== undefined ? config.borderRadius : 8;
+          loadedPhysicalTypeId = config.physicalTypeId || '';
         } else {
           loadedRectoElements = (config as unknown as StudioElement[]) || [];
           loadedRectoBg = template.backgroundUrl || '';
@@ -894,6 +928,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
       setRectoBackgroundOpacity(loadedRectoOpacity);
       setVersoBackgroundOpacity(loadedVersoOpacity);
       setCanvasBorderRadius(loadedRadius);
+      setSelectedPhysicalTypeId(loadedPhysicalTypeId);
       setCurrentSide('recto');
 
       setElements(loadedRectoElements);
@@ -945,6 +980,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
       setCanvasBackground('');
       setCanvasBackgroundOpacity(1);
       setCanvasBorderRadius(8);
+      setSelectedPhysicalTypeId('');
       setCurrentSide('recto');
       
       const initialState = {
@@ -991,15 +1027,11 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
         const template = await getTemplate(selectedCompanyId, cardType, selectedCategoryId);
         
         // Cache fields and template locally
-        try {
-          localStorage.setItem(`inci-cache:fields:${selectedCompanyId}`, JSON.stringify(fields));
-          if (template) {
-            localStorage.setItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`, JSON.stringify(template));
-          } else {
-            localStorage.removeItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`);
-          }
-        } catch (e) {
-          console.warn("Failed to write template cache:", e);
+        safeSetItem(`inci-cache:fields:${selectedCompanyId}`, JSON.stringify(fields));
+        if (template) {
+          safeSetItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`, JSON.stringify(template));
+        } else {
+          localStorage.removeItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`);
         }
 
         setIsOfflineMode(false);
@@ -1007,8 +1039,8 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
       } catch (err: any) {
         // Fallback to local cache
         try {
-          const cachedFields = localStorage.getItem(`inci-cache:fields:${selectedCompanyId}`);
-          const cachedTemplateStr = localStorage.getItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`);
+          const cachedFields = safeGetItem(`inci-cache:fields:${selectedCompanyId}`);
+          const cachedTemplateStr = safeGetItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`);
           
           if (cachedFields) {
             setDynamicFields(JSON.parse(cachedFields));
@@ -1163,6 +1195,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
             backgroundOpacity: finalVersoOpacity,
           },
           borderRadius: canvasBorderRadius,
+          physicalTypeId: selectedPhysicalTypeId || null,
         } as any,
       };
 
@@ -1206,7 +1239,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
   return (
     <div className="flex flex-col gap-6 min-h-screen" id="studio-workspace">
       {/* HEADER BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-850 py-4 px-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-800 py-4 px-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
@@ -1216,7 +1249,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
           </Link>
           <div>
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Studio de Création</h1>
-            <p className="text-xs text-neutral-450 dark:text-neutral-500">
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">
               Concevez des modèles de badges et cartes d&apos;impression
             </p>
           </div>
@@ -1227,7 +1260,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
           <div
             className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold border shadow-md animate-in fade-in slide-in-from-top-4 duration-300 ${
               notification.type === 'success'
-                ? 'bg-emerald-50 border-emerald-255 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-400'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-400'
                 : 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-900 dark:text-rose-400'
             }`}
           >
@@ -1247,7 +1280,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
             <select
               value={selectedCompanyId}
               onChange={(e) => setSelectedCompanyId(e.target.value)}
-              className="px-3.5 py-2.5 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/25 min-w-[200px]"
+              className="px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/25 min-w-[200px]"
             >
               <option value="">Sélectionnez l&apos;entreprise</option>
               {companies.map((c) => (
@@ -1260,7 +1293,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
               onClick={() => {
                 setShowCreateCompanyModal(true);
               }}
-              className="p-2.5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-55 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 text-indigo-650 dark:text-indigo-400 transition"
+              className="p-2.5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 transition"
               title="Ajouter une entreprise"
             >
               <Plus className="w-4 h-4" />
@@ -1269,11 +1302,11 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
 
           {/* Card Type Selector (Dropdown) */}
           <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 py-1.5">
-            <span className="text-[11px] text-neutral-450 dark:text-neutral-500 font-bold uppercase tracking-wider">Type :</span>
+            <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider">Type :</span>
             <select
               value={cardType}
               onChange={(e) => setCardType(e.target.value as any)}
-              className="bg-transparent text-xs font-semibold text-neutral-750 dark:text-neutral-350 outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold text-neutral-700 dark:text-neutral-300 outline-none cursor-pointer"
             >
               <option value="BADGE" className="dark:bg-neutral-900 font-semibold">Badge</option>
               <option value="CARTE_PRO" className="dark:bg-neutral-900 font-semibold">Carte Pro</option>
@@ -1283,16 +1316,33 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
 
           {/* Card Category Selector */}
           <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 py-1.5">
-            <span className="text-[11px] text-neutral-450 dark:text-neutral-500 font-bold uppercase tracking-wider">Catégorie :</span>
+            <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider">Catégorie :</span>
             <select
               value={selectedCategoryId}
               onChange={(e) => setSelectedCategoryId(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-neutral-750 dark:text-neutral-350 outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold text-neutral-700 dark:text-neutral-300 outline-none cursor-pointer"
             >
               <option value="" className="dark:bg-neutral-900 font-medium">(Générique / Par défaut)</option>
-              {initialCategories.map((cat) => (
+              {categories.map((cat) => (
                 <option key={cat.id} value={cat.id} className="dark:bg-neutral-900 font-semibold">
                   {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Card Physical Type Selector */}
+          <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3 py-1.5">
+            <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider">Type de Support :</span>
+            <select
+              value={selectedPhysicalTypeId}
+              onChange={(e) => setSelectedPhysicalTypeId(e.target.value)}
+              className="bg-transparent text-xs font-semibold text-neutral-700 dark:text-neutral-300 outline-none cursor-pointer"
+            >
+              <option value="" className="dark:bg-neutral-900 font-medium">(Aucun)</option>
+              {physicalTypes.map((pt) => (
+                <option key={pt.id} value={pt.id} className="dark:bg-neutral-900 font-semibold">
+                  {pt.name} {pt.cardCode ? `(${pt.cardCode})` : ''}
                 </option>
               ))}
             </select>
@@ -1305,8 +1355,8 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
                 onClick={() => handleSwitchSide('recto')}
                 className={`px-4.5 py-2 rounded-lg text-xs font-bold transition ${
                   currentSide === 'recto'
-                    ? 'bg-white dark:bg-neutral-850 text-indigo-650 dark:text-indigo-400 shadow-sm'
-                    : 'text-neutral-550 hover:text-neutral-700 dark:hover:text-neutral-300'
+                    ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
                 }`}
               >
                 Recto (Face)
@@ -1315,8 +1365,8 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
                 onClick={() => handleSwitchSide('verso')}
                 className={`px-4.5 py-2 rounded-lg text-xs font-bold transition ${
                   currentSide === 'verso'
-                    ? 'bg-white dark:bg-neutral-850 text-indigo-650 dark:text-indigo-400 shadow-sm'
-                    : 'text-neutral-550 hover:text-neutral-700 dark:hover:text-neutral-300'
+                    ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
                 }`}
               >
                 Verso (Dos)
@@ -1344,7 +1394,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
 
           {/* Undo / Redo buttons */}
           {selectedCompanyId && (
-            <div className="flex border border-neutral-250 dark:border-neutral-800 rounded-xl overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5">
+            <div className="flex border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5">
               <button
                 onClick={handleUndo}
                 disabled={historyIndex <= 0}
@@ -1368,7 +1418,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
           <button
             onClick={handleSave}
             disabled={isSaving || !selectedCompanyId}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-755 text-white disabled:bg-neutral-205 dark:disabled:bg-neutral-800 disabled:text-neutral-405 dark:disabled:text-neutral-650 transition shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-neutral-200 dark:disabled:bg-neutral-800 disabled:text-neutral-400 dark:disabled:text-neutral-600 transition shadow-sm"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>Sauvegarder</span>
@@ -1394,12 +1444,12 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
       {/* STUDIO WORKSPACE */}
       {!selectedCompanyId ? (
         // STATE: NO COMPANY SELECTED
-        <div className="flex-1 flex flex-col items-center justify-center py-16 px-6 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm text-center min-h-[450px]">
+        <div className="flex-1 flex flex-col items-center justify-center py-16 px-6 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm text-center min-h-[450px]">
           <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 dark:text-indigo-400 flex items-center justify-center mb-4 border border-indigo-100 dark:border-indigo-900/50">
             <Save className="w-8 h-8" />
           </div>
-          <h2 className="text-lg font-bold text-neutral-850 dark:text-white mb-2">Configurez votre modèle</h2>
-          <p className="text-sm text-neutral-450 dark:text-neutral-500 max-w-sm mb-6">
+          <h2 className="text-lg font-bold text-neutral-800 dark:text-white mb-2">Configurez votre modèle</h2>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500 max-w-sm mb-6">
             Sélectionnez une entreprise cliente dans la barre supérieure pour charger son modèle ou commencez à en créer un nouveau.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
@@ -1425,9 +1475,9 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
         </div>
       ) : isLoading ? (
         // STATE: LOADING
-        <div className="flex-1 flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm min-h-[450px]">
+        <div className="flex-1 flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm min-h-[450px]">
           <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
-          <p className="text-sm text-neutral-450 dark:text-neutral-505">Chargement de la configuration...</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">Chargement de la configuration...</p>
         </div>
       ) : (
         // STATE: ACTIVE EDITOR
@@ -1474,6 +1524,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
               onUpdateElement={handleUpdateElement}
               onDeleteElement={handleDeleteElement}
               suggestedFields={dynamicFields}
+              formats={formats}
             />
           </div>
         </div>
@@ -1482,8 +1533,8 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
       {/* CREATE COMPANY MODAL */}
       {showCreateCompanyModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-bold text-neutral-850 dark:text-white mb-2">Ajouter une entreprise</h3>
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter une entreprise</h3>
             <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
               Créez une fiche pour une nouvelle entreprise cliente pour laquelle vous imprimerez des cartes.
             </p>
@@ -1497,7 +1548,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
                   placeholder="Ex: Acme Corp"
                   value={newCompanyName}
                   onChange={(e) => setNewCompanyName(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm"
+                  className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm"
                 />
               </div>
 
@@ -1508,7 +1559,7 @@ export default function StudioClient({ initialCompanies, initialCategories, dbEr
                     setShowCreateCompanyModal(false);
                     setNewCompanyName('');
                   }}
-                  className="px-4 py-2 text-xs font-bold border border-neutral-250 dark:border-neutral-800 hover:bg-neutral-55 dark:hover:bg-neutral-800 rounded-xl text-neutral-600 dark:text-neutral-450 transition"
+                  className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-600 dark:text-neutral-400 transition"
                 >
                   Annuler
                 </button>

@@ -1,4 +1,4 @@
-'use client';
+import { safeSetItem, safeGetItem } from './storage';
 
 export interface OfflineMutation {
   id: string;
@@ -13,10 +13,10 @@ const QUEUE_KEY = 'inci-offline-mutations';
 export function getOfflineQueue(): OfflineMutation[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(QUEUE_KEY);
+    const raw = safeGetItem(QUEUE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
-    console.error('Failed to read offline mutations queue:', e);
+    console.warn('Failed to read offline mutations queue:', e);
     return [];
   }
 }
@@ -36,12 +36,12 @@ export function addOfflineMutation(type: string, payload: any, description: stri
   try {
     const queue = getOfflineQueue();
     queue.push(mutation);
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    safeSetItem(QUEUE_KEY, JSON.stringify(queue));
     
     // Notify all components of queue change
     window.dispatchEvent(new CustomEvent('inci-offline-mutations-changed', { detail: queue }));
   } catch (e) {
-    console.error('Failed to append to offline mutations queue:', e);
+    console.warn('Failed to append to offline mutations queue:', e);
   }
 
   return id;
@@ -53,7 +53,7 @@ export function clearOfflineQueue(): void {
     localStorage.removeItem(QUEUE_KEY);
     window.dispatchEvent(new CustomEvent('inci-offline-mutations-changed', { detail: [] }));
   } catch (e) {
-    console.error('Failed to clear offline mutations queue:', e);
+    console.warn('Failed to clear offline mutations queue:', e);
   }
 }
 
@@ -61,9 +61,9 @@ export function removeOfflineMutation(id: string): void {
   if (typeof window === 'undefined') return;
   try {
     const queue = getOfflineQueue().filter((mut) => mut.id !== id);
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    safeSetItem(QUEUE_KEY, JSON.stringify(queue));
     window.dispatchEvent(new CustomEvent('inci-offline-mutations-changed', { detail: queue }));
   } catch (e) {
-    console.error('Failed to remove from offline mutations queue:', e);
+    console.warn('Failed to remove from offline mutations queue:', e);
   }
 }

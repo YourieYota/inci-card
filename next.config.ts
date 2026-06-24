@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
+const nextConfig: any = {
   // Autoriser l'accès depuis l'IP locale pour le développement
   allowedDevOrigins: ["10.153.255.238", "localhost"],
   experimental: {
@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
   // Headers HTTP
   async headers() {
     return [
-      // ── Content Security Policy global ──────────────────────────────────────
+      // -- Content Security Policy global --------------------------------------
       // Autorise les images du pont Canon (localhost:4000/photos/) dans les <img>
       {
         source: '/(.*)',
@@ -50,7 +50,7 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // ── Service Worker PWA ───────────────────────────────────────────────────
+      // -- Service Worker PWA ---------------------------------------------------
       {
         source: "/sw.js",
         headers: [

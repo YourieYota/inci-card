@@ -48,9 +48,12 @@ model User {
 
 // Entreprises Clientes
 model Company {
-  id             String             @id @default(uuid())
-  name           String             @unique
-  createdAt      DateTime           @default(now())
+  id               String             @id @default(uuid())
+  name             String             @unique
+  identifierPrefix String?
+  isLocked         Boolean            @default(false)
+  isLaserEnabled   Boolean            @default(false)
+  createdAt        DateTime           @default(now())
   
   // Relations
   employees      Employee[]
@@ -79,6 +82,8 @@ model Employee {
   
   status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME, A_VERIFIER
   printedAt        DateTime? 
+  enrolledBy       String?
+  printedBy        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @default(now()) @updatedAt
   

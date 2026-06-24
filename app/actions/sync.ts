@@ -7,7 +7,8 @@ import {
   saveEmployeePhoto, 
   updateEmployeeStatus, 
   bulkUpdateEmployeeStatus, 
-  updateEmployeeData 
+  updateEmployeeData,
+  deleteEmployee
 } from '@/app/actions/employees';
 import { createRole, updateRole, deleteRole } from '@/app/actions/roles';
 import { adminCreateUser, adminUpdateUser, adminDeleteUser } from '@/app/actions/users';
@@ -56,7 +57,7 @@ export async function syncOfflineMutations(mutations: any[]) {
           }
         }
 
-        // ── Déterminer la valeur à sauvegarder ──
+        // -- Déterminer la valeur à sauvegarder --
         let finalPhotoValue = payload.photoBase64 || payload.photoUrl || '';
 
         // Si c'est un Base64 (mode offline), l'uploader d'abord vers le pont
@@ -154,6 +155,28 @@ export async function syncOfflineMutations(mutations: any[]) {
         await bulkUpdateEmployeeStatus(resolvedEmployeeIds, payload.status);
         results.push({ id, success: true });
       } 
+      else if (type === 'DELETE_EMPLOYEE') {
+        let resolvedEmployeeId = payload.employeeId;
+
+        if (payload.tempEmployeeKey) {
+          const { companyId, uniqueIdentifier } = payload.tempEmployeeKey;
+          const realCoId = companyIdMap[companyId] || companyId;
+          const emp = await prisma.employee.findUnique({
+            where: {
+              companyId_uniqueIdentifier: {
+                companyId: realCoId,
+                uniqueIdentifier,
+              },
+            },
+          });
+          if (emp) {
+            resolvedEmployeeId = emp.id;
+          }
+        }
+
+        await deleteEmployee(resolvedEmployeeId);
+        results.push({ id, success: true });
+      }
       else if (type === 'SAVE_TEMPLATE') {
         const resolvedCompanyId = companyIdMap[payload.companyId] || payload.companyId;
         

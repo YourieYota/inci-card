@@ -526,14 +526,14 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     <div className="space-y-6">
       {view === 'list' ? (
         <>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-indigo-50 dark:bg-neutral-900 text-indigo-500 rounded-xl border border-indigo-100 dark:border-neutral-800 shadow-sm">
                 <Package className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-neutral-890 dark:text-white">Lots d&apos;expédition</h1>
-                <p className="text-xs text-neutral-450 dark:text-neutral-500">
+                <h1 className="text-xl font-bold text-neutral-800 dark:text-white">Lots d&apos;expédition</h1>
+                <p className="text-xs text-neutral-400 dark:text-neutral-500">
                   Gérez les colis de badges imprimés, organisez-les en lots de livraison et suivez leur expédition.
                 </p>
               </div>
@@ -541,14 +541,14 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
             <button
               onClick={handleCreateNewClick}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition shadow-sm cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition shadow-sm cursor-pointer"
             >
               <Package className="w-4 h-4" />
               <span>Créer un Lot</span>
             </button>
           </div>
 
-          <div className="flex bg-white dark:bg-neutral-850 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="flex bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <div className="relative flex-1 max-w-md">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-neutral-400">
                 <Search className="w-4 h-4" />
@@ -565,14 +565,14 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredBatches.length === 0 ? (
-              <div className="col-span-full py-16 text-center flex flex-col items-center bg-white dark:bg-neutral-850 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+              <div className="col-span-full py-16 text-center flex flex-col items-center bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800">
                 <Package className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mb-3" />
                 <h3 className="text-neutral-700 dark:text-neutral-300 font-semibold">Aucun lot trouvé</h3>
                 <p className="text-neutral-500 text-xs mt-1">Créez votre premier lot de livraison pour expédier vos badges.</p>
               </div>
             ) : (
               filteredBatches.map(batch => (
-                <div key={batch.id} className="bg-white dark:bg-neutral-850 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition">
+                <div key={batch.id} className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition">
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <span className="font-mono text-xs font-bold bg-neutral-50 dark:bg-neutral-900 px-2.5 py-1.5 rounded text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800">
@@ -590,16 +590,16 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 mb-2.5 text-neutral-800 dark:text-neutral-250 font-bold">
+                    <div className="flex items-center gap-2 mb-2.5 text-neutral-800 dark:text-neutral-200 font-bold">
                       <Building2 className="w-4 h-4 text-indigo-500" />
                       <span>{batch.company?.name || 'Entreprise inconnue'}</span>
                     </div>
-                    <p className="text-xs text-neutral-450 dark:text-neutral-500 mb-4 flex items-center gap-1.5 font-medium">
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4 flex items-center gap-1.5 font-medium">
                       <Clock className="w-3.5 h-3.5" />
                       Créé le {new Date(batch.createdAt).toLocaleDateString('fr-FR')}
                     </p>
                     <div className="p-4.5 bg-neutral-50 dark:bg-neutral-900 rounded-2xl border border-neutral-100 dark:border-neutral-800">
-                      <p className="text-[10px] text-neutral-450 font-bold uppercase tracking-wider">Cartes incluses</p>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Cartes incluses</p>
                       <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-200 mt-1">
                         {batch._count?.employees || 0}
                       </p>
@@ -607,12 +607,12 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                   </div>
                   <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex gap-2">
                     {batch.status === 'PREPARE' && (
-                      <button onClick={() => handleUpdateStatus(batch.id, 'EN_TRANSIT')} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 text-xs font-bold text-blue-650 bg-blue-50 hover:bg-blue-100 rounded-xl transition border border-blue-200/50 cursor-pointer">
+                      <button onClick={() => handleUpdateStatus(batch.id, 'EN_TRANSIT')} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition border border-blue-200/50 cursor-pointer">
                         <Truck className="w-3.5 h-3.5" /> Expédier
                       </button>
                     )}
                     {batch.status === 'EN_TRANSIT' && (
-                      <button onClick={() => handleUpdateStatus(batch.id, 'LIVRE')} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 text-xs font-bold text-emerald-650 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition border border-emerald-200/50 cursor-pointer">
+                      <button onClick={() => handleUpdateStatus(batch.id, 'LIVRE')} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition border border-emerald-200/50 cursor-pointer">
                         <CheckCircle className="w-3.5 h-3.5" /> Réceptionné
                       </button>
                     )}
@@ -664,7 +664,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
               <button
                 onClick={handleSaveBatch}
                 disabled={isSubmitting || Object.values(selectedEmployeeIds).filter(Boolean).length === 0}
-                className="flex items-center gap-2 px-5 py-2 text-xs font-bold bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {editorMode === 'create' ? 'Créer le lot' : 'Enregistrer'}
@@ -686,7 +686,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                     value={selectedCompanyId}
                     onChange={(e) => setSelectedCompanyId(e.target.value)}
                     disabled={editorMode === 'edit'}
-                    className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-850 text-neutral-800 dark:text-neutral-200 rounded-xl text-sm outline-none disabled:opacity-60"
+                    className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-xl text-sm outline-none disabled:opacity-60"
                   >
                     <option value="">Sélectionnez...</option>
                     {companies.map(c => (
@@ -706,7 +706,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         placeholder="Automatique si vide"
                         value={customBatchNumber}
                         onChange={(e) => setCustomBatchNumber(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-850 text-neutral-800 dark:text-neutral-200 rounded-xl text-sm outline-none"
+                        className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-xl text-sm outline-none"
                       />
                     </div>
 
@@ -732,7 +732,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                             className={`px-3 py-1.5 border rounded-lg text-[11px] font-bold transition ${
                               selectedGrouping === t.id
                                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-900 dark:text-indigo-400'
-                                : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-850 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800'
+                                : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800'
                             }`}
                           >
                             {t.label}
@@ -741,7 +741,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       </div>
 
                       {/* Filter Details */}
-                      <div className="bg-neutral-50 dark:bg-neutral-850 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                      <div className="bg-neutral-50 dark:bg-neutral-800 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
                         {selectedGrouping === 'manual' && (
                           <div>
                             <input
@@ -837,7 +837,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 </div>
               ) : (
                 <div className="flex flex-col h-full bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
-                  <div className="flex justify-between items-center px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-850">
+                  <div className="flex justify-between items-center px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800">
                     <span className="text-xs font-bold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Résultats du filtre ({filteredEmployees.length} badges)
                     </span>
@@ -882,7 +882,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                 >
                                   <td className="py-2.5 px-4 text-center">
                                     <button type="button" className="text-neutral-400">
-                                      {isSelected ? <CheckSquare className="w-4 h-4 text-indigo-550" /> : <Square className="w-4 h-4" />}
+                                      {isSelected ? <CheckSquare className="w-4 h-4 text-indigo-500" /> : <Square className="w-4 h-4" />}
                                     </button>
                                   </td>
                                   <td className="py-2.5 px-3 font-semibold text-neutral-800 dark:text-neutral-200">
@@ -903,7 +903,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                   </div>
 
                   {filteredEmployees.length > wizardPageSize && (
-                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-850">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800">
                       <span className="text-[10px] font-bold text-neutral-500 uppercase">Page {wizardPage} / {Math.ceil(filteredEmployees.length / wizardPageSize)}</span>
                       <div className="flex gap-1.5">
                         <button disabled={wizardPage === 1} onClick={() => setWizardPage(prev => prev - 1)} className="p-1.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-lg disabled:opacity-40"><ChevronLeft className="w-4 h-4" /></button>
@@ -921,14 +921,14 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       {/* VIEW BATCH DETAILS MODAL (Read Only) */}
       {selectedBatchDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-850 border border-neutral-250 dark:border-neutral-800 w-full max-w-3xl p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-            <div className="flex justify-between items-start pb-4 border-b border-neutral-150 dark:border-neutral-800">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-3xl p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-start pb-4 border-b border-neutral-200 dark:border-neutral-800">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-neutral-850 dark:text-white font-mono">{selectedBatchDetails.batchNumber}</h3>
+                  <h3 className="text-base font-bold text-neutral-800 dark:text-white font-mono">{selectedBatchDetails.batchNumber}</h3>
                   {getStatusBadge(selectedBatchDetails.status)}
                 </div>
-                <p className="text-xs text-neutral-450 dark:text-neutral-500 mt-1 flex items-center gap-3">
+                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 flex items-center gap-3">
                   <span>Client : <strong>{selectedBatchDetails.company?.name}</strong></span>
                   <span>•</span>
                   <span>Créé le : {new Date(selectedBatchDetails.createdAt).toLocaleDateString('fr-FR')}</span>
@@ -948,16 +948,16 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 <div className="text-center py-16 text-neutral-400">Aucun badge trouvé dans ce lot.</div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900 px-4 py-3 border border-neutral-150 dark:border-neutral-800 rounded-xl">
+                  <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900 px-4 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl">
                     <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Liste des badges ({batchEmployees.length})</span>
                     <button onClick={() => handlePrintSlip(selectedBatchDetails, batchEmployees)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 border border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-xs font-bold rounded-lg shadow-sm">
                       <Printer className="w-4 h-4 text-indigo-500" />
                       <span>Imprimer Bon de Livraison</span>
                     </button>
                   </div>
-                  <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 rounded-xl overflow-hidden">
+                  <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-hidden">
                     <table className="w-full text-left border-collapse">
-                      <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-150 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                      <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                         <tr>
                           <th className="py-2.5 px-4 w-12">Photo</th>
                           <th className="py-2.5 px-3">Nom</th>
@@ -986,13 +986,13 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 </div>
               )}
             </div>
-            <div className="pt-4 border-t border-neutral-150 dark:border-neutral-800 flex justify-end gap-2">
+            <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800 flex justify-end gap-2">
               <button onClick={() => setSelectedBatchDetails(null)} className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-500">Fermer</button>
               {selectedBatchDetails.status === 'PREPARE' && (
-                <button onClick={() => handleUpdateStatus(selectedBatchDetails.id, 'EN_TRANSIT')} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-750 text-white rounded-xl"><Truck className="w-4 h-4" /><span>Expédier</span></button>
+                <button onClick={() => handleUpdateStatus(selectedBatchDetails.id, 'EN_TRANSIT')} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl"><Truck className="w-4 h-4" /><span>Expédier</span></button>
               )}
               {selectedBatchDetails.status === 'EN_TRANSIT' && (
-                <button onClick={() => handleUpdateStatus(selectedBatchDetails.id, 'LIVRE')} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-750 text-white rounded-xl"><CheckCircle className="w-4 h-4" /><span>Livré</span></button>
+                <button onClick={() => handleUpdateStatus(selectedBatchDetails.id, 'LIVRE')} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"><CheckCircle className="w-4 h-4" /><span>Livré</span></button>
               )}
             </div>
           </div>

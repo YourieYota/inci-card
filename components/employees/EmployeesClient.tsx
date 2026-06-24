@@ -2,24 +2,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { Company, Employee } from '@prisma/client';
-import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2, Users as UsersIcon, CreditCard, Clock, AlertCircle } from 'lucide-react';
+import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2, Users as UsersIcon, CreditCard, Clock, AlertCircle, Download } from 'lucide-react';
 import Link from 'next/link';
 import ExcelImporter from './ExcelImporter';
 import EmployeeCardList from './EmployeeCardList';
 import WebcamModal from './WebcamModal';
 import EmployeeDetailModal from './EmployeeDetailModal';
+import LaserExportModal from './LaserExportModal';
 import { getEmployees, saveEmployeePhoto, getCompanyDashboardStats } from '@/app/actions/employees';
+import { safeSetItem, safeGetItem } from '@/lib/storage';
 
 interface EmployeesClientProps {
   companies: Company[];
   initialCompanyId?: string;
   initialEmployees: Employee[];
+  dbError?: boolean;
 }
 
 export default function EmployeesClient({
   companies,
   initialCompanyId = '',
   initialEmployees,
+  dbError,
 }: EmployeesClientProps) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(initialCompanyId);
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
@@ -39,6 +43,7 @@ export default function EmployeesClient({
   const [showImporter, setShowImporter] = useState<boolean>(false);
   const [activeWebcamEmployee, setActiveWebcamEmployee] = useState<Employee | null>(null);
   const [selectedEmployeeForDetail, setSelectedEmployeeForDetail] = useState<Employee | null>(null);
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
   
   // States
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -81,17 +86,13 @@ export default function EmployeesClient({
       ]);
       setEmployees(data);
       setCompanyStats(stats);
-      try {
-        localStorage.setItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(data));
-        localStorage.setItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(stats));
-      } catch (e) {
-        console.error("Failed to write employees cache:", e);
-      }
+      safeSetItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(data));
+      safeSetItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(stats));
     } catch (err: any) {
       // Fetch failed, try local cache
       try {
-        const cachedEmployees = localStorage.getItem(`inci-cache:employees:${selectedCompanyId}`);
-        const cachedStats = localStorage.getItem(`inci-cache:stats:${selectedCompanyId}`);
+        const cachedEmployees = safeGetItem(`inci-cache:employees:${selectedCompanyId}`);
+        const cachedStats = safeGetItem(`inci-cache:stats:${selectedCompanyId}`);
         if (cachedEmployees) {
           setEmployees(JSON.parse(cachedEmployees));
           if (cachedStats) {
@@ -102,7 +103,7 @@ export default function EmployeesClient({
           alert(err.message || 'Impossible de charger les employés.');
         }
       } catch (e) {
-        console.error("Failed to read employees cache:", e);
+        console.warn("Failed to read employees cache:", e);
         alert(err.message || 'Impossible de charger les employés.');
       }
     } finally {
@@ -136,8 +137,8 @@ export default function EmployeesClient({
             img.crossOrigin = 'anonymous';
             img.onload = () => {
               const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 1200;
-              const MAX_HEIGHT = 1600;
+              const MAX_WIDTH = 1250;
+              const MAX_HEIGHT = 1650;
               let width = img.width;
               let height = img.height;
               
@@ -195,14 +196,26 @@ export default function EmployeesClient({
       alert(err.message || "Erreur lors de l'enregistrement de la photo.");
     }
   };
-
-
-
+  // Get all unique fields/headers present in dynamicData for all employees of the current company
+  const allCompanyFields = React.useMemo(() => {
+    const fieldsSet = new Set<string>();
+    employees.forEach((emp) => {
+      if (emp.dynamicData && typeof emp.dynamicData === 'object') {
+        const data = emp.dynamicData as Record<string, any>;
+        Object.keys(data).forEach((k) => {
+          if (k && k.trim()) {
+            fieldsSet.add(k.trim());
+          }
+        });
+      }
+    });
+    return Array.from(fieldsSet);
+  }, [employees]);
 
   return (
     <div className="flex flex-col gap-6 min-h-screen">
       {/* HEADER BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-blue-100/60 dark:border-neutral-800 shadow-sm transition-all duration-300 relative overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-blue-100/60 dark:border-neutral-800 shadow-sm transition-all duration-300 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-orange-400 to-emerald-500" />
         <div className="flex items-center gap-3">
           <Link
@@ -238,6 +251,16 @@ export default function EmployeesClient({
           {/* Action buttons if company selected */}
           {selectedCompanyId && !showImporter && (
             <>
+              {activeCompany?.isLaserEnabled && (
+                <button
+                  onClick={() => setShowExportModal(true)}
+                  disabled={employees.length === 0}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export Laser (BioQR)</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowImporter(true)}
                 className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
@@ -247,7 +270,7 @@ export default function EmployeesClient({
               </button>
               <button
                 onClick={refreshEmployees}
-                className="p-2.5 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-550 hover:text-blue-600 rounded-xl transition"
+                className="p-2.5 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-500 hover:text-blue-600 rounded-xl transition"
                 title="Rafraîchir"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -268,11 +291,11 @@ export default function EmployeesClient({
       {/* VIEWPORT CONTROLLER */}
       {!selectedCompanyId ? (
         // VIEW: SELECT A COMPANY
-        <div className="flex-1 flex flex-col items-center justify-center py-16 px-6 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm text-center min-h-[400px]">
+        <div className="flex-1 flex flex-col items-center justify-center py-16 px-6 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm text-center min-h-[400px]">
           <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 dark:text-indigo-400 flex items-center justify-center mb-4 border border-indigo-100 dark:border-indigo-900/50">
             <Building2 className="w-8 h-8" />
           </div>
-          <h2 className="text-lg font-bold text-neutral-850 dark:text-white mb-2">Sélectionnez une entreprise</h2>
+          <h2 className="text-lg font-bold text-neutral-800 dark:text-white mb-2">Sélectionnez une entreprise</h2>
           <p className="text-sm text-neutral-400 dark:text-neutral-500 max-w-sm mb-6">
             Pour importer, filtrer ou gérer les employés, veuillez d&apos;abord sélectionner l&apos;entreprise cliente dans la liste déroulante supérieure.
           </p>
@@ -298,9 +321,9 @@ export default function EmployeesClient({
         />
       ) : isLoading ? (
         // VIEW: LOADING
-        <div className="flex-1 flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm min-h-[400px]">
+        <div className="flex-1 flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm min-h-[400px]">
           <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
-          <p className="text-sm text-neutral-450 dark:text-neutral-500">Chargement de la liste d&apos;employés...</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">Chargement de la liste d&apos;employés...</p>
         </div>
       ) : (
         // VIEW: EMPLOYEES CARD GRID LIST
@@ -308,65 +331,65 @@ export default function EmployeesClient({
           {/* Company Stats Summary */}
           {companyStats && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-in fade-in duration-300">
-              <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-violet-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/40">
+              <div className="bg-white dark:bg-neutral-800 p-4 rounded-xl border border-violet-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/40">
                   <UsersIcon className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-550 uppercase tracking-wide">Total employés</p>
-                  <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.totalEmployees}</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Total employés</p>
+                  <p className="text-xl font-extrabold text-neutral-800 dark:text-white mt-0.5">{companyStats.totalEmployees}</p>
                 </div>
               </div>
-              <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-orange-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/40">
+              <div className="bg-white dark:bg-neutral-800 p-4 rounded-xl border border-orange-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/40">
                   <Clock className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-550 uppercase tracking-wide">En attente de photo</p>
-                  <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.pendingPhotoCount}</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">En attente de photo</p>
+                  <p className="text-xl font-extrabold text-neutral-800 dark:text-white mt-0.5">{companyStats.pendingPhotoCount}</p>
                 </div>
               </div>
-              <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-blue-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40">
+              <div className="bg-white dark:bg-neutral-800 p-4 rounded-xl border border-blue-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40">
                   <CheckCircle className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-550 uppercase tracking-wide">Photos validées</p>
-                  <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.validatedPhotoCount}</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Photos validées</p>
+                  <p className="text-xl font-extrabold text-neutral-800 dark:text-white mt-0.5">{companyStats.validatedPhotoCount}</p>
                 </div>
               </div>
-              <div className="bg-white dark:bg-neutral-850 p-4 rounded-xl border border-emerald-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
+              <div className="bg-white dark:bg-neutral-800 p-4 rounded-xl border border-emerald-100/70 dark:border-neutral-700/60 shadow-sm flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
                   <CreditCard className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-550 uppercase tracking-wide">Badges imprimés</p>
-                  <p className="text-xl font-extrabold text-neutral-850 dark:text-white mt-0.5">{companyStats.printedCount}</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Badges imprimés</p>
+                  <p className="text-xl font-extrabold text-neutral-800 dark:text-white mt-0.5">{companyStats.printedCount}</p>
                 </div>
               </div>
-              <div className={`bg-white dark:bg-neutral-850 p-4 rounded-xl border shadow-sm flex items-center gap-3 transition-colors ${
+              <div className={`bg-white dark:bg-neutral-800 p-4 rounded-xl border shadow-sm flex items-center gap-3 transition-colors ${
                 companyStats.toVerifyCount > 0 
-                  ? 'border-rose-250 dark:border-rose-900/50 bg-rose-50/20 dark:bg-rose-950/10' 
+                  ? 'border-rose-200 dark:border-rose-900/50 bg-rose-50/20 dark:bg-rose-950/10' 
                   : 'border-neutral-200/70 dark:border-neutral-700/60'
               }`}>
                 <div className={`p-3 rounded-xl border transition-colors ${
                   companyStats.toVerifyCount > 0
-                    ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-150 dark:border-rose-900/40 animate-pulse'
-                    : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-450 dark:text-neutral-500 border-neutral-200 dark:border-neutral-700'
+                    ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/40 animate-pulse'
+                    : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 border-neutral-200 dark:border-neutral-700'
                 }`}>
                   <AlertCircle className="w-4.5 h-4.5" style={{width:18,height:18}} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-555 uppercase tracking-wide">Fiches à vérifier</p>
-                  <p className={`text-xl font-extrabold mt-0.5 ${companyStats.toVerifyCount > 0 ? 'text-rose-600 dark:text-rose-455 font-black' : 'text-neutral-850 dark:text-white'}`}>{companyStats.toVerifyCount}</p>
+                  <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">Fiches à vérifier</p>
+                  <p className={`text-xl font-extrabold mt-0.5 ${companyStats.toVerifyCount > 0 ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-neutral-800 dark:text-white'}`}>{companyStats.toVerifyCount}</p>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="bg-white dark:bg-neutral-850 p-6 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-neutral-800 p-6 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-neutral-850 dark:text-white">
+              <h2 className="text-base font-bold text-neutral-800 dark:text-white">
                 Liste d&apos;enrôlement : {activeCompany?.name}
               </h2>
               <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
@@ -378,7 +401,7 @@ export default function EmployeesClient({
                 onClick={() => {
                   setShowImporter(true);
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-655 dark:text-indigo-400 rounded-xl text-xs font-bold border border-indigo-100 dark:border-indigo-900/50 transition hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold border border-indigo-100 dark:border-indigo-900/50 transition hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Importer le premier Excel</span>
@@ -404,6 +427,8 @@ export default function EmployeesClient({
           onTriggerWebcam={(emp) => {
             setActiveWebcamEmployee(emp);
           }}
+          isCompanyLocked={activeCompany?.isLocked}
+          companyFields={allCompanyFields}
         />
       )}
 
@@ -413,6 +438,15 @@ export default function EmployeesClient({
           employeeName={activeWebcamEmployee.enrollmentNumber || activeWebcamEmployee.uniqueIdentifier}
           onSave={handleSavePhoto}
           onClose={() => setActiveWebcamEmployee(null)}
+        />
+      )}
+
+      {/* LASER EXPORT MODAL */}
+      {showExportModal && activeCompany && (
+        <LaserExportModal
+          companyName={activeCompany.name}
+          employees={employees}
+          onClose={() => setShowExportModal(false)}
         />
       )}
     </div>

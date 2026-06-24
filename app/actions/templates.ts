@@ -33,14 +33,34 @@ export async function getCompaniesWithCounts() {
   }
 }
 
-export async function createCompany(name: string) {
+export async function createCompany(name: string, identifierPrefix?: string | null, isLaserEnabled?: boolean) {
   try {
     return await prisma.company.create({
-      data: { name },
+      data: { 
+        name,
+        identifierPrefix: identifierPrefix || null,
+        isLaserEnabled: isLaserEnabled ?? false,
+      },
     });
   } catch (error) {
     console.warn('Error creating company:', error);
     throw new Error('Impossible de créer l\'entreprise (ce nom existe peut-être déjà)');
+  }
+}
+
+export async function updateCompany(companyId: string, name: string, identifierPrefix?: string | null, isLaserEnabled?: boolean) {
+  try {
+    return await prisma.company.update({
+      where: { id: companyId },
+      data: {
+        name,
+        identifierPrefix: identifierPrefix || null,
+        isLaserEnabled: isLaserEnabled ?? false,
+      },
+    });
+  } catch (error) {
+    console.warn('Error updating company:', error);
+    throw new Error('Impossible de modifier l\'entreprise');
   }
 }
 
@@ -153,5 +173,41 @@ export async function getCompanyFields(companyId: string): Promise<string[]> {
   } catch (error) {
     console.warn('Error fetching company fields:', error);
     return ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'];
+  }
+}
+
+export async function deleteCompany(companyId: string) {
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { isLocked: true }
+    });
+
+    if (!company) {
+      throw new Error("Entreprise introuvable");
+    }
+
+    if (company.isLocked) {
+      throw new Error("Cette entreprise est verrouillée et ne peut pas être supprimée.");
+    }
+
+    return await prisma.company.delete({
+      where: { id: companyId },
+    });
+  } catch (error: any) {
+    console.warn('Error deleting company:', error);
+    throw new Error(error.message || 'Impossible de supprimer l\'entreprise');
+  }
+}
+
+export async function toggleCompanyLock(companyId: string, isLocked: boolean) {
+  try {
+    return await prisma.company.update({
+      where: { id: companyId },
+      data: { isLocked },
+    });
+  } catch (error) {
+    console.warn('Error toggling company lock:', error);
+    throw new Error('Impossible de modifier le verrouillage de l\'entreprise');
   }
 }

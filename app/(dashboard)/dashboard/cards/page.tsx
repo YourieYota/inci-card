@@ -118,7 +118,7 @@ export default function CardsManagementPage() {
 
   if (!mounted) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm">
+      <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm">
         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
         <p className="text-sm text-neutral-500">Chargement de la gestion des cartes...</p>
       </div>
@@ -240,15 +240,15 @@ export default function CardsManagementPage() {
   return (
     <div className="space-y-8">
       {/* HEADER BAR */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-blue-100/60 dark:border-neutral-800 shadow-sm relative overflow-hidden transition-all duration-300">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-blue-100/60 dark:border-neutral-800 shadow-sm relative overflow-hidden transition-all duration-300">
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-orange-400" />
         <div className="flex items-center gap-3">
           <div className="p-3 bg-blue-50 dark:bg-neutral-900 text-blue-500 rounded-xl border border-blue-100 dark:border-neutral-800 shadow-sm">
             <CreditCard className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-neutral-890 dark:text-white">Gestion des Cartes</h1>
-            <p className="text-xs text-neutral-450 dark:text-neutral-500">
+            <h1 className="text-xl font-bold text-neutral-800 dark:text-white">Gestion des Cartes</h1>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">
               Configurez les catégories, les types physiques de badges (RFID, NFC...) et les formats d&apos;impression
             </p>
           </div>
@@ -258,7 +258,7 @@ export default function CardsManagementPage() {
           <select
             value={selectedCompanyId}
             onChange={(e) => setSelectedCompanyId(e.target.value)}
-            className="px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-750 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 text-neutral-800 dark:text-neutral-200"
+            className="px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 text-neutral-800 dark:text-neutral-200"
           >
             <option value="">(Global / Toutes les entreprises)</option>
             {companies.map((c) => (
@@ -278,7 +278,7 @@ export default function CardsManagementPage() {
           {activeTab === 'categories' ? (
             <button
               onClick={() => setShowCategoryModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-650 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
               <Plus className="w-4 h-4" />
               <span>Catégorie</span>
@@ -286,7 +286,7 @@ export default function CardsManagementPage() {
           ) : activeTab === 'formats' ? (
             <button
               onClick={() => setShowFormatModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-650 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
               <Plus className="w-4 h-4" />
               <span>Format</span>
@@ -297,7 +297,7 @@ export default function CardsManagementPage() {
                 setCodePart3('0001');
                 setShowTypeModal(true);
               }}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-650 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
               <Plus className="w-4 h-4" />
               <span>Type de carte</span>
@@ -313,7 +313,7 @@ export default function CardsManagementPage() {
           className={`pb-4 text-sm font-bold transition-all relative flex items-center gap-2 ${
             activeTab === 'categories'
               ? 'text-indigo-600 dark:text-indigo-400'
-              : 'text-neutral-450 hover:text-neutral-750 dark:hover:text-neutral-300'
+              : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
           }`}
         >
           <Layers className="w-4 h-4" />
@@ -327,7 +327,7 @@ export default function CardsManagementPage() {
           className={`pb-4 text-sm font-bold transition-all relative flex items-center gap-2 ${
             activeTab === 'formats'
               ? 'text-indigo-600 dark:text-indigo-400'
-              : 'text-neutral-450 hover:text-neutral-750 dark:hover:text-neutral-300'
+              : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
           }`}
         >
           <Sliders className="w-4 h-4" />
@@ -341,7 +341,7 @@ export default function CardsManagementPage() {
           className={`pb-4 text-sm font-bold transition-all relative flex items-center gap-2 ${
             activeTab === 'types'
               ? 'text-indigo-600 dark:text-indigo-400'
-              : 'text-neutral-450 hover:text-neutral-750 dark:hover:text-neutral-300'
+              : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
           }`}
         >
           <Cpu className="w-4 h-4" />
@@ -354,15 +354,15 @@ export default function CardsManagementPage() {
 
       {/* LOADER */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm">
           <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
           <p className="text-sm text-neutral-500">Chargement de la configuration...</p>
         </div>
       ) : activeTab === 'categories' ? (
-        /* ───────────────── TAB: CATEGORIES ───────────────── */
+        /* ----------------- TAB: CATEGORIES ----------------- */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center shadow-sm">
+            <div className="col-span-full flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center shadow-sm">
               <Info className="w-8 h-8 text-neutral-400 mb-2" />
               <p className="text-sm font-bold text-neutral-800 dark:text-neutral-200">Aucune catégorie de cartes configurée.</p>
               <p className="text-xs text-neutral-500 mt-1">Créez votre première catégorie pour classifier vos badges.</p>
@@ -371,7 +371,7 @@ export default function CardsManagementPage() {
             categories.map((cat) => (
               <div
                 key={cat.id}
-                className="group bg-white dark:bg-neutral-850 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+                className="group bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   {/* Badge & Color */}
@@ -401,7 +401,7 @@ export default function CardsManagementPage() {
                   </div>
 
                   {/* Description */}
-                  <p className="text-xs text-neutral-550 dark:text-neutral-400 mt-3 leading-relaxed">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-3 leading-relaxed">
                     {cat.description || "Aucune description fournie pour cette catégorie de cartes."}
                   </p>
                 </div>
@@ -424,14 +424,14 @@ export default function CardsManagementPage() {
           )}
         </div>
       ) : activeTab === 'formats' ? (
-        /* ───────────────── TAB: FORMATS ───────────────── */
+        /* ----------------- TAB: FORMATS ----------------- */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {formats.map((fmt) => {
             const isCr80 = fmt.name.toLowerCase().includes('cr80') || (fmt.width === 85.6 && fmt.height === 53.98);
             return (
               <div
                 key={fmt.id}
-                className={`group bg-white dark:bg-neutral-850 rounded-2xl border p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-between ${
+                className={`group bg-white dark:bg-neutral-800 rounded-2xl border p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-between ${
                   isCr80 
                     ? 'border-blue-200 dark:border-blue-900/40 ring-1 ring-blue-500/5'
                     : 'border-neutral-200 dark:border-neutral-800'
@@ -440,7 +440,7 @@ export default function CardsManagementPage() {
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-sm font-bold text-neutral-850 dark:text-white flex items-center gap-1.5">
+                      <h3 className="text-sm font-bold text-neutral-800 dark:text-white flex items-center gap-1.5">
                         {fmt.name}
                         {isCr80 && (
                           <span className="px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-extrabold uppercase tracking-wide">
@@ -448,7 +448,7 @@ export default function CardsManagementPage() {
                           </span>
                         )}
                       </h3>
-                      <p className="text-xs text-neutral-450 dark:text-neutral-500 mt-1">
+                      <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
                         Dimensions fixes recommandées pour badges CR80 standardisé.
                       </p>
                     </div>
@@ -466,14 +466,14 @@ export default function CardsManagementPage() {
                   {/* Dimensions panel */}
                   <div className="grid grid-cols-2 gap-4 mt-6">
                     <div className="bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800/40 p-3 rounded-xl text-center">
-                      <p className="text-[10px] font-bold text-neutral-450 uppercase tracking-wide">Largeur</p>
-                      <p className="text-base font-extrabold text-neutral-850 dark:text-white mt-1">
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Largeur</p>
+                      <p className="text-base font-extrabold text-neutral-800 dark:text-white mt-1">
                         {fmt.width} <span className="text-xs font-semibold text-neutral-400">{fmt.unit}</span>
                       </p>
                     </div>
                     <div className="bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800/40 p-3 rounded-xl text-center">
-                      <p className="text-[10px] font-bold text-neutral-450 uppercase tracking-wide">Hauteur</p>
-                      <p className="text-base font-extrabold text-neutral-850 dark:text-white mt-1">
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Hauteur</p>
+                      <p className="text-base font-extrabold text-neutral-800 dark:text-white mt-1">
                         {fmt.height} <span className="text-xs font-semibold text-neutral-400">{fmt.unit}</span>
                       </p>
                     </div>
@@ -488,10 +488,10 @@ export default function CardsManagementPage() {
           })}
         </div>
       ) : (
-        /* ───────────────── TAB: PHYSICAL TYPES ───────────────── */
+        /* ----------------- TAB: PHYSICAL TYPES ----------------- */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {physicalTypes.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center shadow-sm">
+            <div className="col-span-full flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center shadow-sm">
               <Cpu className="w-8 h-8 text-neutral-400 mb-2" />
               <p className="text-sm font-bold text-neutral-800 dark:text-neutral-200">Aucun type de carte configuré.</p>
               <p className="text-xs text-neutral-500 mt-1">Ajoutez des technologies de cartes (ex: RFID, NFC, Magnétique, PVC standard).</p>
@@ -500,12 +500,12 @@ export default function CardsManagementPage() {
             physicalTypes.map((type) => (
               <div
                 key={type.id}
-                className="group bg-white dark:bg-neutral-850 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+                className="group bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-sm font-bold text-neutral-850 dark:text-white flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-neutral-800 dark:text-white flex items-center gap-2">
                         <Cpu className="w-4 h-4 text-indigo-500" />
                         {type.name}
                       </h3>
@@ -515,7 +515,7 @@ export default function CardsManagementPage() {
                       {type.cardCode && (
                         <div className="mt-2 flex items-center gap-1">
                           <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">CODE ID:</span>
-                          <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-650 dark:text-indigo-400 text-[10px] font-mono font-bold tracking-wider border border-indigo-100/35 dark:border-indigo-900/30">
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-mono font-bold tracking-wider border border-indigo-100/35 dark:border-indigo-900/30">
                             {type.cardCode}
                           </span>
                         </div>
@@ -530,7 +530,7 @@ export default function CardsManagementPage() {
                     </button>
                   </div>
 
-                  <p className="text-xs text-neutral-550 dark:text-neutral-400 mt-4 leading-relaxed">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-4 leading-relaxed">
                     {type.description || "Aucune description fournie pour cette technologie ou ce type de carte."}
                   </p>
                 </div>
@@ -547,9 +547,9 @@ export default function CardsManagementPage() {
       {/* CREATE CATEGORY MODAL */}
       {showCategoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-850 border border-neutral-250 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-bold text-neutral-850 dark:text-white mb-2">Ajouter une catégorie de carte</h3>
-            <p className="text-xs text-neutral-450 dark:text-neutral-500 mb-4">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter une catégorie de carte</h3>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
               Définit un groupe de badges partageant le même format physique et repère couleur.
             </p>
 
@@ -648,9 +648,9 @@ export default function CardsManagementPage() {
       {/* CREATE FORMAT MODAL */}
       {showFormatModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-850 border border-neutral-250 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-bold text-neutral-850 dark:text-white mb-2">Ajouter un format de carte</h3>
-            <p className="text-xs text-neutral-450 dark:text-neutral-500 mb-4">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter un format de carte</h3>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
               Configurez des dimensions spécifiques pour d&apos;autres supports ou standards que le CR80.
             </p>
 
@@ -730,9 +730,9 @@ export default function CardsManagementPage() {
       {/* CREATE PHYSICAL TYPE MODAL */}
       {showTypeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-850 border border-neutral-250 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-bold text-neutral-850 dark:text-white mb-2">Ajouter un type de carte</h3>
-            <p className="text-xs text-neutral-450 dark:text-neutral-500 mb-4">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter un type de carte</h3>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
               Configurez une technologie de support de carte physique ou d&apos;identification.
             </p>
 
@@ -761,13 +761,13 @@ export default function CardsManagementPage() {
               </div>
 
               <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
-                <label className="block text-xs font-bold text-neutral-550 dark:text-neutral-450 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">
                   Code unique d&apos;identification (10-15 chars)
                 </label>
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-[10px] font-bold text-neutral-450 dark:text-neutral-500 mb-1">
+                    <label className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 mb-1">
                       Partie 1 (Max 6)
                     </label>
                     <input
@@ -781,7 +781,7 @@ export default function CardsManagementPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-neutral-450 dark:text-neutral-500 mb-1">
+                    <label className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 mb-1">
                       Partie 2 (Max 5)
                     </label>
                     <input
@@ -795,7 +795,7 @@ export default function CardsManagementPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-neutral-450 dark:text-neutral-500 mb-1">
+                    <label className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 mb-1">
                       Partie 3 (Auto-incrément)
                     </label>
                     <input
@@ -809,15 +809,15 @@ export default function CardsManagementPage() {
                 </div>
 
                 {/* Preview and validation indicator */}
-                <div className="mt-3.5 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-150 dark:border-neutral-800 flex items-center justify-between">
+                <div className="mt-3.5 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-neutral-450 dark:text-neutral-500 font-bold uppercase tracking-wider">Aperçu du Code</span>
-                    <span className="text-xs font-mono font-bold text-neutral-850 dark:text-white mt-0.5 tracking-wider">
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider">Aperçu du Code</span>
+                    <span className="text-xs font-mono font-bold text-neutral-800 dark:text-white mt-0.5 tracking-wider">
                       {codePart1 || '••••••'}{codePart2 || '•••••'}{codePart3 || '••••'}
                     </span>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className="text-[10px] text-neutral-450 dark:text-neutral-500 font-bold uppercase tracking-wider">Longueur</span>
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider">Longueur</span>
                     <span className={`text-[10.5px] font-bold font-mono mt-0.5 px-2 py-0.5 rounded-full ${
                       (codePart1.length + codePart2.length + codePart3.length) >= 10 && (codePart1.length + codePart2.length + codePart3.length) <= 15
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
@@ -829,7 +829,7 @@ export default function CardsManagementPage() {
                 </div>
 
                 {(codePart1.length + codePart2.length + codePart3.length) < 10 && (
-                  <p className="text-[10px] text-orange-550 dark:text-orange-450 mt-2 font-semibold">
+                  <p className="text-[10px] text-orange-500 dark:text-orange-400 mt-2 font-semibold">
                     * Le code complet doit faire au moins 10 caractères (Partie 1 + Partie 2 doivent faire au moins 6 caractères à elles deux).
                   </p>
                 )}

@@ -10,6 +10,7 @@ import {
 } from '@/app/actions/users';
 import { getRoles } from '@/app/actions/roles';
 import { addOfflineMutation } from '@/lib/offlineQueue';
+import { safeSetItem, safeGetItem } from '@/lib/storage';
 import Pagination from '@/components/ui/Pagination';
 
 interface AccountsClientProps {
@@ -91,19 +92,15 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
       const data = await getRoles();
       const mapped = data.map(r => ({ id: r.id, name: r.name, slug: r.slug, color: r.color, isSystem: r.isSystem }));
       setAvailableRoles(mapped);
-      try {
-        localStorage.setItem("inci-cache:roles-list", JSON.stringify(mapped));
-      } catch (e) {
-        console.error("Failed to write roles-list cache:", e);
-      }
+      safeSetItem("inci-cache:roles-list", JSON.stringify(mapped));
     } catch {
       try {
-        const cached = localStorage.getItem("inci-cache:roles-list");
+        const cached = safeGetItem("inci-cache:roles-list");
         if (cached) {
           setAvailableRoles(JSON.parse(cached));
         }
       } catch (e) {
-        console.error("Failed to read roles-list cache:", e);
+        console.warn("Failed to read roles-list cache:", e);
       }
     }
   };
@@ -120,14 +117,10 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
       }));
       setUsers(parsedData);
       setIsOfflineMode(false);
-      try {
-        localStorage.setItem("inci-cache:users", JSON.stringify(parsedData));
-      } catch (e) {
-        console.error("Failed to write users cache:", e);
-      }
+      safeSetItem("inci-cache:users", JSON.stringify(parsedData));
     } catch (err: any) {
       try {
-        const cached = localStorage.getItem("inci-cache:users");
+        const cached = safeGetItem("inci-cache:users");
         if (cached) {
           setUsers(JSON.parse(cached).map((u: any) => ({
             ...u,
@@ -139,7 +132,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
           setError(err.message || 'Impossible de charger les utilisateurs');
         }
       } catch (e) {
-        console.error("Failed to read users cache:", e);
+        console.warn("Failed to read users cache:", e);
         setError(err.message || 'Impossible de charger les utilisateurs');
       }
     } finally {
@@ -209,7 +202,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
 
         const updatedUsers = [mockUser, ...users];
         setUsers(updatedUsers);
-        localStorage.setItem("inci-cache:users", JSON.stringify(updatedUsers));
+        safeSetItem("inci-cache:users", JSON.stringify(updatedUsers));
 
         addOfflineMutation(
           'CREATE_USER',
@@ -268,7 +261,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
           return u;
         });
         setUsers(updatedUsers);
-        localStorage.setItem("inci-cache:users", JSON.stringify(updatedUsers));
+        safeSetItem("inci-cache:users", JSON.stringify(updatedUsers));
 
         addOfflineMutation(
           'UPDATE_USER',
@@ -311,7 +304,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
       if (isOfflineMode) {
         const updatedUsers = users.filter((u) => u.id !== selectedUser.id);
         setUsers(updatedUsers);
-        localStorage.setItem("inci-cache:users", JSON.stringify(updatedUsers));
+        safeSetItem("inci-cache:users", JSON.stringify(updatedUsers));
 
         addOfflineMutation(
           'DELETE_USER',
@@ -436,7 +429,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
         {/* Add User Button */}
         <button
           onClick={handleOpenCreate}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-650 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
         >
           <UserPlus className="w-4 h-4" />
           <span>Créer un compte</span>
@@ -450,7 +443,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
           <span className="text-sm font-semibold text-slate-400">Chargement des comptes...</span>
         </div>
       ) : error ? (
-        <div className="flex items-center gap-3 p-6 bg-red-55 dark:bg-red-950/20 border border-red-100 dark:border-red-900 rounded-2xl text-red-650 dark:text-red-400">
+        <div className="flex items-center gap-3 p-6 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900 rounded-2xl text-red-600 dark:text-red-400">
           <AlertCircle className="w-6 h-6 shrink-0" />
           <div>
             <h4 className="font-bold text-sm">Erreur</h4>
@@ -459,7 +452,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
         </div>
       ) : filteredUsers.length === 0 ? (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-10 text-center py-16">
-          <Users className="w-12 h-12 text-slate-300 dark:text-slate-655 mx-auto mb-4" />
+          <Users className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
           <h3 className="font-bold text-slate-800 dark:text-white">Aucun compte trouvé</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
             Aucun compte utilisateur ne correspond aux critères de recherche actuels.
@@ -490,7 +483,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                           onClick={() => {
                             handleOpenEdit(user);
                           }}
-                          className="p-2 rounded-xl transition text-orange-400 hover:text-orange-655 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+                          className="p-2 rounded-xl transition text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/20"
                           title="Modifier le compte"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -503,7 +496,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                           className={`p-2 rounded-xl transition ${
                             isMe 
                               ? 'text-slate-200 dark:text-slate-700 cursor-not-allowed opacity-50'
-                              : 'text-red-400 hover:text-red-650 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20'
+                              : 'text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20'
                           }`}
                           title={isMe ? "Vous ne pouvez pas supprimer votre propre compte" : "Supprimer le compte"}
                         >
@@ -515,7 +508,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     {/* Profile Details */}
                     <div className="space-y-3">
                       <div>
-                        <h4 className="font-bold text-slate-850 dark:text-white text-sm truncate flex items-center gap-1.5">
+                        <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate flex items-center gap-1.5">
                           <User className="w-4 h-4 text-slate-400 shrink-0" />
                           <span>{user.name} {user.firstName && <span className="font-medium text-slate-500">{user.firstName}</span>}</span>
                         </h4>
@@ -571,14 +564,14 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
       {isCreateOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 max-w-lg w-full overflow-hidden shadow-xl my-8">
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-850">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800">
               <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-sm uppercase tracking-wide">
                 <UserPlus className="w-4 h-4 text-blue-500" />
                 <span>Créer un nouveau compte</span>
               </h3>
               <button 
                 onClick={() => setIsCreateOpen(false)} 
-                className="p-1 text-slate-450 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -607,7 +600,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ex: KOUASSI"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -617,7 +610,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="Ex: Jean-Marc"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
               </div>
@@ -630,7 +623,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     value={login}
                     onChange={(e) => setLogin(e.target.value)}
                     placeholder="Ex: jm.kouassi"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -638,7 +631,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   >
                     {availableRoles.map(r => (
                       <option key={r.slug} value={r.slug}>{r.name}</option>
@@ -656,7 +649,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Ex: j.kouassi@imprimerie.ci"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -666,7 +659,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="Ex: +225 07 08 09 10"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
               </div>
@@ -680,12 +673,12 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min 6 caractères"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition pr-10"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPass(!showPass)}
-                    className="absolute right-3 top-2.5 text-slate-450 hover:text-slate-600 transition"
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition"
                   >
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -718,14 +711,14 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
       {isEditOpen && selectedUser && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 max-w-lg w-full overflow-hidden shadow-xl my-8">
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-850">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800">
               <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-sm uppercase tracking-wide">
                 <Edit2 className="w-4 h-4 text-blue-500" />
                 <span>Modifier le compte</span>
               </h3>
               <button 
                 onClick={() => setIsEditOpen(false)} 
-                className="p-1 text-slate-450 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -753,7 +746,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -762,7 +755,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
               </div>
@@ -774,7 +767,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     type="text"
                     value={login}
                     onChange={(e) => setLogin(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -783,14 +776,14 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
                     disabled={selectedUser.id === currentUser?.id}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {availableRoles.map(r => (
                       <option key={r.slug} value={r.slug}>{r.name}</option>
                     ))}
                   </select>
                   {selectedUser.id === currentUser?.id && (
-                    <p className="text-[9px] text-slate-450 mt-1">Vous ne pouvez pas modifier votre propre rôle.</p>
+                    <p className="text-[9px] text-slate-400 mt-1">Vous ne pouvez pas modifier votre propre rôle.</p>
                   )}
                 </div>
               </div>
@@ -803,7 +796,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
                 <div>
@@ -812,7 +805,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     type="text"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition"
                   />
                 </div>
               </div>
@@ -822,7 +815,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                   <Key className="w-3.5 h-3.5" />
                   <span>Réinitialiser le mot de passe</span>
                 </h4>
-                <p className="text-[10px] text-slate-450 dark:text-slate-500 mb-3">
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-3">
                   Laissez ce champ vide si vous ne souhaitez pas modifier le mot de passe de cet utilisateur.
                 </p>
                 <div className="relative">
@@ -831,12 +824,12 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Nouveau mot de passe (min 6 car.)"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-55 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition pr-10"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 outline-none transition pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPass(!showNewPass)}
-                    className="absolute right-3 top-2.5 text-slate-450 hover:text-slate-600 transition"
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition"
                   >
                     {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -898,7 +891,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
                 type="button"
                 onClick={handleDeleteSubmit}
                 disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-5 py-2 bg-red-600 hover:bg-red-750 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+                className="flex items-center gap-1.5 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 <span>Confirmer la suppression</span>

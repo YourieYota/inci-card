@@ -2,6 +2,8 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function getDeliveryBatches(companyId?: string) {
   try {
@@ -39,12 +41,15 @@ export async function createDeliveryBatch({ companyId, employeeIds }: { companyI
       data: {
         batchNumber,
         companyId,
-        status: 'PREPARE',
-        employees: {
-          connect: employeeIds.map(id => ({ id }))
-        }
+        status: 'PREPARE'
       }
     });
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Employee" SET "deliveryBatchId" = $1 WHERE id = ANY($2)`,
+      batch.id,
+      employeeIds
+    );
     
     revalidatePath('/dashboard/delivery-batches');
     return batch;
@@ -106,10 +111,14 @@ export async function getPrintQueue(companyId?: string) {
 export async function markAsPrinted(employeeIds: string[]) {
   if (!employeeIds.length) return;
   try {
+    const session = await getServerSession(authOptions);
+    const operatorName = session?.user?.name || session?.user?.email || "Système";
+
     await prisma.employee.updateMany({
       where: { id: { in: employeeIds } },
       data: { 
         printedAt: new Date(),
+        printedBy: operatorName,
         status: 'IMPRIME'
       }
     });
@@ -175,12 +184,22 @@ export async function updateDeliveryBatch(batchId: string, customBatchNumber: st
     const batch = await prisma.deliveryBatch.update({
       where: { id: batchId },
       data: {
-        batchNumber: customBatchNumber,
-        employees: {
-          set: employeeIds.map(id => ({ id }))
-        }
+        batchNumber: customBatchNumber
       }
     });
+    
+    // Break previous employee connections using raw SQL to bypass transactions
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Employee" SET "deliveryBatchId" = NULL WHERE "deliveryBatchId" = $1`,
+      batchId
+    );
+    
+    // Establish new employee connections using raw SQL to bypass transactions
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Employee" SET "deliveryBatchId" = $1 WHERE id = ANY($2)`,
+      batchId,
+      employeeIds
+    );
     
     revalidatePath('/dashboard/delivery-batches');
     return batch;

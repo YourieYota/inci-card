@@ -155,7 +155,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
   return (
     <div className="space-y-6">
       {/* FILTER & SEARCH BAR */}
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white dark:bg-neutral-850 p-4 rounded-2xl border border-blue-100/50 dark:border-neutral-800/80 shadow-sm">
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-blue-100/50 dark:border-neutral-800/80 shadow-sm">
         {/* Status Filters */}
         <div className="flex flex-wrap gap-1.5 p-1 bg-slate-50 dark:bg-neutral-900 border border-slate-200/60 dark:border-neutral-800/60 rounded-xl w-full lg:w-auto">
           {(['ALL', 'A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER'] as FilterStatus[]).map((st) => (
@@ -198,7 +198,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
       {/* BULK ACTIONS BAR */}
       {selectedIds.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 px-5 rounded-2xl border border-indigo-150 dark:border-indigo-900/40 shadow-sm animate-in slide-in-from-top-2 duration-300">
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 px-5 rounded-2xl border border-indigo-200 dark:border-indigo-900/40 shadow-sm animate-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
             <span className="text-xs font-bold text-indigo-800 dark:text-indigo-300">
@@ -214,7 +214,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
             </button>
             <button
               onClick={handlePrintSelection}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-750 text-white rounded-xl text-[11px] font-bold transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-bold transition shadow-sm"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Imprimer la sélection</span>
@@ -225,10 +225,10 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
       {/* CARDS GRID */}
       {filteredEmployees.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center shadow-sm">
+        <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center shadow-sm">
           <AlertCircle className="w-8 h-8 text-neutral-400 mb-2" />
           <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Aucun employé ne correspond aux critères.</p>
-          <p className="text-xs text-neutral-450 dark:text-neutral-550 mt-0.5">Essayez de modifier vos filtres ou effectuez un import Excel.</p>
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">Essayez de modifier vos filtres ou effectuez un import Excel.</p>
         </div>
       ) : (
         <div className="space-y-5">
@@ -251,7 +251,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   }
                   onOpenDetail(emp);
                 }}
-                className={`cursor-pointer group bg-white dark:bg-neutral-850 border rounded-2xl hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between ${
+                className={`cursor-pointer group bg-white dark:bg-neutral-800 border rounded-2xl hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between ${
                   selectedIds.includes(emp.id)
                     ? 'border-indigo-400 ring-2 ring-indigo-500/15 shadow-sm'
                     : emp.status === 'A_VERIFIER' || (emp as any).photoConflict
@@ -280,13 +280,13 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                         type="checkbox"
                         checked={selectedIds.includes(emp.id)}
                         onChange={() => handleToggleSelect(emp.id)}
-                        className="w-4 h-4 rounded text-indigo-650 border-neutral-300 dark:border-neutral-700 accent-indigo-600 cursor-pointer transition"
+                        className="w-4 h-4 rounded text-indigo-600 border-neutral-300 dark:border-neutral-700 accent-indigo-600 cursor-pointer transition"
                       />
                     </div>
                   )}
 
                   {/* Photo area */}
-                  <div className="w-18 h-18 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shrink-0 overflow-hidden flex items-center justify-center shadow-inner relative group-hover:border-neutral-350 dark:group-hover:border-neutral-750 transition-colors">
+                  <div className="w-18 h-18 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shrink-0 overflow-hidden flex items-center justify-center shadow-inner relative group-hover:border-neutral-300 dark:group-hover:border-neutral-700 transition-colors">
                     {emp.photoUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img src={emp.photoUrl} alt={name} className="w-full h-full object-cover" />
@@ -308,7 +308,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   {/* Text details */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-neutral-400 dark:text-neutral-550 font-mono tracking-tight truncate">
+                      <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono tracking-tight truncate">
                         ID: {emp.enrollmentNumber || emp.uniqueIdentifier}
                       </span>
                       {/* Status Tag */}
@@ -330,20 +330,34 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                       </span>
                     </div>
 
-                    <h4 className="text-sm font-bold text-neutral-850 dark:text-white mt-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                    <h4 className="text-sm font-bold text-neutral-800 dark:text-white mt-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
                       {name}
                     </h4>
 
                     {/* Meta dynamic list items */}
                     <div className="mt-3 space-y-1">
-                      {fields.map(([key, val]) => (
-                        <div key={key} className="flex text-[11px] justify-between gap-2 truncate">
-                          <span className="text-neutral-450 dark:text-neutral-500 font-medium">{key} :</span>
-                          <span className="text-neutral-800 dark:text-neutral-350 font-bold truncate max-w-[120px]" title={String(val)}>
-                            {String(val)}
-                          </span>
-                        </div>
-                      ))}
+                      {fields.map(([key, val]) => {
+                        let displayedVal = String(val);
+                        const isDateKey = key.toLowerCase().trim().startsWith('date');
+                        const isDateVal = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val);
+                        if ((isDateKey || isDateVal) && val) {
+                          const dateObj = new Date(val);
+                          if (!isNaN(dateObj.getTime())) {
+                            const day = String(dateObj.getDate()).padStart(2, '0');
+                            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                            const year = dateObj.getFullYear();
+                            displayedVal = `${day}/${month}/${year}`;
+                          }
+                        }
+                        return (
+                          <div key={key} className="flex text-[11px] justify-between gap-2 truncate">
+                            <span className="text-neutral-400 dark:text-neutral-500 font-medium">{key} :</span>
+                            <span className="text-neutral-800 dark:text-neutral-300 font-bold truncate max-w-[120px]" title={displayedVal}>
+                              {displayedVal}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -376,7 +390,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                         disabled={isSelfUpdating || isOfflineMode}
                         className={`flex items-center gap-1.5 py-1.5 px-3 border rounded-xl text-xs font-semibold transition ${
                           isOfflineMode
-                            ? 'bg-slate-100 dark:bg-neutral-800 text-slate-405 dark:text-slate-500 border-neutral-200 dark:border-neutral-700 cursor-not-allowed opacity-50'
+                            ? 'bg-slate-100 dark:bg-neutral-800 text-slate-400 dark:text-slate-500 border-neutral-200 dark:border-neutral-700 cursor-not-allowed opacity-50'
                             : (emp as any).photoConflict || emp.status === 'A_VERIFIER'
                             ? 'border-rose-200/70 dark:border-rose-800/30 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400'
                             : 'border-orange-200/70 dark:border-orange-800/30 bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-100 dark:hover:bg-orange-950/40 text-orange-700 dark:text-orange-400'
@@ -406,7 +420,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
           {/* PAGINATION */}
           {filteredEmployees.length > pageSize && (
-            <div className="bg-white dark:bg-neutral-850 border border-blue-100/50 dark:border-neutral-800 rounded-2xl px-4 py-3 shadow-sm">
+            <div className="bg-white dark:bg-neutral-800 border border-blue-100/50 dark:border-neutral-800 rounded-2xl px-4 py-3 shadow-sm">
               <Pagination
                 currentPage={currentPage}
                 totalItems={filteredEmployees.length}

@@ -6,13 +6,13 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
   // Graceful fallback si la DB est temporairement inaccessible
   let statsData = { companiesCount: 0, totalEmployees: 0, printedCount: 0, pendingPhotoCount: 0 };
-  let activities: Awaited<ReturnType<typeof getDashboardRecentActivities>> = [];
+  let activitiesData: Awaited<ReturnType<typeof getDashboardRecentActivities>> = { activities: [], total: 0 };
   let dbError = false;
 
   try {
-    [statsData, activities] = await Promise.all([
+    [statsData, activitiesData] = await Promise.all([
       getDashboardStats(),
-      getDashboardRecentActivities(),
+      getDashboardRecentActivities(1, 10),
     ]);
   } catch (error) {
     console.warn("Dashboard DB fetch error:", error);
@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   }
 
   // Convert Date objects to strings for Client Component serialization
-  const serializedActivities = activities.map(act => ({
+  const serializedActivities = activitiesData.activities.map(act => ({
     ...act,
     date: act.date.toISOString(),
   }));
@@ -30,6 +30,7 @@ export default async function DashboardPage() {
       <DashboardClient
         initialStats={statsData}
         initialActivities={serializedActivities}
+        initialTotalActivities={activitiesData.total}
         dbError={dbError}
       />
     </div>

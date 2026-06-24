@@ -228,7 +228,7 @@ export default function Canvas({
       className="flex flex-col p-4 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-auto min-h-[480px] h-[calc(100vh-250px)] max-h-[85vh] w-full flex-1 transition-all duration-300"
     >
       <div className="m-auto flex flex-col items-center justify-center p-4 min-w-max min-h-max">
-        <span className="text-xs text-neutral-400 dark:text-neutral-505 mb-4 font-mono">
+        <span className="text-xs text-neutral-400 dark:text-neutral-500 mb-4 font-mono">
           Zone de travail ({width}x{height} px @ {Math.round(zoom * 100)}%)
         </span>
 
@@ -249,7 +249,7 @@ export default function Canvas({
               transformOrigin: 'top left',
               borderRadius: `${borderRadius}px`,
             }}
-            className={`absolute top-0 left-0 bg-white dark:bg-neutral-850 ${
+            className={`absolute top-0 left-0 bg-white dark:bg-neutral-800 ${
               selectedElementId === null
                 ? 'ring-2 ring-indigo-500/10'
                 : ''
@@ -393,7 +393,7 @@ export default function Canvas({
                             borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                             borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
                           }}
-                          className={`w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-2 text-neutral-450 dark:text-neutral-500 overflow-hidden ${
+                          className={`w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-2 text-neutral-400 dark:text-neutral-500 overflow-hidden ${
                             el.borderWidth === undefined ? 'border border-neutral-300 dark:border-neutral-700' : ''
                           }`}
                         >
@@ -429,8 +429,8 @@ export default function Canvas({
                             borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                             borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
                           }}
-                          className={`w-full h-full flex items-center justify-center overflow-hidden bg-neutral-100/50 dark:bg-neutral-800/30 text-neutral-450 dark:text-neutral-500 ${
-                            el.borderWidth === undefined ? 'border border-neutral-355/50 dark:border-neutral-700/50' : ''
+                          className={`w-full h-full flex items-center justify-center overflow-hidden bg-neutral-100/50 dark:bg-neutral-800/30 text-neutral-400 dark:text-neutral-500 ${
+                            el.borderWidth === undefined ? 'border border-neutral-300/50 dark:border-neutral-700/50' : ''
                           }`}
                         >
                           {el.logoUrl ? (

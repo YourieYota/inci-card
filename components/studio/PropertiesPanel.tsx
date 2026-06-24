@@ -18,6 +18,7 @@ interface PropertiesPanelProps {
   onUpdateElement: (element: StudioElement) => void;
   onDeleteElement: (id: string) => void;
   suggestedFields?: string[];
+  formats: any[];
 }
 
 interface DimensionInputProps {
@@ -84,7 +85,7 @@ function DimensionInput({ label, value, onChange, min, elementId, isMm = false }
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="w-full px-3 py-2 border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
+        className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
       />
     </div>
   );
@@ -101,6 +102,7 @@ export default function PropertiesPanel({
   onUpdateElement,
   onDeleteElement,
   suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'],
+  formats = [],
 }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [recentColors, setRecentColors] = useState<string[]>([]);
@@ -167,7 +169,7 @@ export default function PropertiesPanel({
   };
 
   return (
-    <div className="w-full bg-white dark:bg-neutral-850 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col gap-6 max-h-[85vh] overflow-y-auto">
+    <div className="w-full bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col gap-6 max-h-[85vh] overflow-y-auto">
       {selectedElement ? (
         // ELEMENT PROPERTIES
         <div className="flex flex-col gap-5">
@@ -224,7 +226,7 @@ export default function PropertiesPanel({
           </div>
 
           {/* Opacity Slider for Elements */}
-          <div className="border-t border-neutral-100 dark:border-neutral-850 pt-4">
+          <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
             <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">
               Opacité ({Math.round((selectedElement.opacity !== undefined ? selectedElement.opacity : 1) * 100)}%)
             </label>
@@ -235,12 +237,12 @@ export default function PropertiesPanel({
               step="0.05"
               value={selectedElement.opacity !== undefined ? selectedElement.opacity : 1}
               onChange={(e) => onUpdateElement({ ...selectedElement, opacity: parseFloat(e.target.value) })}
-              className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
             />
           </div>
 
           {/* Border Radius for Element */}
-          <div className="border-t border-neutral-100 dark:border-neutral-850 pt-4">
+          <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
             <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
               Arrondi des angles ({selectedElement.borderRadius || 0}px)
             </label>
@@ -251,13 +253,13 @@ export default function PropertiesPanel({
               step="1"
               value={selectedElement.borderRadius || 0}
               onChange={(e) => onUpdateElement({ ...selectedElement, borderRadius: parseInt(e.target.value) || 0 })}
-              className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
             />
           </div>
 
           {/* Border Width & Color for Image/Logo/QR */}
           {(selectedElement.type === 'image' || selectedElement.type === 'logo' || selectedElement.type === 'qr') && (
-            <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-850 pt-4">
+            <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
               <div>
                 <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
                   Épaisseur de la bordure ({selectedElement.borderWidth || 0}px)
@@ -269,7 +271,7 @@ export default function PropertiesPanel({
                   step="1"
                   value={selectedElement.borderWidth || 0}
                   onChange={(e) => onUpdateElement({ ...selectedElement, borderWidth: parseInt(e.target.value) || 0, borderColor: selectedElement.borderColor || '#000000' })}
-                  className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                 />
               </div>
 
@@ -304,7 +306,7 @@ export default function PropertiesPanel({
                             key={`border-${color}-${idx}`}
                             type="button"
                             onClick={() => onUpdateElement({ ...selectedElement, borderColor: color })}
-                            className="w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-750 cursor-pointer transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            className="w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-700 cursor-pointer transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                             style={{ backgroundColor: color }}
                             title={color}
                           />
@@ -319,7 +321,7 @@ export default function PropertiesPanel({
 
           {/* Logo Image Uploader */}
           {selectedElement.type === 'logo' && (
-            <div className="flex flex-col gap-3 border-t border-neutral-100 dark:border-neutral-850 pt-4">
+            <div className="flex flex-col gap-3 border-t border-neutral-100 dark:border-neutral-800 pt-4">
               <div>
                 <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
                   Source de l&apos;Image / Logo
@@ -335,7 +337,7 @@ export default function PropertiesPanel({
               {selectedElement.logoUrl && (
                 <div className="flex items-center gap-3 p-2 bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800">
                   <img src={selectedElement.logoUrl} className="w-10 h-10 object-contain rounded bg-white border border-neutral-200 dark:border-neutral-700" alt="Preview" />
-                  <span className="text-xs text-neutral-550 dark:text-neutral-400 truncate flex-1 font-mono">
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate flex-1 font-mono">
                     {selectedElement.logoUrl.startsWith('data:') ? 'Image locale (Base64)' : selectedElement.logoUrl}
                   </span>
                   <button
@@ -369,7 +371,7 @@ export default function PropertiesPanel({
                 <button
                   type="button"
                   onClick={() => document.getElementById('logo-upload-input')?.click()}
-                  className="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/50 text-indigo-750 dark:text-indigo-400 rounded-xl text-xs font-bold transition"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 rounded-xl text-xs font-bold transition"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Uploader un logo/image</span>
@@ -484,7 +486,7 @@ export default function PropertiesPanel({
                           key={`${color}-${idx}`}
                           type="button"
                           onClick={() => onUpdateElement({ ...selectedElement, color })}
-                          className="w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-750 cursor-pointer transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                          className="w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-700 cursor-pointer transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                           style={{ backgroundColor: color }}
                           title={color}
                         />
@@ -611,24 +613,81 @@ export default function PropertiesPanel({
               onChange={(val) => onUpdateCanvas(canvasWidth, val, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
             />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => onUpdateCanvas(324, 204, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
-              className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          {/* Preset format selector */}
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+              Format Prédéfini
+            </label>
+            <select
+              value={(() => {
+                const matched = formats.find(f => {
+                  const wPx = Math.round(f.width / 0.264583);
+                  const hPx = Math.round(f.height / 0.264583);
+                  return (canvasWidth === wPx && canvasHeight === hPx) || (canvasWidth === hPx && canvasHeight === wPx);
+                });
+                return matched ? matched.id : 'custom';
+              })()}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'custom') return;
+                const matched = formats.find(f => f.id === val);
+                if (matched) {
+                  const wPx = Math.round(matched.width / 0.264583);
+                  const hPx = Math.round(matched.height / 0.264583);
+                  
+                  if (canvasWidth >= canvasHeight) {
+                    const targetW = Math.max(wPx, hPx);
+                    const targetH = Math.min(wPx, hPx);
+                    onUpdateCanvas(targetW, targetH, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius);
+                  } else {
+                    const targetW = Math.min(wPx, hPx);
+                    const targetH = Math.max(wPx, hPx);
+                    onUpdateCanvas(targetW, targetH, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius);
+                  }
+                }
+              }}
+              className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition"
             >
-              CR80 Paysage (85.6 x 54.0 mm)
+              <option value="custom">Format Personnalisé</option>
+              {formats.map((fmt) => (
+                <option key={fmt.id} value={fmt.id}>
+                  {fmt.name} ({fmt.width} x {fmt.height} {fmt.unit})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Orientation Selector */}
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (canvasWidth < canvasHeight) {
+                  onUpdateCanvas(canvasHeight, canvasWidth, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius);
+                }
+              }}
+              className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
+                canvasWidth >= canvasHeight
+                  ? 'border-indigo-500 bg-indigo-50/50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400'
+                  : 'border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+              }`}
+            >
+              Paysage
             </button>
             <button
-              onClick={() => onUpdateCanvas(204, 324, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
-              className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              type="button"
+              onClick={() => {
+                if (canvasWidth > canvasHeight) {
+                  onUpdateCanvas(canvasHeight, canvasWidth, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius);
+                }
+              }}
+              className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
+                canvasWidth < canvasHeight
+                  ? 'border-indigo-500 bg-indigo-50/50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400'
+                  : 'border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+              }`}
             >
-              CR80 Portrait (54.0 x 85.6 mm)
-            </button>
-            <button
-              onClick={() => onUpdateCanvas(700, 450, canvasBackground, canvasBackgroundOpacity, canvasBorderRadius)}
-              className="flex-1 min-w-[120px] py-1 px-2 border border-neutral-250 dark:border-neutral-800 rounded bg-neutral-50 dark:bg-neutral-900 text-[10px] text-neutral-600 dark:text-neutral-450 font-bold transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              Grand Badge (185.2 x 119.1 mm)
+              Portrait
             </button>
           </div>
 
@@ -658,7 +717,7 @@ export default function PropertiesPanel({
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/50 text-indigo-750 dark:text-indigo-400 rounded-xl text-xs font-bold transition"
+                className="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 rounded-xl text-xs font-bold transition"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Uploader une création locale</span>
@@ -677,7 +736,7 @@ export default function PropertiesPanel({
                 step="0.05"
                 value={canvasBackgroundOpacity}
                 onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, canvasBackground, parseFloat(e.target.value), canvasBorderRadius)}
-                className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
               />
             </div>
 
@@ -693,7 +752,7 @@ export default function PropertiesPanel({
                 step="1"
                 value={canvasBorderRadius}
                 onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, canvasBackground, canvasBackgroundOpacity, parseInt(e.target.value) || 0)}
-                className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-250 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
               />
             </div>
 
@@ -718,7 +777,7 @@ export default function PropertiesPanel({
             </div>
           </div>
 
-          <div className="mt-4 p-4 rounded-xl bg-indigo-50/30 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-950/50 text-[11px] text-neutral-550 dark:text-neutral-400">
+          <div className="mt-4 p-4 rounded-xl bg-indigo-50/30 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-950/50 text-[11px] text-neutral-500 dark:text-neutral-400">
             <span className="font-bold text-indigo-700 dark:text-indigo-400 block mb-1">Raccourcis Clavier :</span>
             <ul className="list-disc pl-4 space-y-1 mt-1 font-medium">
               <li>Déplacer : <span className="font-bold text-neutral-700 dark:text-neutral-200">Flèches</span> (+ Shift pour +10px)</li>
