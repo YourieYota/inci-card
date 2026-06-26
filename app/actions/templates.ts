@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { CardType } from '@prisma/client';
+
 
 export async function getCompanies() {
   try {
@@ -64,7 +64,7 @@ export async function updateCompany(companyId: string, name: string, identifierP
   }
 }
 
-export async function getTemplate(companyId: string, type: CardType, categoryId?: string | null) {
+export async function getTemplate(companyId: string, type: string, categoryId?: string | null) {
   try {
     return await prisma.cardTemplate.findFirst({
       where: {
@@ -89,7 +89,7 @@ export async function saveTemplate({
   layoutConfig,
 }: {
   companyId: string;
-  type: CardType;
+  type: string;
   categoryId?: string | null;
   width: number;
   height: number;

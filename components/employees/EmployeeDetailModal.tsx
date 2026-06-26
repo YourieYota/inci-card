@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Employee } from '@prisma/client';
-import { X, Camera, Upload, Printer, Check, Loader2, AlertCircle, Trash2 } from 'lucide-react';
-import { updateEmployeeStatus, saveEmployeePhoto, updateEmployeeData, deleteEmployee } from '@/app/actions/employees';
+import { X, Camera, Upload, Printer, Check, Loader2, AlertCircle, Trash2, Lock, Ban, RotateCcw, Clock, ShieldOff } from 'lucide-react';
+import { updateEmployeeStatus, saveEmployeePhoto, updateEmployeeData, deleteEmployee, requestReprint, blockBadge, unblockBadge, getEmployeePrintHistory } from '@/app/actions/employees';
 import { addOfflineMutation } from '@/lib/offlineQueue';
 import { safeSetItem, safeGetItem } from '@/lib/storage';
 
@@ -66,6 +66,30 @@ export default function EmployeeDetailModal({
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+
+  // Lock / Block / Reprint states
+  const [showReprintDialog, setShowReprintDialog] = useState(false);
+  const [reprintReason, setReprintReason] = useState('');
+  const [showUnblockDialog, setShowUnblockDialog] = useState(false);
+  const [unblockReason, setUnblockReason] = useState('');
+  const [printHistory, setPrintHistory] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const isEmployeeLocked = (employee as any).isLocked === true;
+  const isEmployeeBlocked = (employee as any).isBlocked === true;
+  const employeeCardNumber = (employee as any).cardNumber;
+  const employeePrintCount = (employee as any).printCount || 0;
+
+  // Load print history on mount
+  useEffect(() => {
+    if (employeePrintCount > 0 || isEmployeeLocked) {
+      setIsLoadingHistory(true);
+      getEmployeePrintHistory(employee.id)
+        .then(setPrintHistory)
+        .catch(() => {})
+        .finally(() => setIsLoadingHistory(false));
+    }
+  }, [employee.id, employeePrintCount, isEmployeeLocked]);
 
   // File reader & compressor for local photo upload
   const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -352,8 +376,31 @@ export default function EmployeeDetailModal({
         {/* MODAL HEADER */}
         <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-neutral-800 dark:text-white">Fiche d&apos;enrôlement - {employee.enrollmentNumber || employee.uniqueIdentifier}</h2>
-            <p className="text-xs text-neutral-400 dark:text-neutral-500">Consultez, modifiez et validez les détails de l&apos;employé</p>
+            <h2 className="text-base font-bold text-neutral-800 dark:text-white flex items-center gap-2">
+              Fiche d&apos;enrôlement - {employee.enrollmentNumber || employee.uniqueIdentifier}
+              {isEmployeeLocked && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 rounded-lg text-[10px] font-bold">
+                  <Lock className="w-3 h-3" /> Verrouillée
+                </span>
+              )}
+              {isEmployeeBlocked && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 rounded-lg text-[10px] font-bold">
+                  <Ban className="w-3 h-3" /> Badge bloqué
+                </span>
+              )}
+              {employee.status === 'REIMPRESSION' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 rounded-lg text-[10px] font-bold">
+                  <RotateCcw className="w-3 h-3" /> Réimpression
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">
+              {isEmployeeLocked 
+                ? 'Cette fiche est verrouillée. Demandez une réimpression pour effectuer des modifications.' 
+                : 'Consultez, modifiez et validez les détails de l&apos;employé'
+              }
+              {employeeCardNumber && <span className="ml-2 font-bold text-indigo-500">N° Carte: {employeeCardNumber}</span>}
+            </p>
           </div>
           <button 
             onClick={onClose}
@@ -488,7 +535,8 @@ export default function EmployeeDetailModal({
                       type="text"
                       value={val}
                       onChange={(e) => handleFieldChange(key, e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500/25"
+                      readOnly={isEmployeeLocked}
+                      className={`w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500/25 ${isEmployeeLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
                     />
                   </div>
                 ))}
@@ -498,7 +546,7 @@ export default function EmployeeDetailModal({
               <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 flex flex-col gap-2">
                 <label className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500">Statut de l&apos;enrôlement</label>
                 <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5 w-max">
-                  {(['A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER'] as const).map((st) => {
+                  {(['A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER', 'REIMPRESSION'] as const).map((st) => {
                     const isActive = status === st;
 
                     return (
@@ -518,6 +566,7 @@ export default function EmployeeDetailModal({
                         {st === 'PHOTO_VALIDEE' && 'Validé'}
                         {st === 'IMPRIME' && 'Imprimé'}
                         {st === 'A_VERIFIER' && 'À vérifier'}
+                        {st === 'REIMPRESSION' && '⚔ Réimpression'}
                       </button>
                     );
                   })}
@@ -525,12 +574,42 @@ export default function EmployeeDetailModal({
               </div>
             </div>
 
+            {/* PRINT HISTORY SECTION */}
+            {printHistory.length > 0 && (
+              <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
+                <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 flex items-center gap-1 mb-2">
+                  <Clock className="w-3 h-3" /> Historique d&apos;impression ({printHistory.filter(j => j.templateType !== 'PENDING' && j.templateType !== 'DEBLOCAGE').length})
+                </span>
+                <div className="max-h-[120px] overflow-y-auto space-y-1.5">
+                  {printHistory.map((job: any) => (
+                    <div key={job.id} className={`flex items-center gap-2 p-2 rounded-lg text-[10px] ${
+                      job.templateType === 'PENDING' ? 'bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-400' :
+                      job.templateType === 'DEBLOCAGE' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' :
+                      job.isReprint ? 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400' :
+                      'bg-neutral-50 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400'
+                    }`}>
+                      {job.isReprint && <RotateCcw className="w-3 h-3 shrink-0" />}
+                      <span className="font-bold">{job.cardNumber}</span>
+                      <span className="opacity-70">—</span>
+                      <span>{new Date(job.printedAt || job.createdAt).toLocaleDateString('fr-FR')}</span>
+                      <span className="opacity-70">par {job.printedBy}</span>
+                      {job.reprintReason && (
+                        <span className="ml-auto italic opacity-80 truncate max-w-[150px]" title={job.reprintReason}>
+                          Motif: {job.reprintReason}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
 
         {/* MODAL FOOTER */}
         <div className="px-6 py-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 flex items-center justify-between">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               type="button"
               onClick={handlePrintReceipt}
@@ -541,14 +620,57 @@ export default function EmployeeDetailModal({
             </button>
             <button
               type="button"
-              disabled={status === 'A_ENROLER'}
+              disabled={status === 'A_ENROLER' || isEmployeeBlocked}
               onClick={handlePrintCard}
               className="flex items-center gap-1.5 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition shadow-sm"
-              title={status === 'A_ENROLER' ? "Veuillez d'abord ajouter une photo et valider l'enrôlement" : "Imprimer la carte de l'employé"}
+              title={status === 'A_ENROLER' ? "Veuillez d'abord ajouter une photo et valider l'enrôlement" : isEmployeeBlocked ? "Badge bloqué" : "Imprimer la carte de l'employé"}
             >
               <Printer className="w-4 h-4" />
               <span>Imprimer la carte</span>
             </button>
+
+            {/* REPRINT BUTTON */}
+            {isEmployeeLocked && !isEmployeeBlocked && (
+              <button
+                type="button"
+                onClick={() => setShowReprintDialog(true)}
+                className="flex items-center gap-1.5 py-2 px-4 border border-violet-200 dark:border-violet-900 bg-violet-50 dark:bg-violet-950/20 hover:bg-violet-100 dark:hover:bg-violet-950/40 text-violet-700 dark:text-violet-400 rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Demander réimpression</span>
+              </button>
+            )}
+
+            {/* BLOCK / UNBLOCK BUTTONS */}
+            {!isEmployeeBlocked && isEmployeeLocked && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Bloquer ce badge ? Il ne pourra plus être imprimé ni réimprimé.')) return;
+                  try {
+                    await blockBadge(employee.id);
+                    onRefresh();
+                    onClose();
+                  } catch (err: any) {
+                    alert(err.message || 'Erreur lors du blocage du badge.');
+                  }
+                }}
+                className="flex items-center gap-1.5 py-2 px-4 border border-rose-200 dark:border-rose-900 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                <Ban className="w-4 h-4" />
+                <span>Bloquer badge</span>
+              </button>
+            )}
+            {isEmployeeBlocked && (
+              <button
+                type="button"
+                onClick={() => setShowUnblockDialog(true)}
+                className="flex items-center gap-1.5 py-2 px-4 border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                <ShieldOff className="w-4 h-4" />
+                <span>Débloquer badge</span>
+              </button>
+            )}
           </div>
 
           <div className="flex gap-2.5">
@@ -576,8 +698,9 @@ export default function EmployeeDetailModal({
             <button
               type="button"
               onClick={handleSave}
-              disabled={isSaving || isDeleting}
+              disabled={isSaving || isDeleting || isEmployeeLocked}
               className="flex items-center gap-1.5 py-2.5 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+              title={isEmployeeLocked ? 'Fiche verrouillée — demandez une réimpression' : ''}
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               <span>Enregistrer</span>
@@ -586,6 +709,88 @@ export default function EmployeeDetailModal({
         </div>
 
       </div>
+
+      {/* REPRINT DIALOG */}
+      {showReprintDialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-sm font-bold text-neutral-800 dark:text-white flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 text-violet-500" /> Demande de réimpression
+            </h3>
+            <p className="text-xs text-neutral-500">Un motif est obligatoire. Il sera visible sur la fiche et dans la file d&apos;impression.</p>
+            <textarea
+              value={reprintReason}
+              onChange={(e) => setReprintReason(e.target.value)}
+              placeholder="Ex: Badge perdu, nom incorrect, photo à changer..."
+              className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs min-h-[80px] focus:ring-2 focus:ring-violet-500/25"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setShowReprintDialog(false); setReprintReason(''); }} className="px-4 py-2 text-xs font-bold text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition">Annuler</button>
+              <button
+                disabled={!reprintReason.trim() || isSaving}
+                onClick={async () => {
+                  setIsSaving(true);
+                  try {
+                    await requestReprint(employee.id, reprintReason.trim());
+                    setShowReprintDialog(false);
+                    setReprintReason('');
+                    onRefresh();
+                    onClose();
+                  } catch (err: any) {
+                    alert(err.message || 'Erreur lors de la demande de réimpression.');
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+                className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmer la réimpression'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UNBLOCK DIALOG */}
+      {showUnblockDialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-sm font-bold text-neutral-800 dark:text-white flex items-center gap-2">
+              <ShieldOff className="w-4 h-4 text-emerald-500" /> Déblocage du badge
+            </h3>
+            <p className="text-xs text-neutral-500">Un motif est obligatoire pour débloquer ce badge.</p>
+            <textarea
+              value={unblockReason}
+              onChange={(e) => setUnblockReason(e.target.value)}
+              placeholder="Ex: Badge retrouvé, erreur de blocage..."
+              className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs min-h-[80px] focus:ring-2 focus:ring-emerald-500/25"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setShowUnblockDialog(false); setUnblockReason(''); }} className="px-4 py-2 text-xs font-bold text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition">Annuler</button>
+              <button
+                disabled={!unblockReason.trim() || isSaving}
+                onClick={async () => {
+                  setIsSaving(true);
+                  try {
+                    await unblockBadge(employee.id, unblockReason.trim());
+                    setShowUnblockDialog(false);
+                    setUnblockReason('');
+                    onRefresh();
+                    onClose();
+                  } catch (err: any) {
+                    alert(err.message || 'Erreur lors du déblocage du badge.');
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmer le déblocage'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

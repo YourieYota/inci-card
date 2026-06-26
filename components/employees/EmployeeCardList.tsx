@@ -14,7 +14,7 @@ interface EmployeeCardListProps {
   isOfflineMode?: boolean;
 }
 
-type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME' | 'A_VERIFIER';
+type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME' | 'A_VERIFIER' | 'REIMPRESSION';
 
 export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh, onOpenDetail, isOfflineMode = false }: EmployeeCardListProps) {
   const [filter, setFilter] = useState<FilterStatus>('ALL');
@@ -158,7 +158,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
       <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-blue-100/50 dark:border-neutral-800/80 shadow-sm">
         {/* Status Filters */}
         <div className="flex flex-wrap gap-1.5 p-1 bg-slate-50 dark:bg-neutral-900 border border-slate-200/60 dark:border-neutral-800/60 rounded-xl w-full lg:w-auto">
-          {(['ALL', 'A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER'] as FilterStatus[]).map((st) => (
+          {(['ALL', 'A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER', 'REIMPRESSION'] as FilterStatus[]).map((st) => (
             <button
               key={st}
               onClick={() => setFilter(st)}
@@ -168,6 +168,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   : st === 'A_ENROLER' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 shadow-sm border border-amber-200/60 dark:border-amber-900/40'
                   : st === 'PHOTO_VALIDEE' ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 shadow-sm border border-blue-200/60 dark:border-blue-900/40'
                   : st === 'A_VERIFIER' ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 shadow-sm border border-rose-200/60 dark:border-rose-900/40'
+                  : st === 'REIMPRESSION' ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 shadow-sm border border-violet-200/60 dark:border-violet-900/40'
                   : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm border border-emerald-200/60 dark:border-emerald-900/40'
                   : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300 hover:bg-white/60 dark:hover:bg-neutral-800/50'
               }`}
@@ -177,6 +178,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
               {st === 'PHOTO_VALIDEE' && 'Photo Validée'}
               {st === 'IMPRIME' && 'Imprimés'}
               {st === 'A_VERIFIER' && 'À vérifier'}
+              {st === 'REIMPRESSION' && 'Réimpression'}
             </button>
           ))}
         </div>
@@ -260,6 +262,8 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                     ? 'border-amber-100/80 dark:border-amber-900/20 hover:border-amber-300/60 dark:hover:border-amber-800/40'
                     : emp.status === 'PHOTO_VALIDEE'
                     ? 'border-blue-100/80 dark:border-blue-900/20 hover:border-blue-300/60 dark:hover:border-blue-800/40'
+                    : emp.status === 'REIMPRESSION'
+                    ? 'border-violet-200/80 dark:border-violet-900/20 hover:border-violet-300/60 dark:hover:border-violet-800/40'
                     : 'border-emerald-100/80 dark:border-emerald-900/20 hover:border-emerald-300/60 dark:hover:border-emerald-800/40'
                 }`}
               >
@@ -268,6 +272,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   emp.status === 'A_VERIFIER' || (emp as any).photoConflict ? 'bg-rose-500' :
                   emp.status === 'A_ENROLER' ? 'bg-amber-400/60' :
                   emp.status === 'PHOTO_VALIDEE' ? 'bg-blue-400/60' :
+                  emp.status === 'REIMPRESSION' ? 'bg-violet-400/60' :
                   'bg-emerald-400/60'
                 }`} />
 
@@ -326,8 +331,14 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                         {emp.status === 'A_VERIFIER' && 'À vérifier'}
                         {emp.status === 'A_ENROLER' && 'À enrôler'}
                         {emp.status === 'PHOTO_VALIDEE' && 'Validé'}
-                        {emp.status === 'IMPRIME' && 'Imprimé'}
+                        {emp.status === 'IMPRIME' && ((emp as any).isLocked ? '🔒 Imprimé' : 'Imprimé')}
+                        {emp.status === 'REIMPRESSION' && '♻️ Réimpression'}
                       </span>
+                      {(emp as any).isBlocked && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/70 dark:border-rose-800/40">
+                          🚫 Bloqué
+                        </span>
+                      )}
                     </div>
 
                     <h4 className="text-sm font-bold text-neutral-800 dark:text-white mt-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">

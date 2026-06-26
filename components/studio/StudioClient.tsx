@@ -1,17 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Company, CardType } from '@prisma/client';
+import { Company } from '@prisma/client';
 import { Save, Plus, ArrowLeft, Loader2, CheckCircle, AlertCircle, RefreshCw, ZoomIn } from 'lucide-react';
 import Link from 'next/link';
 import Canvas, { StudioElement } from './Canvas';
 import Toolbar from './Toolbar';
 import PropertiesPanel from './PropertiesPanel';
 import { getTemplate, saveTemplate, createCompany, getCompanyFields } from '@/app/actions/templates';
-import { getCardCategories, getCardFormats, getCardPhysicalTypes } from '@/app/actions/cards';
+import { getCardCategories, getCardFormats, getCardPhysicalTypes, getCardDocumentTypes } from '@/app/actions/cards';
 import { safeSetItem, safeGetItem } from '@/lib/storage';
 
-const getDefaultElements = (width: number, height: number, type?: CardType): StudioElement[] => {
+const getDefaultElements = (width: number, height: number, type?: string): StudioElement[] => {
   const isPortrait = height > width;
   const time = Date.now();
 
@@ -403,6 +403,7 @@ interface StudioClientProps {
   initialCategories: any[];
   initialFormats: any[];
   initialPhysicalTypes: any[];
+  initialDocumentTypes: any[];
   dbError?: boolean;
 }
 
@@ -411,17 +412,27 @@ export default function StudioClient({
   initialCategories, 
   initialFormats,
   initialPhysicalTypes,
+  initialDocumentTypes,
   dbError = false 
 }: StudioClientProps) {
   const [companies, setCompanies] = useState<Company[]>(initialCompanies);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
-  const [cardType, setCardType] = useState<CardType>('BADGE');
+  const [cardType, setCardType] = useState<string>('BADGE');
   const [categories, setCategories] = useState<any[]>(initialCategories);
   const [formats, setFormats] = useState<any[]>(initialFormats);
   const [physicalTypes, setPhysicalTypes] = useState<any[]>(initialPhysicalTypes);
+  const [documentTypes, setDocumentTypes] = useState<any[]>(initialDocumentTypes || [
+    { id: 'SYSTEM_BADGE', name: 'Badge', slug: 'BADGE', isSystem: true },
+    { id: 'SYSTEM_CARTE_PRO', name: 'Carte Professionnelle', slug: 'CARTE_PRO', isSystem: true },
+    { id: 'SYSTEM_RECU', name: "Reçu d'enrôlement", slug: 'RECU', isSystem: true }
+  ]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedPhysicalTypeId, setSelectedPhysicalTypeId] = useState<string>('');
-  const [dynamicFields, setDynamicFields] = useState<string[]>(['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise']);
+
+  // System-level dynamic variables always available
+  const SYSTEM_FIELDS = ["N° d'enrolement", "N° Carte", "Date d'émission", "Date d'expiration", "Entreprise", "Validité"];
+
+  const [dynamicFields, setDynamicFields] = useState<string[]>(['Nom', 'Prenom', 'Role', 'Matricule', ...SYSTEM_FIELDS]);
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(dbError);
   const [mounted, setMounted] = useState<boolean>(false);
 
@@ -429,14 +440,16 @@ export default function StudioClient({
   useEffect(() => {
     const loadCompanyConfigData = async () => {
       try {
-        const [cList, fList, tList] = await Promise.all([
+        const [cList, fList, tList, dList] = await Promise.all([
           getCardCategories(selectedCompanyId || null),
           getCardFormats(selectedCompanyId || null),
           getCardPhysicalTypes(selectedCompanyId || null),
+          getCardDocumentTypes(selectedCompanyId || null),
         ]);
         setCategories(cList);
         setFormats(fList);
         setPhysicalTypes(tList);
+        setDocumentTypes(dList);
       } catch (err) {
         console.warn("Failed to load company config data in studio:", err);
       }
@@ -1014,7 +1027,7 @@ export default function StudioClient({
       setCanvasBackgroundOpacity(1);
       setHistory([]);
       setHistoryIndex(-1);
-      setDynamicFields(['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise']);
+      setDynamicFields(['Nom', 'Prenom', 'Role', 'Matricule', ...SYSTEM_FIELDS]);
       return;
     }
 
@@ -1022,7 +1035,9 @@ export default function StudioClient({
       setIsLoading(true);
       try {
         const fields = await getCompanyFields(selectedCompanyId);
-        setDynamicFields(fields);
+        // Merge Excel fields with system fields, avoiding duplicates
+        const mergedFields = [...new Set([...fields, ...SYSTEM_FIELDS])]; 
+        setDynamicFields(mergedFields);
 
         const template = await getTemplate(selectedCompanyId, cardType, selectedCategoryId);
         
@@ -1043,7 +1058,8 @@ export default function StudioClient({
           const cachedTemplateStr = safeGetItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`);
           
           if (cachedFields) {
-            setDynamicFields(JSON.parse(cachedFields));
+            const parsed = JSON.parse(cachedFields);
+            setDynamicFields([...new Set([...parsed, ...SYSTEM_FIELDS])]);
           }
           
           if (cachedTemplateStr) {
@@ -1305,12 +1321,14 @@ export default function StudioClient({
             <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider">Type :</span>
             <select
               value={cardType}
-              onChange={(e) => setCardType(e.target.value as any)}
+              onChange={(e) => setCardType(e.target.value)}
               className="bg-transparent text-xs font-semibold text-neutral-700 dark:text-neutral-300 outline-none cursor-pointer"
             >
-              <option value="BADGE" className="dark:bg-neutral-900 font-semibold">Badge</option>
-              <option value="CARTE_PRO" className="dark:bg-neutral-900 font-semibold">Carte Pro</option>
-              <option value="RECU" className="dark:bg-neutral-900 font-semibold">Reçu d&apos;Enrôlement</option>
+              {documentTypes.map((dt) => (
+                <option key={dt.id} value={dt.slug} className="dark:bg-neutral-900 font-semibold">
+                  {dt.name}
+                </option>
+              ))}
             </select>
           </div>
 

@@ -5,6 +5,14 @@ import crypto from 'crypto';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
+async function getSafeSession() {
+  try {
+    return await getServerSession(authOptions);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function computePhotoHash(photoUrl: string): Promise<string> {
   if (photoUrl.startsWith('data:image/')) {
     const base64Data = photoUrl.split(',')[1];
@@ -52,9 +60,9 @@ async function generateEnrollmentNumber(companyId: string): Promise<string> {
   });
 
   const count = await prisma.employee.count({
-    where: { 
+    where: {
       companyId: companyId,
-      enrollmentNumber: { not: null } 
+      enrollmentNumber: { not: null }
     },
   });
 
@@ -65,7 +73,7 @@ async function generateEnrollmentNumber(companyId: string): Promise<string> {
   }
 
   const physicalType = await prisma.cardPhysicalType.findFirst({
-    where: { 
+    where: {
       companyId: companyId || null,
       cardCode: { not: "" }
     },
@@ -103,7 +111,7 @@ export async function importEmployees({
   rows: any[];
 }) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
 
     const importPromises = rows.map(async (row) => {
@@ -144,7 +152,7 @@ export async function importEmployees({
 
 export async function updateEmployeeStatus(employeeId: string, status: string) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
 
     const data: any = { status };
@@ -167,7 +175,7 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
         }
       }
     }
-    
+
     return await prisma.employee.update({
       where: { id: employeeId },
       data,
@@ -180,7 +188,7 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
 
 export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: string) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
 
     const data: any = { status };
@@ -188,7 +196,7 @@ export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: st
       data.printedAt = new Date();
       data.printedBy = operatorName;
     }
-    
+
     // Process sequentially to avoid duplicate sequential enrollmentNumbers
     const updates = [];
     for (const id of employeeIds) {
@@ -196,7 +204,7 @@ export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: st
         where: { id },
         select: { enrollmentNumber: true, companyId: true, enrolledBy: true },
       });
-      
+
       const singleData = { ...data };
       if (emp) {
         if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME') && !emp.enrollmentNumber) {
@@ -206,14 +214,14 @@ export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: st
           singleData.enrolledBy = operatorName;
         }
       }
-      
+
       const res = await prisma.employee.update({
         where: { id },
         data: singleData,
       });
       updates.push(res);
     }
-    
+
     return { count: employeeIds.length };
   } catch (error) {
     console.warn('Error bulk updating employee status:', error);
@@ -229,13 +237,18 @@ export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: st
  */
 export async function saveEmployeePhoto(employeeId: string, photoUrl: string) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
 
     const emp = await prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { enrollmentNumber: true, photoHash: true, companyId: true, enrolledBy: true },
+      select: { enrollmentNumber: true, photoHash: true, companyId: true, enrolledBy: true, isLocked: true },
     });
+
+    // Guard: reject photo changes on locked employees
+    if (emp?.isLocked) {
+      throw new Error("Cette fiche est verrouillée (badge imprimé). Demandez une réimpression pour modifier la photo.");
+    }
 
     const oldHash = emp?.photoHash;
     const hash = await computePhotoHash(photoUrl);
@@ -311,10 +324,15 @@ export async function updateEmployeeData(employeeId: string, dynamicData: any) {
   try {
     const oldEmployee = await prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { uniqueIdentifier: true, dynamicData: true },
+      select: { uniqueIdentifier: true, dynamicData: true, isLocked: true },
     });
 
     if (!oldEmployee) throw new Error("Employé introuvable");
+
+    // Guard: reject modifications on locked employees
+    if (oldEmployee.isLocked) {
+      throw new Error("Cette fiche est verrouillée (badge imprimé). Demandez une réimpression pour effectuer des modifications.");
+    }
 
     let uniqueIdentifier = oldEmployee.uniqueIdentifier;
 
@@ -483,5 +501,308 @@ export async function deleteEmployee(employeeId: string) {
   } catch (error: any) {
     console.warn('Error deleting employee:', error);
     throw new Error(error.message || 'Impossible de supprimer l\'employé');
+  }
+}
+
+// ============================================
+// WORKFLOW D'IMPRESSION
+// ============================================
+
+/**
+ * Génère un numéro de carte unique basé sur le cardCode du type de document.
+ * Format: {cardCode}-{séquence} (ex: BADGE-0001)
+ */
+async function generateCardNumber(companyId: string, templateType: string): Promise<string> {
+  // 1. Try to find the cardCode from the document type
+  const docType = await prisma.cardDocumentType.findFirst({
+    where: {
+      slug: templateType,
+      OR: [
+        { companyId },
+        { companyId: null }
+      ]
+    },
+  });
+
+  let prefix = templateType.toUpperCase();
+  if (docType?.cardCode) {
+    prefix = docType.cardCode;
+  }
+
+  // 2. Count existing PrintJobs for this company to generate sequential number
+  const count = await prisma.printJob.count({
+    where: {
+      employee: {
+        companyId,
+      },
+    },
+  });
+
+  const seq = String(count + 1).padStart(4, '0');
+  return `${prefix}-${seq}`;
+}
+
+/**
+ * Vérifie l'éligibilité à l'impression pour une liste d'employés.
+ * Retourne les employés éligibles et les raisons d'inéligibilité.
+ */
+export async function validatePrintEligibility(employeeIds: string[]) {
+  try {
+    const employees = await prisma.employee.findMany({
+      where: { id: { in: employeeIds } },
+      include: {
+        company: { select: { name: true } },
+      },
+    });
+
+    const eligible: typeof employees = [];
+    const ineligible: { employee: typeof employees[0]; reasons: string[] }[] = [];
+
+    for (const emp of employees) {
+      const reasons: string[] = [];
+
+      // 1. Photo must be present
+      if (!emp.photoUrl) {
+        reasons.push('Photo manquante');
+      }
+
+      // 2. Status must be PHOTO_VALIDEE or REIMPRESSION
+      if (emp.status !== 'PHOTO_VALIDEE' && emp.status !== 'REIMPRESSION') {
+        if (emp.status === 'A_ENROLER') {
+          reasons.push('Fiche non validée (en attente d\'enrôlement)');
+        } else if (emp.status === 'A_VERIFIER') {
+          reasons.push('Fiche en attente de vérification (conflit photo)');
+        } else if (emp.status === 'IMPRIME' && emp.isLocked) {
+          reasons.push('Badge déjà imprimé et verrouillé (demandez une réimpression)');
+        }
+      }
+
+      // 3. Badge must not be blocked
+      if (emp.isBlocked) {
+        reasons.push('Badge bloqué');
+      }
+
+      if (reasons.length === 0) {
+        eligible.push(emp);
+      } else {
+        ineligible.push({ employee: emp, reasons });
+      }
+    }
+
+    return { eligible, ineligible };
+  } catch (error) {
+    console.warn('Error validating print eligibility:', error);
+    throw new Error('Impossible de valider l\'éligibilité à l\'impression');
+  }
+}
+
+/**
+ * Confirme l'impression : génère un numéro de carte, verrouille la fiche,
+ * crée un PrintJob pour chaque employé.
+ */
+export async function confirmPrint(
+  employeeIds: string[],
+  templateType: string,
+  categoryId?: string,
+  physicalTypeId?: string
+) {
+  try {
+    const session = await getSafeSession();
+    const operatorName = session?.user?.name || session?.user?.email || "Système";
+
+    // Validate eligibility first
+    const { eligible, ineligible } = await validatePrintEligibility(employeeIds);
+
+    if (eligible.length === 0) {
+      const reasons = ineligible.map(i => {
+        const data = i.employee.dynamicData as Record<string, any>;
+        const name = data ? `${data.Prenom || data.prenom || ''} ${data.Nom || data.nom || ''}`.trim() : i.employee.uniqueIdentifier;
+        return `${name}: ${i.reasons.join(', ')}`;
+      }).join('\n');
+      throw new Error(`Aucun employé éligible à l'impression.\n${reasons}`);
+    }
+
+    const results = [];
+
+    for (const emp of eligible) {
+      // Generate unique card number
+      const cardNumber = await generateCardNumber(emp.companyId, templateType);
+
+      // Determine if this is a reprint
+      const isReprint = emp.printCount > 0 || emp.status === 'REIMPRESSION';
+
+      // Get reprint reason from the last reprint request if applicable
+      let reprintReason: string | null = null;
+      if (isReprint) {
+        const lastJob = await prisma.printJob.findFirst({
+          where: { employeeId: emp.id },
+          orderBy: { createdAt: 'desc' },
+        });
+        reprintReason = lastJob?.reprintReason || null;
+      }
+
+      // Create PrintJob record
+      await prisma.printJob.create({
+        data: {
+          employeeId: emp.id,
+          cardNumber,
+          templateType,
+          categoryId: categoryId || null,
+          physicalTypeId: physicalTypeId || null,
+          isReprint,
+          reprintReason,
+          printedBy: operatorName,
+        },
+      });
+
+      // Update employee: lock, update cardNumber, increment printCount
+      const updated = await prisma.employee.update({
+        where: { id: emp.id },
+        data: {
+          cardNumber,
+          status: 'IMPRIME',
+          isLocked: true,
+          printCount: { increment: 1 },
+          printedAt: new Date(),
+          printedBy: operatorName,
+        },
+      });
+
+      results.push(updated);
+    }
+
+    return {
+      printed: results,
+      skipped: ineligible,
+    };
+  } catch (error: any) {
+    console.warn('Error confirming print:', error);
+    throw new Error(error.message || 'Impossible de confirmer l\'impression');
+  }
+}
+
+/**
+ * Demande une réimpression : déverrouille temporairement la fiche
+ * et enregistre le motif de réimpression.
+ */
+export async function requestReprint(employeeId: string, reason: string) {
+  try {
+    if (!reason || !reason.trim()) {
+      throw new Error('Un motif de réimpression est obligatoire.');
+    }
+
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { status: true, isLocked: true, isBlocked: true },
+    });
+
+    if (!emp) throw new Error('Employé introuvable');
+    if (emp.isBlocked) throw new Error('Ce badge est bloqué. Débloquez-le avant de demander une réimpression.');
+    if (emp.status !== 'IMPRIME' || !emp.isLocked) {
+      throw new Error('La réimpression ne peut être demandée que pour un badge déjà imprimé et verrouillé.');
+    }
+
+    // Create a PrintJob entry with the reprint reason (will be used during confirmPrint)
+    const session = await getSafeSession();
+    const operatorName = session?.user?.name || session?.user?.email || "Système";
+
+    // Create a placeholder PrintJob to record the reprint reason
+    await prisma.printJob.create({
+      data: {
+        employeeId,
+        cardNumber: 'REIMPRESSION_DEMANDEE',
+        templateType: 'PENDING',
+        isReprint: true,
+        reprintReason: reason.trim(),
+        printedBy: operatorName,
+      },
+    });
+
+    // Unlock and set status to REIMPRESSION
+    return await prisma.employee.update({
+      where: { id: employeeId },
+      data: {
+        status: 'REIMPRESSION',
+        isLocked: false,
+      },
+    });
+  } catch (error: any) {
+    console.warn('Error requesting reprint:', error);
+    throw new Error(error.message || 'Impossible de demander la réimpression');
+  }
+}
+
+/**
+ * Bloque un badge (admin only).
+ */
+export async function blockBadge(employeeId: string) {
+  try {
+    const session = await getSafeSession();
+    const user = session?.user as any;
+    if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') {
+      throw new Error('Seuls les administrateurs peuvent bloquer un badge.');
+    }
+
+    return await prisma.employee.update({
+      where: { id: employeeId },
+      data: { isBlocked: true },
+    });
+  } catch (error: any) {
+    console.warn('Error blocking badge:', error);
+    throw new Error(error.message || 'Impossible de bloquer le badge');
+  }
+}
+
+/**
+ * Débloque un badge avec un motif obligatoire (admin only).
+ */
+export async function unblockBadge(employeeId: string, reason: string) {
+  try {
+    if (!reason || !reason.trim()) {
+      throw new Error('Un motif de déblocage est obligatoire.');
+    }
+
+    const session = await getSafeSession();
+    const user = session?.user as any;
+    if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') {
+      throw new Error('Seuls les administrateurs peuvent débloquer un badge.');
+    }
+
+    const operatorName = session?.user?.name || session?.user?.email || "Système";
+
+    // Record the unblock action as a PrintJob entry for audit trail
+    await prisma.printJob.create({
+      data: {
+        employeeId,
+        cardNumber: 'DEBLOCAGE',
+        templateType: 'DEBLOCAGE',
+        isReprint: false,
+        reprintReason: `Déblocage: ${reason.trim()}`,
+        printedBy: operatorName,
+      },
+    });
+
+    return await prisma.employee.update({
+      where: { id: employeeId },
+      data: { isBlocked: false },
+    });
+  } catch (error: any) {
+    console.warn('Error unblocking badge:', error);
+    throw new Error(error.message || 'Impossible de débloquer le badge');
+  }
+}
+
+/**
+ * Récupère l'historique d'impression d'un employé.
+ */
+export async function getEmployeePrintHistory(employeeId: string) {
+  try {
+    return await prisma.printJob.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: 'desc' },
+    });
+  } catch (error) {
+    console.warn('Error fetching print history:', error);
+    throw new Error('Impossible de récupérer l\'historique d\'impression');
   }
 }

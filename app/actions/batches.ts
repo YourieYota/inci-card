@@ -83,11 +83,12 @@ export async function updateBatchStatus(batchId: string, status: string) {
 
 export async function getPrintQueue(companyId?: string) {
   try {
-    // A card is ready to print if it has a photo (enrollment completed)
-    // and hasn't been printed yet
+    // A card is ready to print if it has a photo, status is PHOTO_VALIDEE or REIMPRESSION,
+    // and the badge is not blocked
     const where: any = {
-      printedAt: null,
       photoUrl: { not: null },
+      isBlocked: false,
+      status: { in: ['PHOTO_VALIDEE', 'REIMPRESSION'] },
     };
     if (companyId) {
       where.companyId = companyId;
@@ -108,22 +109,20 @@ export async function getPrintQueue(companyId?: string) {
   }
 }
 
-export async function markAsPrinted(employeeIds: string[]) {
+export async function markAsPrinted(employeeIds: string[], templateType?: string, categoryId?: string, physicalTypeId?: string) {
   if (!employeeIds.length) return;
   try {
-    const session = await getServerSession(authOptions);
-    const operatorName = session?.user?.name || session?.user?.email || "Système";
-
-    await prisma.employee.updateMany({
-      where: { id: { in: employeeIds } },
-      data: { 
-        printedAt: new Date(),
-        printedBy: operatorName,
-        status: 'IMPRIME'
-      }
-    });
+    // Use the new confirmPrint workflow if available
+    const { confirmPrint } = await import('@/app/actions/employees');
+    const result = await confirmPrint(
+      employeeIds,
+      templateType || 'BADGE',
+      categoryId,
+      physicalTypeId
+    );
     revalidatePath('/dashboard/print-queue');
     revalidatePath('/dashboard/delivery-batches');
+    return result;
   } catch (error) {
     console.warn('Error marking as printed:', error);
     throw new Error('Impossible de marquer les cartes comme imprimées');

@@ -1,7 +1,7 @@
 import React from 'react';
 import StudioClient from '@/components/studio/StudioClient';
 import { getCompanies } from '@/app/actions/templates';
-import { getCardCategories, getCardFormats, getCardPhysicalTypes } from '@/app/actions/cards';
+import { getCardCategories, getCardFormats, getCardPhysicalTypes, getCardDocumentTypes } from '@/app/actions/cards';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,19 +10,22 @@ export default async function StudioPage() {
   let categories: any[] = [];
   let formats: any[] = [];
   let physicalTypes: any[] = [];
+  let documentTypes: any[] = [];
   let dbError = false;
 
   try {
-    const [companiesData, categoriesData, formatsData, physicalTypesData] = await Promise.all([
+    const [companiesData, categoriesData, formatsData, physicalTypesData, documentTypesData] = await Promise.all([
       getCompanies(),
       getCardCategories(),
       getCardFormats(),
-      getCardPhysicalTypes()
+      getCardPhysicalTypes(),
+      getCardDocumentTypes()
     ]);
     companies = companiesData;
     categories = categoriesData;
     formats = formatsData;
     physicalTypes = physicalTypesData;
+    documentTypes = documentTypesData;
   } catch (error) {
     dbError = true;
   }
@@ -51,6 +54,12 @@ export default async function StudioPage() {
     updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
   }));
 
+  const serializedDocumentTypes = documentTypes.map(t => ({
+    ...t,
+    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+    updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+  }));
+
   return (
     <div className="w-full py-1">
       <StudioClient 
@@ -58,6 +67,7 @@ export default async function StudioPage() {
         initialCategories={serializedCategories} 
         initialFormats={serializedFormats}
         initialPhysicalTypes={serializedPhysicalTypes}
+        initialDocumentTypes={serializedDocumentTypes}
         dbError={dbError} 
       />
     </div>

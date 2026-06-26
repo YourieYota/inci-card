@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Plus, Trash2, Sliders, Layers, Info, Check, RefreshCw, Loader2, Cpu } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Sliders, Layers, Info, Check, RefreshCw, Loader2, Cpu, Clock } from 'lucide-react';
 import {
   getCardFormats,
   createCardFormat,
@@ -11,7 +11,10 @@ import {
   deleteCardCategory,
   getCardPhysicalTypes,
   createCardPhysicalType,
-  deleteCardPhysicalType
+  deleteCardPhysicalType,
+  getCardDocumentTypes,
+  createCardDocumentType,
+  deleteCardDocumentType
 } from '@/app/actions/cards';
 import { getCompanies } from '@/app/actions/templates';
 
@@ -31,6 +34,8 @@ interface CardCategory {
   description: string | null;
   formatId: string;
   format: CardFormat;
+  validityValue: number | null;
+  validityUnit: string | null;
 }
 
 interface CardPhysicalType {
@@ -42,11 +47,22 @@ interface CardPhysicalType {
   createdAt: Date;
 }
 
+interface CardDocumentType {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  cardCode?: string;
+  isSystem: boolean;
+  createdAt?: Date;
+}
+
 export default function CardsManagementPage() {
-  const [activeTab, setActiveTab] = useState<'categories' | 'formats' | 'types'>('categories');
+  const [activeTab, setActiveTab] = useState<'categories' | 'formats' | 'types' | 'docTypes'>('categories');
   const [formats, setFormats] = useState<CardFormat[]>([]);
   const [categories, setCategories] = useState<CardCategory[]>([]);
   const [physicalTypes, setPhysicalTypes] = useState<CardPhysicalType[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<CardDocumentType[]>([]);
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -55,6 +71,7 @@ export default function CardsManagementPage() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showFormatModal, setShowFormatModal] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showDocTypeModal, setShowDocTypeModal] = useState(false);
 
   // Form states
   const [categoryName, setCategoryName] = useState('');
@@ -72,6 +89,13 @@ export default function CardsManagementPage() {
   const [codePart1, setCodePart1] = useState('');
   const [codePart2, setCodePart2] = useState('');
   const [codePart3, setCodePart3] = useState('');
+
+  const [docTypeName, setDocTypeName] = useState('');
+  const [docTypeDesc, setDocTypeDesc] = useState('');
+  const [docTypeCardCode, setDocTypeCardCode] = useState('');
+
+  const [categoryValidityValue, setCategoryValidityValue] = useState('1');
+  const [categoryValidityUnit, setCategoryValidityUnit] = useState('YEAR');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -91,15 +115,17 @@ export default function CardsManagementPage() {
   const loadData = async (companyId: string) => {
     setIsLoading(true);
     try {
-      const [formatsData, categoriesData, typesData, companiesData] = await Promise.all([
+      const [formatsData, categoriesData, typesData, docTypesData, companiesData] = await Promise.all([
         getCardFormats(companyId || null),
         getCardCategories(companyId || null),
         getCardPhysicalTypes(companyId || null),
+        getCardDocumentTypes(companyId || null),
         getCompanies()
       ]);
       setFormats(formatsData);
       setCategories(categoriesData);
       setPhysicalTypes(typesData);
+      setDocumentTypes(docTypesData);
       setCompanies(companiesData);
       if (formatsData.length > 0) {
         setCategoryFormatId(formatsData[0].id);
@@ -127,7 +153,16 @@ export default function CardsManagementPage() {
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!categoryName.trim() || !categoryFormatId) return;
+    
+    let finalFormatId = categoryFormatId;
+    if (!finalFormatId && formats.length > 0) {
+      finalFormatId = formats[0].id;
+    }
+
+    if (!categoryName.trim() || !finalFormatId) {
+      alert("Veuillez sélectionner ou créer un format de carte.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -135,13 +170,17 @@ export default function CardsManagementPage() {
         name: categoryName.trim(),
         color: categoryColor,
         description: categoryDesc.trim() || undefined,
-        formatId: categoryFormatId,
+        formatId: finalFormatId,
+        validityValue: categoryValidityUnit === 'NONE' ? null : (parseInt(categoryValidityValue) || 1),
+        validityUnit: categoryValidityUnit,
         companyId: selectedCompanyId || undefined,
       });
       setCategories((prev) => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
       setShowCategoryModal(false);
       setCategoryName('');
       setCategoryDesc('');
+      setCategoryValidityValue('1');
+      setCategoryValidityUnit('YEAR');
     } catch (err: any) {
       alert(err.message || 'Impossible de créer la catégorie.');
     } finally {
@@ -237,6 +276,40 @@ export default function CardsManagementPage() {
     }
   };
 
+  const handleCreateDocumentType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docTypeName.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const newType = await createCardDocumentType({
+        name: docTypeName.trim(),
+        description: docTypeDesc.trim() || undefined,
+        cardCode: docTypeCardCode.trim() || undefined,
+        companyId: selectedCompanyId || undefined,
+      });
+      setDocumentTypes((prev) => [...prev, { ...newType, isSystem: false }].sort((a, b) => a.name.localeCompare(b.name)));
+      setShowDocTypeModal(false);
+      setDocTypeName('');
+      setDocTypeDesc('');
+      setDocTypeCardCode('');
+    } catch (err: any) {
+      alert(err.message || 'Impossible de créer le type de document.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDocumentType = async (id: string, name: string) => {
+    if (!confirm(`Voulez-vous vraiment supprimer le type de document "${name}" ?`)) return;
+    try {
+      await deleteCardDocumentType(id);
+      setDocumentTypes((prev) => prev.filter((t) => t.id !== id));
+    } catch (err: any) {
+      alert(err.message || 'Impossible de supprimer le type de document.');
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* HEADER BAR */}
@@ -291,7 +364,7 @@ export default function CardsManagementPage() {
               <Plus className="w-4 h-4" />
               <span>Format</span>
             </button>
-          ) : (
+          ) : activeTab === 'types' ? (
             <button
               onClick={() => {
                 setCodePart3('0001');
@@ -300,7 +373,15 @@ export default function CardsManagementPage() {
               className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              <span>Type de carte</span>
+              <span>Type de support</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowDocTypeModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Type de document</span>
             </button>
           )}
         </div>
@@ -345,8 +426,22 @@ export default function CardsManagementPage() {
           }`}
         >
           <Cpu className="w-4 h-4" />
-          <span>Types de cartes</span>
+          <span>Types de support</span>
           {activeTab === 'types' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('docTypes')}
+          className={`pb-4 text-sm font-bold transition-all relative flex items-center gap-2 ${
+            activeTab === 'docTypes'
+              ? 'text-indigo-600 dark:text-indigo-400'
+              : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
+          }`}
+        >
+          <CreditCard className="w-4 h-4" />
+          <span>Types de documents</span>
+          {activeTab === 'docTypes' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
           )}
         </button>
@@ -397,6 +492,23 @@ export default function CardsManagementPage() {
                     <span>Format: {cat.format.name}</span>
                     <span className="text-[10px] text-neutral-400 font-mono">
                       ({cat.format.width}x{cat.format.height} {cat.format.unit})
+                    </span>
+                  </div>
+
+                  {/* Validity Info */}
+                  <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-neutral-500">
+                    <Clock className="w-4 h-4 text-neutral-400" />
+                    <span>
+                      Validité :{' '}
+                      {!cat.validityValue || cat.validityUnit === 'NONE'
+                        ? 'Permanente (Sans validité)'
+                        : `${cat.validityValue} ${
+                            cat.validityUnit === 'YEAR'
+                              ? 'An(s)'
+                              : cat.validityUnit === 'MONTH'
+                              ? 'Mois'
+                              : 'Jour(s)'
+                          }`}
                     </span>
                   </div>
 
@@ -487,7 +599,7 @@ export default function CardsManagementPage() {
             );
           })}
         </div>
-      ) : (
+      ) : activeTab === 'types' ? (
         /* ----------------- TAB: PHYSICAL TYPES ----------------- */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {physicalTypes.length === 0 ? (
@@ -537,6 +649,64 @@ export default function CardsManagementPage() {
 
                 <div className="mt-5 text-[10px] text-neutral-400 font-mono text-center border-t border-neutral-100 dark:border-neutral-800/40 pt-4">
                   Créé le : {new Date(type.createdAt as any || Date.now()).toLocaleDateString('fr-FR')}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        /* ----------------- TAB: DOCUMENT TYPES ----------------- */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {documentTypes.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center shadow-sm">
+              <CreditCard className="w-8 h-8 text-neutral-400 mb-2" />
+              <p className="text-sm font-bold text-neutral-800 dark:text-neutral-200">Aucun type de document configuré.</p>
+              <p className="text-xs text-neutral-500 mt-1">Configurez vos types de documents d&apos;impression (ex: Laissez-passer, Carte de fidélité, etc.).</p>
+            </div>
+          ) : (
+            documentTypes.map((type) => (
+              <div
+                key={type.id}
+                className={`group bg-white dark:bg-neutral-800 rounded-2xl border p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-between ${
+                  type.isSystem
+                    ? 'border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/10 dark:bg-indigo-950/5'
+                    : 'border-neutral-200 dark:border-neutral-800'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-neutral-800 dark:text-white flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-indigo-500" />
+                        {type.name}
+                        {type.isSystem && (
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[9px] font-extrabold uppercase tracking-wide">
+                            Système
+                          </span>
+                        )}
+                      </h3>
+                      <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 text-[10px] font-mono">
+                        {type.slug}
+                      </span>
+                    </div>
+                    {!type.isSystem && (
+                      <button
+                        onClick={() => handleDeleteDocumentType(type.id, type.name)}
+                        className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                        title="Supprimer le type de document"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-4 leading-relaxed">
+                    {type.description || "Aucune description fournie pour ce type de document."}
+                  </p>
+                </div>
+
+                <div className="mt-5 text-[10px] text-neutral-400 font-mono text-center border-t border-neutral-100 dark:border-neutral-800/40 pt-4">
+                  {type.isSystem ? 'Type système verrouillé' : `Créé le : ${type.createdAt ? new Date(type.createdAt).toLocaleDateString('fr-FR') : 'N/A'}`}
                 </div>
               </div>
             ))
@@ -621,6 +791,35 @@ export default function CardsManagementPage() {
                   rows={3}
                   className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
+                  Durée de validité <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    required={categoryValidityUnit !== 'NONE'}
+                    disabled={categoryValidityUnit === 'NONE'}
+                    placeholder="1"
+                    value={categoryValidityUnit === 'NONE' ? '' : categoryValidityValue}
+                    onChange={(e) => setCategoryValidityValue(e.target.value)}
+                    className="w-24 px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium disabled:opacity-50"
+                  />
+                  <select
+                    value={categoryValidityUnit}
+                    onChange={(e) => setCategoryValidityUnit(e.target.value)}
+                    className="flex-1 px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium outline-none"
+                  >
+                    <option value="YEAR">Année(s)</option>
+                    <option value="MONTH">Mois</option>
+                    <option value="DAY">Jour(s)</option>
+                    <option value="NONE">Sans validité (Permanente)</option>
+                  </select>
+                </div>
+                <p className="text-[10px] text-neutral-400 mt-1">Détermine la date d&apos;expiration de la carte après impression.</p>
               </div>
 
               <div className="flex items-center justify-end gap-2.5 border-t border-neutral-100 dark:border-neutral-800 pt-4 mt-2">
@@ -853,6 +1052,77 @@ export default function CardsManagementPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || (codePart1.length + codePart2.length) < 6 || (codePart1.length + codePart2.length) > 11}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:bg-neutral-100 disabled:text-neutral-400 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-500 disabled:cursor-not-allowed shadow-sm"
+                >
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Ajouter</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* CREATE DOCUMENT TYPE MODAL */}
+      {showDocTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter un type de document</h3>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
+              Créez un nouveau type de document à concevoir et à imprimer (ex: Laissez-passer, Carte VIP).
+            </p>
+
+            <form onSubmit={handleCreateDocumentType} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Nom du type de document</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Laissez-passer, Carte de fidélité, Badge VIP"
+                  value={docTypeName}
+                  onChange={(e) => setDocTypeName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Description (Optionnel)</label>
+                <textarea
+                  placeholder="Expliquez l'usage de ce type de document..."
+                  value={docTypeDesc}
+                  onChange={(e) => setDocTypeDesc(e.target.value)}
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Code du document (pour numérotation)</label>
+                <input
+                  type="text"
+                  placeholder="Ex: BADGE, CPRO, LP (sera utilisé dans le N° carte: CODE-0001)"
+                  value={docTypeCardCode}
+                  onChange={(e) => setDocTypeCardCode(e.target.value.toUpperCase())}
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium font-mono"
+                />
+                <p className="text-[10px] text-neutral-400 mt-1">Si non renseigné, le slug du nom sera utilisé comme code.</p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 border-t border-neutral-100 dark:border-neutral-800 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDocTypeModal(false);
+                    setDocTypeName('');
+                    setDocTypeDesc('');
+                    setDocTypeCardCode('');
+                  }}
+                  className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !docTypeName.trim()}
                   className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:bg-neutral-100 disabled:text-neutral-400 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-500 disabled:cursor-not-allowed shadow-sm"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

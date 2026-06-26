@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import PrintClient from './PrintClient';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { getCardDocumentTypes, getCardCategories, getCardPhysicalTypes } from '@/app/actions/cards';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,17 +58,48 @@ export default async function PrintPage({ searchParams }: PageProps) {
 
   // Fetch templates for the company of the first employee
   const companyId = employees[0].companyId;
-  const templates = await prisma.cardTemplate.findMany({
-    where: {
-      companyId,
-    },
-  });
+  const [templates, documentTypes, categories, physicalTypes] = await Promise.all([
+    prisma.cardTemplate.findMany({
+      where: {
+        companyId,
+      },
+    }),
+    getCardDocumentTypes(companyId),
+    getCardCategories(companyId),
+    getCardPhysicalTypes(companyId),
+  ]);
+
+  const serializedDocTypes = documentTypes.map((t: any) => ({
+    ...t,
+    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : (t.createdAt || null),
+    updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : (t.updatedAt || null),
+  }));
+
+  const serializedCategories = categories.map((c: any) => ({
+    ...c,
+    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : (c.createdAt || null),
+    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : (c.updatedAt || null),
+    format: c.format ? {
+      ...c.format,
+      createdAt: c.format.createdAt instanceof Date ? c.format.createdAt.toISOString() : (c.format.createdAt || null),
+      updatedAt: c.format.updatedAt instanceof Date ? c.format.updatedAt.toISOString() : (c.format.updatedAt || null),
+    } : null,
+  }));
+
+  const serializedPhysicalTypes = physicalTypes.map((p: any) => ({
+    ...p,
+    createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : (p.createdAt || null),
+    updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : (p.updatedAt || null),
+  }));
 
   return (
     <PrintClient
       employees={employees}
       templates={templates}
       companyName={employees[0].company.name}
+      documentTypes={serializedDocTypes}
+      categories={serializedCategories}
+      physicalTypes={serializedPhysicalTypes}
     />
   );
 }

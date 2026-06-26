@@ -25,11 +25,9 @@ model CustomRole {
   updatedAt   DateTime @updatedAt
 }
 
-enum CardType {
-  BADGE
-  CARTE_PRO
-  RECU
-}
+// Les types de documents (BADGE, CARTE_PRO, RECU, + types personnalisés)
+// sont stockés comme des chaînes dynamiques dans CardTemplate.type
+
 
 // --- MODELES ---
 
@@ -61,6 +59,7 @@ model Company {
   cardFormats    CardFormat[]
   cardCategories CardCategory[]
   physicalTypes  CardPhysicalType[]
+  documentTypes  CardDocumentType[]
   deliveryBatches DeliveryBatch[]
 }
 
@@ -79,8 +78,13 @@ model Employee {
   photoHash        String?  // Empreinte numérique de la photo (SHA-256)
   photoConflict    Boolean  @default(false) // Conflit de duplication photo suspecte
   enrollmentNumber String?  // Numéro d'enrôlement unique
+  cardNumber       String?  // Numéro unique de carte (ex: BADGE-0001)
   
-  status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME, A_VERIFIER
+  status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME, A_VERIFIER, REIMPRESSION
+  isLocked         Boolean  @default(false) // Verrouillé après impression
+  isBlocked        Boolean  @default(false) // Badge bloqué (volé, perdu, etc.)
+  printCount       Int      @default(0)     // Nombre d'impressions réalisées
+  
   printedAt        DateTime? 
   enrolledBy       String?
   printedBy        String?
@@ -89,6 +93,7 @@ model Employee {
   
   deliveryBatchId  String?
   deliveryBatch    DeliveryBatch? @relation(fields: [deliveryBatchId], references: [id], onDelete: SetNull)
+  printJobs        PrintJob[]
   
   // Un employé est unique au sein de son entreprise
   @@unique([companyId, uniqueIdentifier]) 
@@ -101,7 +106,7 @@ model CardTemplate {
   companyId     String
   company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
-  type          CardType @default(BADGE) // Permet de différencier Badges et Cartes Pro
+  type          String   @default("BADGE") // BADGE, CARTE_PRO, RECU, ou type personnalisé
   
   categoryId    String?
   category      CardCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -131,18 +136,20 @@ model CardFormat {
 }
 
 model CardCategory {
-  id          String         @id @default(uuid())
-  name        String
-  slug        String
-  color       String         @default("#6366f1")
-  description String?
-  formatId    String
-  format      CardFormat     @relation(fields: [formatId], references: [id], onDelete: Restrict)
-  companyId   String?
-  company     Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  templates   CardTemplate[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id            String         @id @default(uuid())
+  name          String
+  slug          String
+  color         String         @default("#6366f1")
+  description   String?
+  validityValue Int?           @default(1)    // Durée de validité de la carte (null = permanente)
+  validityUnit  String?        @default("YEAR") // YEAR, MONTH, DAY (null = permanente)
+  formatId      String
+  format        CardFormat     @relation(fields: [formatId], references: [id], onDelete: Restrict)
+  companyId     String?
+  company       Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templates     CardTemplate[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@unique([companyId, name])
   @@unique([companyId, slug])
@@ -174,4 +181,40 @@ model DeliveryBatch {
   deliveredAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model CardDocumentType {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  cardCode    String   @default("") // Code unique d'identification du type (ex: BADGE, CPRO)
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, name])
+  @@unique([companyId, slug])
+}
+
+// Historique complet de chaque impression
+model PrintJob {
+  id              String   @id @default(uuid())
+  
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  cardNumber      String   // Le numéro de carte attribué à cette impression
+  templateType    String   // Type de document utilisé (BADGE, CARTE_PRO, etc.)
+  categoryId      String?  // Catégorie utilisée
+  physicalTypeId  String?  // Type de support utilisé
+  
+  isReprint       Boolean  @default(false) // S'agit-il d'une réimpression ?
+  reprintReason   String?  // Justificatif de réimpression
+  
+  printedBy       String   // Nom de l'opérateur
+  printedAt       DateTime @default(now())
+  
+  createdAt       DateTime @default(now())
 }

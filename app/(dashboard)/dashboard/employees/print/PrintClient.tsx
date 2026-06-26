@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Employee, CardTemplate, CardType } from '@prisma/client';
-import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle } from 'lucide-react';
-import { bulkUpdateEmployeeStatus } from '@/app/actions/employees';
+import React, { useState, useEffect } from 'react';
+import { Employee, CardTemplate } from '@prisma/client';
+import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle, Lock, Ban, RotateCcw } from 'lucide-react';
+import { confirmPrint, validatePrintEligibility } from '@/app/actions/employees';
 import { StudioElement } from '@/components/studio/Canvas';
 import QRCode from 'react-qr-code';
 
@@ -11,13 +11,251 @@ interface PrintClientProps {
   employees: (Employee & { company: { name: string } })[];
   templates: CardTemplate[];
   companyName: string;
+  documentTypes: any[];
+  categories: any[];
+  physicalTypes: any[];
 }
 
 type PrintLayoutMode = 'side-by-side' | 'duplex' | 'recto-only' | 'verso-only';
 
-const getDefaultElements = (width: number, height: number): StudioElement[] => {
+const getDefaultElements = (width: number, height: number, type?: string): StudioElement[] => {
   const isPortrait = height > width;
   const time = Date.now();
+
+  if (type === 'RECU') {
+    return [
+      {
+        id: `logo_${time}_1`,
+        type: 'logo',
+        logoUrl: '/logo-imprimerie.png',
+        x: Math.round((width - 60) / 2),
+        y: 15,
+        width: 60,
+        height: 60,
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_title`,
+        type: 'text',
+        content: 'Imprimerie Nationale',
+        x: 20,
+        y: 80,
+        width: width - 40,
+        height: 25,
+        fontSize: 14,
+        fontWeight: 'bold',
+        alignment: 'center',
+        color: '#111827',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_subtitle`,
+        type: 'text',
+        content: 'Enrôlement Biométrique',
+        x: 20,
+        y: 105,
+        width: width - 40,
+        height: 20,
+        fontSize: 10,
+        alignment: 'center',
+        color: '#4b5563',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_recu_num`,
+        type: 'text',
+        field: 'Reçu N°',
+        x: 25,
+        y: 122,
+        width: 150,
+        height: 15,
+        fontSize: 9,
+        color: '#6b7280',
+        alignment: 'left',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_date_enr`,
+        type: 'text',
+        field: 'Date d\'enrôlement',
+        x: 180,
+        y: 122,
+        width: width - 205,
+        height: 15,
+        fontSize: 9,
+        color: '#6b7280',
+        alignment: 'right',
+        opacity: 1,
+      },
+      {
+        id: `image_${time}_photo`,
+        type: 'image',
+        x: 25,
+        y: 140,
+        width: 90,
+        height: 110,
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_ent`,
+        type: 'text',
+        field: 'Entreprise',
+        x: 130,
+        y: 140,
+        width: width - 150,
+        height: 20,
+        fontSize: 11,
+        fontWeight: 'bold',
+        alignment: 'left',
+        color: '#111827',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_nom`,
+        type: 'text',
+        field: 'Nom',
+        x: 130,
+        y: 165,
+        width: width - 150,
+        height: 20,
+        fontSize: 11,
+        fontWeight: 'bold',
+        alignment: 'left',
+        color: '#111827',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_prenom`,
+        type: 'text',
+        field: 'Prenom',
+        x: 130,
+        y: 190,
+        width: width - 150,
+        height: 20,
+        fontSize: 11,
+        fontWeight: 'bold',
+        alignment: 'left',
+        color: '#111827',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_role`,
+        type: 'text',
+        field: 'Role',
+        x: 130,
+        y: 215,
+        width: width - 150,
+        height: 20,
+        fontSize: 11,
+        alignment: 'left',
+        color: '#4b5563',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_mat`,
+        type: 'text',
+        field: 'Matricule',
+        x: 130,
+        y: 240,
+        width: width - 150,
+        height: 20,
+        fontSize: 11,
+        alignment: 'left',
+        color: '#4b5563',
+        opacity: 1,
+      },
+      {
+        id: `qr_${time}_qr`,
+        type: 'qr',
+        field: 'Matricule',
+        x: Math.round((width - 90) / 2),
+        y: 280,
+        width: 90,
+        height: 90,
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_ctrl`,
+        type: 'text',
+        content: 'Code de contrôle enrôlement',
+        x: 20,
+        y: 380,
+        width: width - 40,
+        height: 15,
+        fontSize: 8,
+        alignment: 'center',
+        color: '#6b7280',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_op`,
+        type: 'text',
+        content: "Signature de l'Opérateur",
+        x: 25,
+        y: 415,
+        width: Math.round((width - 98) / 2),
+        height: 15,
+        fontSize: 9,
+        fontWeight: 'bold',
+        alignment: 'center',
+        color: '#6b7280',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_emp`,
+        type: 'text',
+        content: "Signature de l'Employé",
+        x: Math.round(width / 2) + 20,
+        y: 415,
+        width: Math.round((width - 98) / 2),
+        height: 15,
+        fontSize: 9,
+        fontWeight: 'bold',
+        alignment: 'center',
+        color: '#6b7280',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_line1`,
+        type: 'text',
+        content: '---------------------------------',
+        x: 25,
+        y: 470,
+        width: Math.round((width - 98) / 2),
+        height: 15,
+        fontSize: 9,
+        alignment: 'center',
+        color: '#9ca3af',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_line2`,
+        type: 'text',
+        content: '---------------------------------',
+        x: Math.round(width / 2) + 20,
+        y: 470,
+        width: Math.round((width - 98) / 2),
+        height: 15,
+        fontSize: 9,
+        alignment: 'center',
+        color: '#9ca3af',
+        opacity: 1,
+      },
+      {
+        id: `text_${time}_footer`,
+        type: 'text',
+        content: "Ce document atteste de la conformité de l'enrôlement.",
+        x: 20,
+        y: 500,
+        width: width - 40,
+        height: 15,
+        fontSize: 8,
+        alignment: 'center',
+        color: '#9ca3af',
+        opacity: 1,
+      },
+    ];
+  }
 
   if (isPortrait) {
     const imgW = Math.round(width * 0.4);
@@ -167,7 +405,14 @@ const getDefaultElements = (width: number, height: number): StudioElement[] => {
   }
 };
 
-const getFieldValue = (emp: Employee & { company?: { name: string } }, field?: string) => {
+const getFieldValue = (
+  emp: Employee & { company?: { name: string } },
+  field?: string,
+  selectedCategoryName?: string,
+  selectedPhysicalTypeName?: string,
+  catValidityValue?: number,
+  catValidityUnit?: string
+) => {
   if (!field) return '';
   if (field === 'Entreprise') return emp.company?.name || '';
 
@@ -177,8 +422,64 @@ const getFieldValue = (emp: Employee & { company?: { name: string } }, field?: s
     str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   const normalizedTarget = normalize(field);
 
+  if (normalizedTarget === 'categorie' || normalizedTarget === 'category' || normalizedTarget === 'catégorie') {
+    return selectedCategoryName || '';
+  }
+
+  if (normalizedTarget === 'type de support' || normalizedTarget === 'type support' || normalizedTarget === 'support') {
+    return selectedPhysicalTypeName || '';
+  }
+
+  if (normalizedTarget === 'n° carte' || normalizedTarget === 'numero carte' || normalizedTarget === 'numéro carte' || normalizedTarget === 'cardnumber' || normalizedTarget === 'numero de carte' || normalizedTarget === 'numéro de carte') {
+    return emp.cardNumber || emp.enrollmentNumber || 'En attente...';
+  }
+
   if (normalizedTarget === 'n° d\'enrolement' || normalizedTarget === 'numéro d\'enrôlement' || normalizedTarget === 'enrollmentnumber') {
     return emp.enrollmentNumber || 'En cours...';
+  }
+
+  if (normalizedTarget === 'date d\'emission' || normalizedTarget === 'date d\'émission' || normalizedTarget === 'date emission' || normalizedTarget === 'date émission') {
+    if (emp.printedAt) {
+      const d = new Date(emp.printedAt);
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const year = d.getUTCFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  if (normalizedTarget === 'date d\'expiration' || normalizedTarget === 'date expiration' || normalizedTarget === 'expiration' || normalizedTarget === 'date de validite' || normalizedTarget === 'date de validité') {
+    if (catValidityUnit === 'NONE' || catValidityUnit === null || catValidityValue === null || catValidityValue === undefined) {
+      return 'Permanente';
+    }
+    const emissionDate = emp.printedAt ? new Date(emp.printedAt) : new Date();
+    const expirationDate = new Date(emissionDate);
+    const vValue = catValidityValue || 1;
+    const vUnit = catValidityUnit || 'YEAR';
+    if (vUnit === 'YEAR') {
+      expirationDate.setFullYear(expirationDate.getFullYear() + vValue);
+    } else if (vUnit === 'MONTH') {
+      expirationDate.setMonth(expirationDate.getMonth() + vValue);
+    } else if (vUnit === 'DAY') {
+      expirationDate.setDate(expirationDate.getDate() + vValue);
+    }
+    const day = String(expirationDate.getUTCDate()).padStart(2, '0');
+    const month = String(expirationDate.getUTCMonth() + 1).padStart(2, '0');
+    const year = expirationDate.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  if (normalizedTarget === 'validite' || normalizedTarget === 'validité' || normalizedTarget === 'durée de validité' || normalizedTarget === 'duree de validite') {
+    if (catValidityUnit === 'NONE' || catValidityUnit === null || catValidityValue === null || catValidityValue === undefined) {
+      return 'Permanente';
+    }
+    const unitStr = catValidityUnit === 'YEAR' ? 'An(s)' : catValidityUnit === 'MONTH' ? 'Mois' : 'Jour(s)';
+    return `${catValidityValue} ${unitStr}`;
   }
   if (normalizedTarget === 'identifiant unique' || normalizedTarget === 'uniqueidentifier') {
     return emp.uniqueIdentifier;
@@ -340,9 +641,13 @@ interface CardRenderProps {
   emp: Employee & { company?: { name: string } };
   template: CardTemplate;
   side: 'recto' | 'verso';
+  selectedCategoryName?: string;
+  selectedPhysicalTypeName?: string;
+  validityValue?: number;
+  validityUnit?: string;
 }
 
-function CardRender({ emp, template, side }: CardRenderProps) {
+function CardRender({ emp, template, side, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit }: CardRenderProps) {
   const width = template.width;
   const height = template.height;
   
@@ -419,7 +724,7 @@ function CardRender({ emp, template, side }: CardRenderProps) {
                         lineHeight: 'normal',
                       }}
                     >
-                      {getFieldValue(emp, el.field) || el.content || ''}
+                      {getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || el.content || ''}
                     </div>
                   )}
 
@@ -463,7 +768,7 @@ function CardRender({ emp, template, side }: CardRenderProps) {
                     >
                       <QRCode
                         value={
-                          getFieldValue(emp, el.field) || emp.enrollmentNumber || emp.uniqueIdentifier
+                          getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || emp.enrollmentNumber || emp.uniqueIdentifier
                         }
                         size={150}
                         style={{ height: "auto", maxWidth: "100%", width: "100%" }}
@@ -506,34 +811,86 @@ function CardRender({ emp, template, side }: CardRenderProps) {
   );
 }
 
-export default function PrintClient({ employees, templates, companyName }: PrintClientProps) {
-  // Initialize to the type of the first template if available, fallback to BADGE
-  const [selectedTemplateType, setSelectedTemplateType] = useState<CardType>(
-    templates.length > 0 ? templates[0].type : 'BADGE'
-  );
+export default function PrintClient({ employees, templates, companyName, documentTypes, categories, physicalTypes }: PrintClientProps) {
+  // Always initialize selected template type to 'BADGE' as standard printable format
+  const [selectedTemplateType, setSelectedTemplateType] = useState<string>('BADGE');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [selectedPhysicalTypeId, setSelectedPhysicalTypeId] = useState<string>('');
   const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>('side-by-side');
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Helper to load appropriate template or build fallback with suitable type & dimensions
-  const getTemplateForType = (type: CardType) => {
-    const found = templates.find((t) => t.type === type);
-    if (found) return found;
+  // Eligibility state
+  const [eligibleEmployees, setEligibleEmployees] = useState<typeof employees>(employees);
+  const [ineligibleEmployees, setIneligibleEmployees] = useState<{ employee: any; reasons: string[] }[]>([]);
+  const [eligibilityChecked, setEligibilityChecked] = useState<boolean>(false);
 
-    const w = type === 'CARTE_PRO' ? 700 : 324;
-    const h = type === 'CARTE_PRO' ? 450 : 204;
+  // Check eligibility on mount
+  useEffect(() => {
+    const checkEligibility = async () => {
+      try {
+        const ids = employees.map((e) => e.id);
+        const result = await validatePrintEligibility(ids);
+        setEligibleEmployees(employees.filter((e) =>
+          result.eligible.some((el: any) => el.id === e.id)
+        ));
+        setIneligibleEmployees(result.ineligible);
+      } catch (err) {
+        // If validation fails, show all employees but log warning
+        console.warn('Eligibility check failed, showing all employees:', err);
+        setEligibleEmployees(employees);
+      }
+      setEligibilityChecked(true);
+    };
+    checkEligibility();
+  }, [employees]);
+
+  // Compute validity for expiration date based on selected category
+  const selectedCategory = categories.find((c: any) => c.id === selectedCategoryId);
+  const validityValue = selectedCategory ? (selectedCategory.validityValue !== undefined ? selectedCategory.validityValue : 1) : 1;
+  const validityUnit = selectedCategory ? (selectedCategory.validityUnit !== undefined ? selectedCategory.validityUnit : 'YEAR') : 'YEAR';
+
+  // Helper to load appropriate template or build fallback with suitable type & dimensions
+  const getTemplateForType = (type: string, categoryId?: string) => {
+    if (categoryId) {
+      const foundWithCategory = templates.find((t) => t.type === type && t.categoryId === categoryId);
+      if (foundWithCategory) return foundWithCategory;
+    }
+
+    const foundGeneric = templates.find((t) => t.type === type && !t.categoryId);
+    if (foundGeneric) return foundGeneric;
+
+    let w = 324;
+    let h = 204;
+    
+    if (categoryId) {
+      const cat = categories.find((c) => c.id === categoryId);
+      if (cat?.format) {
+        w = Math.round(cat.format.width / 0.264583);
+        h = Math.round(cat.format.height / 0.264583);
+      }
+    } else {
+      if (type === 'CARTE_PRO') {
+        w = 700;
+        h = 450;
+      } else if (type === 'RECU') {
+        w = 378;
+        h = 530;
+      }
+    }
 
     return {
-      id: `fallback-${type}`,
+      id: `fallback-${type}-${categoryId || 'generic'}`,
       companyId: employees[0].companyId,
       type,
+      categoryId: categoryId || null,
       width: w,
       height: h,
       backgroundUrl: '',
-      layoutConfig: getDefaultElements(w, h) as any,
+      layoutConfig: getDefaultElements(w, h, type) as any,
     } as CardTemplate;
   };
 
-  const template = getTemplateForType(selectedTemplateType);
+  const template = getTemplateForType(selectedTemplateType, selectedCategoryId);
 
   // Physical layout dimensions and A4 scaling math (210mm x 297mm)
   const mmWidth = template.width * 0.264583;
@@ -563,11 +920,27 @@ export default function PrintClient({ employees, templates, companyName }: Print
   const handleValidatePrint = async () => {
     setIsSaving(true);
     try {
-      const ids = employees.map((emp) => emp.id);
-      await bulkUpdateEmployeeStatus(ids, 'IMPRIME');
+      const ids = eligibleEmployees.map((emp) => emp.id);
+      if (ids.length === 0) {
+        alert('Aucun employé éligible à l\'impression.');
+        return;
+      }
+      const result = await confirmPrint(
+        ids,
+        selectedTemplateType,
+        selectedCategoryId || undefined,
+        selectedPhysicalTypeId || undefined
+      );
+      const printedCount = result.printed?.length || 0;
+      const skippedCount = result.skipped?.length || 0;
+      let message = `${printedCount} badge(s) imprimé(s) et verrouillé(s) avec succès.`;
+      if (skippedCount > 0) {
+        message += `\n${skippedCount} employé(s) non éligible(s) ignoré(s).`;
+      }
+      alert(message);
       window.close();
     } catch (err: any) {
-      alert(err.message || 'Erreur lors de la mise à jour des statuts.');
+      alert(err.message || 'Erreur lors de la confirmation d\'impression.');
     } finally {
       setIsSaving(false);
     }
@@ -575,8 +948,11 @@ export default function PrintClient({ employees, templates, companyName }: Print
 
   // Generate pages content based on layout selection
   const renderPrintPages = () => {
+    const selectedCategoryName = categories.find((c) => c.id === selectedCategoryId)?.name;
+    const selectedPhysicalTypeName = physicalTypes.find((p) => p.id === selectedPhysicalTypeId)?.name;
+
     if (layoutMode === 'side-by-side') {
-      const chunks = chunkArray(employees, sideBySideChunkSize);
+      const chunks = chunkArray(eligibleEmployees, sideBySideChunkSize);
       return chunks.map((chunk, pageIdx) => (
         <div key={`page-${pageIdx}`} className="print-page print-page-preview flex flex-col gap-6 items-center justify-start py-6">
           {chunk.map((emp) => (
@@ -588,11 +964,27 @@ export default function PrintClient({ employees, templates, companyName }: Print
             >
               <div className="flex flex-col items-center">
                 <span className="text-[8px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1 no-print">RECTO</span>
-                <CardRender emp={emp} template={template} side="recto" />
+                <CardRender 
+                  emp={emp} 
+                  template={template} 
+                  side="recto" 
+                  selectedCategoryName={selectedCategoryName}
+                  selectedPhysicalTypeName={selectedPhysicalTypeName}
+                  validityValue={validityValue}
+                  validityUnit={validityUnit}
+                />
               </div>
               <div className="flex flex-col items-center">
                 <span className="text-[8px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1 no-print">VERSO</span>
-                <CardRender emp={emp} template={template} side="verso" />
+                <CardRender 
+                  emp={emp} 
+                  template={template} 
+                  side="verso" 
+                  selectedCategoryName={selectedCategoryName}
+                  selectedPhysicalTypeName={selectedPhysicalTypeName}
+                  validityValue={validityValue}
+                  validityUnit={validityUnit}
+                />
               </div>
             </div>
           ))}
@@ -601,7 +993,7 @@ export default function PrintClient({ employees, templates, companyName }: Print
     }
 
     if (layoutMode === 'recto-only') {
-      const chunks = chunkArray(employees, gridChunkSize);
+      const chunks = chunkArray(eligibleEmployees, gridChunkSize);
       return chunks.map((chunk, pageIdx) => (
         <div 
           key={`page-${pageIdx}`} 
@@ -610,14 +1002,23 @@ export default function PrintClient({ employees, templates, companyName }: Print
           }`}
         >
           {chunk.map((emp) => (
-            <CardRender key={emp.id} emp={emp} template={template} side="recto" />
+            <CardRender 
+              key={emp.id} 
+              emp={emp} 
+              template={template} 
+              side="recto" 
+              selectedCategoryName={selectedCategoryName}
+              selectedPhysicalTypeName={selectedPhysicalTypeName}
+              validityValue={validityValue}
+              validityUnit={validityUnit}
+            />
           ))}
         </div>
       ));
     }
 
     if (layoutMode === 'verso-only') {
-      const chunks = chunkArray(employees, gridChunkSize);
+      const chunks = chunkArray(eligibleEmployees, gridChunkSize);
       return chunks.map((chunk, pageIdx) => (
         <div 
           key={`page-${pageIdx}`} 
@@ -626,14 +1027,21 @@ export default function PrintClient({ employees, templates, companyName }: Print
           }`}
         >
           {chunk.map((emp) => (
-            <CardRender key={emp.id} emp={emp} template={template} side="verso" />
+            <CardRender 
+              key={emp.id} 
+              emp={emp} 
+              template={template} 
+              side="verso" 
+              selectedCategoryName={selectedCategoryName}
+              selectedPhysicalTypeName={selectedPhysicalTypeName}
+            />
           ))}
         </div>
       ));
     }
 
     if (layoutMode === 'duplex') {
-      const chunks = chunkArray(employees, gridChunkSize);
+      const chunks = chunkArray(eligibleEmployees, gridChunkSize);
       return chunks.flatMap((chunk, chunkIdx) => {
         const rectoPage = (
           <div 
@@ -643,7 +1051,14 @@ export default function PrintClient({ employees, templates, companyName }: Print
             }`}
           >
             {chunk.map((emp) => (
-              <CardRender key={`${emp.id}-recto`} emp={emp} template={template} side="recto" />
+              <CardRender 
+                key={`${emp.id}-recto`} 
+                emp={emp} 
+                template={template} 
+                side="recto" 
+                selectedCategoryName={selectedCategoryName}
+                selectedPhysicalTypeName={selectedPhysicalTypeName}
+              />
             ))}
           </div>
         );
@@ -656,7 +1071,14 @@ export default function PrintClient({ employees, templates, companyName }: Print
             }`}
           >
             {chunk.map((emp) => (
-              <CardRender key={`${emp.id}-verso`} emp={emp} template={template} side="verso" />
+              <CardRender 
+                key={`${emp.id}-verso`} 
+                emp={emp} 
+                template={template} 
+                side="verso" 
+                selectedCategoryName={selectedCategoryName}
+                selectedPhysicalTypeName={selectedPhysicalTypeName}
+              />
             ))}
           </div>
         );
@@ -679,24 +1101,77 @@ export default function PrintClient({ employees, templates, companyName }: Print
           <div>
             <h1 className="text-base font-bold text-neutral-800 dark:text-white">Impression de Badges - {companyName}</h1>
             <p className="text-xs text-neutral-400 dark:text-neutral-500">
-              Préparez le fichier de sortie pour {employees.length} employé{employees.length > 1 ? 's' : ''}.
+              {eligibleEmployees.length === employees.length
+                ? `Préparez le fichier de sortie pour ${employees.length} employé${employees.length > 1 ? 's' : ''}.`
+                : `${eligibleEmployees.length} éligible(s) sur ${employees.length} employé(s) sélectionné(s).`
+              }
             </p>
           </div>
         </div>
 
         {/* CONTROLS */}
         <div className="flex items-center gap-4 flex-wrap">
-          {/* Template Selection if multiple exist */}
-          {templates.length > 1 && (
+          {/* Template Selection */}
+          {documentTypes && documentTypes.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Gabarit:</span>
               <select
                 value={selectedTemplateType}
-                onChange={(e) => setSelectedTemplateType(e.target.value as CardType)}
-                className="px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold"
+                onChange={(e) => {
+                  setSelectedTemplateType(e.target.value);
+                  setSelectedCategoryId('');
+                }}
+                className="px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200 outline-none"
               >
-                <option value="BADGE">Badge standard</option>
-                <option value="CARTE_PRO">Carte Pro</option>
+                {documentTypes.map((dt) => {
+                  const hasTemplate = templates.some((t) => t.type === dt.slug);
+                  return (
+                    <option key={dt.id} value={dt.slug}>
+                      {dt.name}{hasTemplate ? ' (Modèle conçu)' : ' (Par défaut)'}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+
+          {/* Category Selection */}
+          {categories && categories.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Catégorie:</span>
+              <select
+                value={selectedCategoryId}
+                onChange={(e) => setSelectedCategoryId(e.target.value)}
+                className="px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200 outline-none"
+              >
+                <option value="">Toutes les catégories</option>
+                {categories.map((c) => {
+                  const hasSpecificTemplate = templates.some((t) => t.type === selectedTemplateType && t.categoryId === c.id);
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{hasSpecificTemplate ? ' (Modèle conçu)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+
+          {/* Physical Support Selection */}
+          {physicalTypes && physicalTypes.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Support:</span>
+              <select
+                value={selectedPhysicalTypeId}
+                onChange={(e) => setSelectedPhysicalTypeId(e.target.value)}
+                className="px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200 outline-none"
+              >
+                <option value="">Standard / Aucun</option>
+                {physicalTypes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.cardCode ? `(${p.cardCode})` : ''}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -755,11 +1230,11 @@ export default function PrintClient({ employees, templates, companyName }: Print
             </button>
             <button
               onClick={handleValidatePrint}
-              disabled={isSaving}
+              disabled={isSaving || eligibleEmployees.length === 0}
               className="flex items-center gap-1.5 px-4 py-2 border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold transition shadow-sm"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-              <span>Valider &amp; Fermer</span>
+              <span>Valider &amp; Verrouiller ({eligibleEmployees.length})</span>
             </button>
           </div>
         </div>
@@ -772,6 +1247,31 @@ export default function PrintClient({ employees, templates, companyName }: Print
           <div>
             <span className="font-bold">Attention :</span> Aucun modèle de badge personnalisé n&apos;a été configuré pour cette entreprise dans le Studio. Les impressions utiliseront le modèle par défaut standard.
           </div>
+        </div>
+      )}
+
+      {/* INELIGIBLE EMPLOYEES ALERT */}
+      {eligibilityChecked && ineligibleEmployees.length > 0 && (
+        <div className="no-print mx-6 mt-4 p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-rose-800 dark:text-rose-400 rounded-xl text-xs">
+          <div className="flex items-center gap-2 mb-2">
+            <Ban className="w-4 h-4 text-rose-500 shrink-0" />
+            <span className="font-bold">{ineligibleEmployees.length} employé(s) non éligible(s) à l&apos;impression :</span>
+          </div>
+          <ul className="space-y-1 ml-6">
+            {ineligibleEmployees.map((item) => {
+              const data = item.employee.dynamicData as Record<string, any>;
+              const name = data ? `${data.Prenom || data.prenom || ''} ${data.Nom || data.nom || ''}`.trim() : item.employee.uniqueIdentifier;
+              return (
+                <li key={item.employee.id} className="flex items-start gap-2">
+                  <span className="font-semibold">{name || item.employee.uniqueIdentifier}</span>
+                  <span className="text-rose-500">—</span>
+                  <span>{item.reasons.join(', ')}</span>
+                  {item.employee.isLocked && <Lock className="w-3 h-3 text-rose-400 inline" />}
+                  {item.employee.isBlocked && <Ban className="w-3 h-3 text-rose-400 inline" />}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 

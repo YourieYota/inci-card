@@ -100,13 +100,15 @@ export default function PrintQueueClient({
   // Categories Filtering
   const readyToPrintList = employees.filter((emp) => 
     emp.photoUrl !== null && 
-    emp.status === 'PHOTO_VALIDEE'
+    (emp.status === 'PHOTO_VALIDEE' || emp.status === 'REIMPRESSION') &&
+    !emp.isBlocked
   );
 
   const notReadyList = employees.filter((emp) => 
     emp.status === 'A_ENROLER' || 
     emp.status === 'A_VERIFIER' || 
-    emp.photoUrl === null
+    emp.photoUrl === null ||
+    emp.isBlocked
   );
 
   const alreadyPrintedList = employees.filter((emp) => 
@@ -114,7 +116,7 @@ export default function PrintQueueClient({
   );
 
   const historyList = employees.filter((emp) => 
-    emp.printedAt !== null || emp.status === 'IMPRIME'
+    emp.printedAt !== null || emp.status === 'IMPRIME' || emp.status === 'REIMPRESSION'
   );
 
   // Get active list based on selected tab

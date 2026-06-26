@@ -4,7 +4,12 @@ const { PrismaPg } = require('@prisma/adapter-pg')
 const pg = require('pg')
 const bcrypt = require('bcrypt')
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+})
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
@@ -13,9 +18,12 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@imprimerie.fr' },
-    update: {},
+    update: {
+      login: 'admin'
+    },
     create: {
       email: 'admin@imprimerie.fr',
+      login: 'admin',
       name: 'Administrateur',
       passwordHash: passwordHash,
       role: 'ADMIN',
@@ -28,9 +36,11 @@ async function main() {
 main()
   .then(async () => {
     await prisma.$disconnect()
+    await pool.end()
   })
   .catch(async (e) => {
     console.error(e)
     await prisma.$disconnect()
+    await pool.end()
     process.exit(1)
   })
