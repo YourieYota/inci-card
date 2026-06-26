@@ -524,7 +524,7 @@ export default function PropertiesPanel({
 
                 {selectedElement.field ? (
                   <select
-                    value={selectedElement.field}
+                    value={selectedElement.field || ''}
                     onChange={(e) => onUpdateElement({ ...selectedElement, field: e.target.value })}
                     className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
                   >
@@ -862,7 +862,7 @@ export default function PropertiesPanel({
               </label>
               <input
                 type="text"
-                value={canvasBackground.startsWith('data:') ? 'Image Locale (Base64)' : canvasBackground}
+                value={(canvasBackground || '').startsWith('data:') ? 'Image Locale (Base64)' : (canvasBackground || '')}
                 onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, e.target.value, canvasBackgroundOpacity, canvasBorderRadius)}
                 placeholder="Insérer l'URL de l'image"
                 className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-mono"
