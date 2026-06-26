@@ -23,7 +23,8 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Filter
+  Filter,
+  Upload
 } from 'lucide-react';
 import { 
   createDeliveryBatch, 
@@ -31,7 +32,8 @@ import {
   getUnassignedPrintedEmployees, 
   getBatchEmployees,
   deleteDeliveryBatch,
-  updateDeliveryBatch
+  updateDeliveryBatch,
+  uploadDeliveryBatchProof
 } from '@/app/actions/batches';
 
 interface DeliveryBatchesClientProps {
@@ -72,6 +74,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   const [availableEmployees, setAvailableEmployees] = useState<any[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingBatchId, setUploadingBatchId] = useState<string | null>(null);
 
   // Selection State (IDs of employees to be included in the batch)
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Record<string, boolean>>({});
@@ -509,6 +512,54 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     }
   };
 
+  const downloadSignedProof = (batch: any) => {
+    if (!batch.signedProof) return;
+    const link = document.createElement('a');
+    link.href = batch.signedProof;
+    link.download = batch.signedProofName || `preuve-livraison-${batch.batchNumber || batch.id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleUploadProof = async (batchId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Le fichier est trop volumineux (maximum 5 Mo).");
+      return;
+    }
+
+    setUploadingBatchId(batchId);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64Content = e.target?.result as string;
+      if (!base64Content) {
+        setUploadingBatchId(null);
+        return;
+      }
+
+      try {
+        await uploadDeliveryBatchProof(batchId, base64Content, file.name, file.type);
+        setBatches(prev => prev.map(b => 
+          b.id === batchId 
+            ? { ...b, signedProof: base64Content, signedProofName: file.name, signedProofType: file.type }
+            : b
+        ));
+      } catch (err: any) {
+        alert(err.message || "Erreur lors du chargement de la preuve.");
+      } finally {
+        setUploadingBatchId(null);
+      }
+    };
+    reader.onerror = () => {
+      alert("Erreur lors de la lecture du fichier.");
+      setUploadingBatchId(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const filteredBatches = batches.filter(b => 
     b.batchNumber?.toLowerCase().includes(search.toLowerCase()) ||
     b.company?.name?.toLowerCase().includes(search.toLowerCase())
@@ -603,6 +654,54 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-200 mt-1">
                         {batch._count?.employees || 0}
                       </p>
+                    </div>
+
+                    <div className="mt-4 p-4.5 bg-neutral-50 dark:bg-neutral-900 rounded-2xl border border-neutral-100 dark:border-neutral-800 flex flex-col gap-2">
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Preuve de livraison</p>
+                      {uploadingBatchId === batch.id ? (
+                        <div className="flex items-center gap-2 py-1">
+                          <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
+                          <span className="text-[10px] text-neutral-500">Chargement...</span>
+                        </div>
+                      ) : batch.signedProof ? (
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-neutral-600 dark:text-neutral-300 font-medium truncate max-w-[150px]" title={batch.signedProofName || 'Preuve.bin'}>
+                            {batch.signedProofName || 'Preuve signée'}
+                          </span>
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => downloadSignedProof(batch)}
+                              className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-1 bg-indigo-50 dark:bg-indigo-950/20 rounded border border-indigo-200/25 cursor-pointer"
+                            >
+                              Télécharger
+                            </button>
+                            <label className="text-[10px] font-bold text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-white px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded border border-neutral-200 dark:border-neutral-700 cursor-pointer">
+                              <span>Modifier</span>
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                onChange={(e) => handleUploadProof(batch.id, e)}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[10px] text-neutral-400 italic">Aucune preuve fournie</span>
+                          <label className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 px-2 py-1 bg-indigo-50 dark:bg-indigo-950/20 rounded border border-indigo-200/25 cursor-pointer flex items-center gap-1">
+                            <Upload className="w-3 h-3" />
+                            <span>Charger</span>
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              onChange={(e) => handleUploadProof(batch.id, e)}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex gap-2">

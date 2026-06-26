@@ -93,6 +93,11 @@ export async function getEmployees(companyId: string) {
   try {
     const list = await prisma.employee.findMany({
       where: { companyId },
+      include: {
+        printJobs: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -651,13 +656,17 @@ export async function confirmPrint(
       const cardNumber = await generateCardNumber(emp.companyId, templateType);
 
       // Determine if this is a reprint
-      const isReprint = emp.printCount > 0 || emp.status === 'REIMPRESSION';
+      const isReprint = emp.printCount > 0 || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
 
       // Get reprint reason from the last reprint request if applicable
       let reprintReason: string | null = null;
       if (isReprint) {
         const lastJob = await prisma.printJob.findFirst({
-          where: { employeeId: emp.id },
+          where: { 
+            employeeId: emp.id,
+            templateType: templateType,
+            cardNumber: 'REIMPRESSION_DEMANDEE'
+          },
           orderBy: { createdAt: 'desc' },
         });
         reprintReason = lastJob?.reprintReason || null;
@@ -677,12 +686,14 @@ export async function confirmPrint(
         },
       });
 
+      const newStatus = isReprint ? 'REIMPRIME' : 'IMPRIME';
+
       // Update employee: lock, update cardNumber, increment printCount
       const updated = await prisma.employee.update({
         where: { id: emp.id },
         data: {
           cardNumber,
-          status: 'IMPRIME',
+          status: newStatus,
           isLocked: true,
           printCount: { increment: 1 },
           printedAt: new Date(),
@@ -707,10 +718,13 @@ export async function confirmPrint(
  * Demande une réimpression : déverrouille temporairement la fiche
  * et enregistre le motif de réimpression.
  */
-export async function requestReprint(employeeId: string, reason: string) {
+export async function requestReprint(employeeId: string, reason: string, templateType: string) {
   try {
     if (!reason || !reason.trim()) {
       throw new Error('Un motif de réimpression est obligatoire.');
+    }
+    if (!templateType || !templateType.trim()) {
+      throw new Error('Un type de document est obligatoire pour la réimpression.');
     }
 
     const emp = await prisma.employee.findUnique({
@@ -720,8 +734,8 @@ export async function requestReprint(employeeId: string, reason: string) {
 
     if (!emp) throw new Error('Employé introuvable');
     if (emp.isBlocked) throw new Error('Ce badge est bloqué. Débloquez-le avant de demander une réimpression.');
-    if (emp.status !== 'IMPRIME' || !emp.isLocked) {
-      throw new Error('La réimpression ne peut être demandée que pour un badge déjà imprimé et verrouillé.');
+    if (emp.status !== 'IMPRIME' && emp.status !== 'REIMPRIME' && !emp.isLocked) {
+      throw new Error('La réimpression ne peut être demandée que pour un badge déjà imprimé ou réimprimé.');
     }
 
     // Create a PrintJob entry with the reprint reason (will be used during confirmPrint)
@@ -733,7 +747,7 @@ export async function requestReprint(employeeId: string, reason: string) {
       data: {
         employeeId,
         cardNumber: 'REIMPRESSION_DEMANDEE',
-        templateType: 'PENDING',
+        templateType: templateType,
         isReprint: true,
         reprintReason: reason.trim(),
         printedBy: operatorName,

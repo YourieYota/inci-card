@@ -208,3 +208,25 @@ export async function updateDeliveryBatch(batchId: string, customBatchNumber: st
   }
 }
 
+export async function uploadDeliveryBatchProof(
+  batchId: string,
+  proofBase64: string,
+  proofName: string,
+  proofType: string
+) {
+  try {
+    const batch = await prisma.deliveryBatch.update({
+      where: { id: batchId },
+      data: {
+        signedProof: proofBase64,
+        signedProofName: proofName,
+        signedProofType: proofType,
+      },
+    });
+    revalidatePath('/dashboard/delivery-batches');
+    return batch;
+  } catch (error: any) {
+    console.warn('Error uploading delivery batch proof:', error);
+    throw new Error(error.message || "Impossible de charger la preuve du bon de livraison");
+  }
+}

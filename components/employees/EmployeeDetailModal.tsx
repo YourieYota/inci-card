@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Employee } from '@prisma/client';
 import { X, Camera, Upload, Printer, Check, Loader2, AlertCircle, Trash2, Lock, Ban, RotateCcw, Clock, ShieldOff } from 'lucide-react';
 import { updateEmployeeStatus, saveEmployeePhoto, updateEmployeeData, deleteEmployee, requestReprint, blockBadge, unblockBadge, getEmployeePrintHistory, getEmployeePhoto } from '@/app/actions/employees';
@@ -80,10 +80,27 @@ export default function EmployeeDetailModal({
   // Lock / Block / Reprint states
   const [showReprintDialog, setShowReprintDialog] = useState(false);
   const [reprintReason, setReprintReason] = useState('');
+  const [reprintTemplateType, setReprintTemplateType] = useState('BADGE');
   const [showUnblockDialog, setShowUnblockDialog] = useState(false);
   const [unblockReason, setUnblockReason] = useState('');
   const [printHistory, setPrintHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const printedTypes = useMemo(() => {
+    const types = new Set<string>();
+    printHistory.forEach((job) => {
+      if (job.templateType && job.templateType !== 'PENDING' && job.templateType !== 'DEBLOCAGE') {
+        types.add(job.templateType);
+      }
+    });
+    return Array.from(types);
+  }, [printHistory]);
+
+  useEffect(() => {
+    if (printedTypes.length > 0) {
+      setReprintTemplateType(printedTypes[0]);
+    }
+  }, [printedTypes]);
 
   const isEmployeeLocked = (employee as any).isLocked === true;
   const isEmployeeBlocked = (employee as any).isBlocked === true;
@@ -728,6 +745,28 @@ export default function EmployeeDetailModal({
               <RotateCcw className="w-4 h-4 text-violet-500" /> Demande de réimpression
             </h3>
             <p className="text-xs text-neutral-500">Un motif est obligatoire. Il sera visible sur la fiche et dans la file d&apos;impression.</p>
+            
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Type de carte à réimprimer</label>
+              <select
+                value={reprintTemplateType}
+                onChange={(e) => setReprintTemplateType(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:outline-none"
+              >
+                {printedTypes.length > 0 ? (
+                  printedTypes.map((t: string) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="BADGE">BADGE</option>
+                    <option value="CARTE_PRO">CARTE_PRO</option>
+                    <option value="RECU">RECU</option>
+                  </>
+                )}
+              </select>
+            </div>
+
             <textarea
               value={reprintReason}
               onChange={(e) => setReprintReason(e.target.value)}
@@ -741,7 +780,7 @@ export default function EmployeeDetailModal({
                 onClick={async () => {
                   setIsSaving(true);
                   try {
-                    await requestReprint(employee.id, reprintReason.trim());
+                    await requestReprint(employee.id, reprintReason.trim(), reprintTemplateType);
                     setShowReprintDialog(false);
                     setReprintReason('');
                     onRefresh();

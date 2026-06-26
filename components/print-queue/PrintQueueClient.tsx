@@ -14,9 +14,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Image as ImageIcon,
-  Users
+  Users,
+  RotateCcw
 } from 'lucide-react';
-import { getEmployees } from '@/app/actions/employees';
+import { getEmployees, requestReprint } from '@/app/actions/employees';
+import { getCardDocumentTypes } from '@/app/actions/cards';
 import { markAsPrinted } from '@/app/actions/batches';
 import Pagination from '@/components/ui/Pagination';
 import EmployeePhoto from '@/components/employees/EmployeePhoto';
@@ -27,7 +29,7 @@ interface PrintQueueClientProps {
   dbError?: boolean;
 }
 
-type TabType = 'ready' | 'not-ready' | 'printed' | 'history';
+type TabType = 'ready' | 'not-ready' | 'to-reprint' | 'printed' | 'reprinted' | 'history';
 
 export default function PrintQueueClient({
   initialCompanies,
@@ -41,6 +43,14 @@ export default function PrintQueueClient({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<TabType>('ready');
+
+  // Reprint dialog states
+  const [showReprintDialog, setShowReprintDialog] = useState<boolean>(false);
+  const [reprintEmployeeId, setReprintEmployeeId] = useState<string>('');
+  const [reprintReason, setReprintReason] = useState<string>('');
+  const [reprintTemplateType, setReprintTemplateType] = useState<string>('BADGE');
+  const [documentTypes, setDocumentTypes] = useState<any[]>([]);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -61,6 +71,25 @@ export default function PrintQueueClient({
 
     fetchQueue();
     setCurrentPage(1);
+  }, [selectedCompanyId]);
+
+  // Fetch document types when company changes
+  useEffect(() => {
+    if (!selectedCompanyId) {
+      setDocumentTypes([]);
+      return;
+    }
+
+    const fetchDocTypes = async () => {
+      try {
+        const types = await getCardDocumentTypes(selectedCompanyId);
+        setDocumentTypes(types);
+      } catch (err) {
+        console.error("Failed to fetch document types:", err);
+      }
+    };
+    
+    fetchDocTypes();
   }, [selectedCompanyId]);
 
   // Reset selected IDs when tab changes
@@ -112,12 +141,23 @@ export default function PrintQueueClient({
     emp.isBlocked
   );
 
+  const toReprintList = employees.filter((emp) => 
+    emp.status === 'REIMPRESSION'
+  );
+
   const alreadyPrintedList = employees.filter((emp) => 
     emp.status === 'IMPRIME'
   );
 
+  const reprintedList = employees.filter((emp) => 
+    emp.status === 'REIMPRIME'
+  );
+
   const historyList = employees.filter((emp) => 
-    emp.printedAt !== null || emp.status === 'IMPRIME' || emp.status === 'REIMPRESSION'
+    emp.printedAt !== null || 
+    emp.status === 'IMPRIME' || 
+    emp.status === 'REIMPRESSION' || 
+    emp.status === 'REIMPRIME'
   );
 
   // Get active list based on selected tab
@@ -125,7 +165,9 @@ export default function PrintQueueClient({
     switch (activeTab) {
       case 'ready': return readyToPrintList;
       case 'not-ready': return notReadyList;
+      case 'to-reprint': return toReprintList;
       case 'printed': return alreadyPrintedList;
+      case 'reprinted': return reprintedList;
       case 'history': return historyList;
     }
   };
@@ -165,12 +207,19 @@ export default function PrintQueueClient({
     setIsSubmitting(true);
     try {
       await markAsPrinted(selectedIds);
-      // Update local state so they move to the 'printed' tab instantly
-      setEmployees(prev => prev.map(emp => 
-        selectedIds.includes(emp.id)
-          ? { ...emp, status: 'IMPRIME', printedAt: new Date().toISOString() }
-          : emp
-      ));
+      // Update local state so they move to the correct tab instantly
+      setEmployees(prev => prev.map(emp => {
+        if (selectedIds.includes(emp.id)) {
+          const isReprint = emp.printCount > 0 || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
+          return {
+            ...emp,
+            status: isReprint ? 'REIMPRIME' : 'IMPRIME',
+            printCount: emp.printCount + 1,
+            printedAt: new Date().toISOString()
+          };
+        }
+        return emp;
+      }));
       setSelectedIds([]);
       alert('Cartes marquées comme imprimées avec succès.');
     } catch (error: any) {
@@ -269,6 +318,20 @@ export default function PrintQueueClient({
             </button>
 
             <button
+              onClick={() => setActiveTab('to-reprint')}
+              className={`pb-3 px-4 text-xs font-bold transition-all relative ${
+                activeTab === 'to-reprint'
+                  ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400'
+                  : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+              }`}
+            >
+              <span>À réimprimer</span>
+              <span className="ml-2 py-0.5 px-2 bg-violet-50 dark:bg-violet-950/50 text-[10px] text-violet-600 dark:text-violet-400 rounded-full font-mono font-bold">
+                {toReprintList.length}
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('printed')}
               className={`pb-3 px-4 text-xs font-bold transition-all relative ${
                 activeTab === 'printed'
@@ -279,6 +342,20 @@ export default function PrintQueueClient({
               <span>Déjà imprimé</span>
               <span className="ml-2 py-0.5 px-2 bg-emerald-50 dark:bg-emerald-950/50 text-[10px] text-emerald-600 dark:text-emerald-400 rounded-full font-mono font-bold">
                 {alreadyPrintedList.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('reprinted')}
+              className={`pb-3 px-4 text-xs font-bold transition-all relative ${
+                activeTab === 'reprinted'
+                  ? 'text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400'
+                  : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+              }`}
+            >
+              <span>Réimprimé</span>
+              <span className="ml-2 py-0.5 px-2 bg-teal-50 dark:bg-teal-950/50 text-[10px] text-teal-600 dark:text-teal-400 rounded-full font-mono font-bold">
+                {reprintedList.length}
               </span>
             </button>
 
@@ -314,7 +391,7 @@ export default function PrintQueueClient({
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2 self-end sm:self-auto">
-                {(activeTab === 'ready' || activeTab === 'printed' || activeTab === 'history') && selectedIds.length > 0 && (
+                {(activeTab === 'ready' || activeTab === 'to-reprint' || activeTab === 'printed' || activeTab === 'reprinted' || activeTab === 'history') && selectedIds.length > 0 && (
                   <>
                     <button
                       type="button"
@@ -325,7 +402,7 @@ export default function PrintQueueClient({
                       <span>Générer PDF d&apos;impression ({selectedIds.length})</span>
                     </button>
                     
-                    {activeTab === 'ready' && (
+                    {(activeTab === 'ready' || activeTab === 'to-reprint') && (
                       <button
                         type="button"
                         onClick={handleMarkPrintedSelected}
@@ -372,7 +449,7 @@ export default function PrintQueueClient({
                   <thead>
                     <tr className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800/80 text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
                       <th className="py-4 px-6 w-12 text-center">
-                        {(activeTab === 'ready' || activeTab === 'printed' || activeTab === 'history') && (
+                        {(activeTab === 'ready' || activeTab === 'to-reprint' || activeTab === 'printed' || activeTab === 'reprinted' || activeTab === 'history') && (
                           <button 
                             type="button"
                             onClick={toggleSelectAll}
@@ -391,7 +468,7 @@ export default function PrintQueueClient({
                       <th className="py-4 px-4">Identifiant Unique</th>
                       <th className="py-4 px-4">N° d&apos;enrôlement</th>
                       <th className="py-4 px-4">Statut / Détails</th>
-                      <th className="py-4 px-4 text-right">Imprimer</th>
+                      <th className="py-4 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
@@ -403,7 +480,7 @@ export default function PrintQueueClient({
                         <tr 
                           key={emp.id}
                           onClick={() => {
-                            if (activeTab === 'ready' || activeTab === 'printed' || activeTab === 'history') {
+                            if (activeTab === 'ready' || activeTab === 'to-reprint' || activeTab === 'printed' || activeTab === 'reprinted' || activeTab === 'history') {
                               toggleSelect(emp.id);
                             }
                           }}
@@ -412,7 +489,7 @@ export default function PrintQueueClient({
                           }`}
                         >
                           <td className="py-4 px-6 text-center" onClick={(e) => e.stopPropagation()}>
-                            {(activeTab === 'ready' || activeTab === 'printed' || activeTab === 'history') && (
+                            {(activeTab === 'ready' || activeTab === 'to-reprint' || activeTab === 'printed' || activeTab === 'reprinted' || activeTab === 'history') && (
                               <button
                                 type="button"
                                 onClick={() => toggleSelect(emp.id)}
@@ -448,10 +525,40 @@ export default function PrintQueueClient({
                                 Prêt à imprimer
                               </span>
                             )}
+                            {activeTab === 'to-reprint' && (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-200/25 dark:border-violet-900/30 w-max">
+                                  À réimprimer
+                                </span>
+                                {(() => {
+                                  const reqJob = emp.printJobs?.find((j: any) => j.cardNumber === 'REIMPRESSION_DEMANDEE');
+                                  if (reqJob && reqJob.reprintReason) {
+                                    return (
+                                      <span className="text-[9px] text-neutral-500 dark:text-neutral-400 mt-1 max-w-[200px] truncate" title={reqJob.reprintReason}>
+                                        Motif: {reqJob.reprintReason}
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            )}
                             {activeTab === 'printed' && (
                               <div className="flex flex-col gap-0.5">
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/25 dark:border-emerald-900/30 w-max">
                                   Imprimé
+                                </span>
+                                {emp.printedAt && (
+                                  <span className="text-[9px] text-neutral-400 dark:text-neutral-500">
+                                    le {new Date(emp.printedAt).toLocaleDateString('fr-FR')}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {activeTab === 'reprinted' && (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-200/25 dark:border-teal-900/30 w-max">
+                                  Réimprimé
                                 </span>
                                 {emp.printedAt && (
                                   <span className="text-[9px] text-neutral-400 dark:text-neutral-500">
@@ -465,18 +572,24 @@ export default function PrintQueueClient({
                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold w-max ${
                                   emp.status === 'IMPRIME'
                                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/25 dark:border-emerald-900/30'
+                                    : emp.status === 'REIMPRIME'
+                                    ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-200/25 dark:border-teal-900/30'
+                                    : emp.status === 'REIMPRESSION'
+                                    ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-200/25 dark:border-violet-900/30'
                                     : emp.status === 'A_VERIFIER'
                                     ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200/25 dark:border-rose-900/30'
                                     : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/25 dark:border-indigo-900/30'
                                 }`}>
                                   {emp.status === 'IMPRIME' && 'Imprimé'}
+                                  {emp.status === 'REIMPRIME' && 'Réimprimé'}
+                                  {emp.status === 'REIMPRESSION' && 'À réimprimer'}
                                   {emp.status === 'A_ENROLER' && 'À enrôler'}
                                   {emp.status === 'PHOTO_VALIDEE' && 'Validé (Prêt)'}
                                   {emp.status === 'A_VERIFIER' && 'À vérifier'}
                                 </span>
                                 {emp.printedAt && (
                                   <span className="text-[9px] text-neutral-400 dark:text-neutral-500 font-medium">
-                                    Imprimé le {new Date(emp.printedAt).toLocaleDateString('fr-FR')}
+                                    Dernière impression le {new Date(emp.printedAt).toLocaleDateString('fr-FR')}
                                   </span>
                                 )}
                               </div>
@@ -495,18 +608,43 @@ export default function PrintQueueClient({
                             )}
                           </td>
                           <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                            {(activeTab === 'ready' || activeTab === 'printed' || activeTab === 'history') ? (
-                              <button
-                                type="button"
-                                onClick={() => window.open(`/dashboard/employees/print?ids=${encodeURIComponent(emp.id)}`, '_blank')}
-                                className="inline-flex items-center justify-center p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-neutral-500 dark:text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
-                                title="Imprimer ce badge"
-                              >
-                                <Printer className="w-4 h-4" />
-                              </button>
-                            ) : (
-                              <span className="text-xs text-neutral-400 italic">Non applicable</span>
-                            )}
+                            <div className="flex justify-end items-center gap-1.5">
+                              {/* Print Button */}
+                              {(activeTab === 'ready' || activeTab === 'to-reprint' || activeTab === 'printed' || activeTab === 'reprinted' || activeTab === 'history') && (
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(`/dashboard/employees/print?ids=${encodeURIComponent(emp.id)}`, '_blank')}
+                                  className="inline-flex items-center justify-center p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-neutral-500 dark:text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                                  title="Imprimer ce badge"
+                                >
+                                  <Printer className="w-4 h-4" />
+                                </button>
+                              )}
+                              {/* Reprint request Button */}
+                              {(emp.status === 'IMPRIME' || emp.status === 'REIMPRIME') && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReprintEmployeeId(emp.id);
+                                    const historyTypes = emp.printJobs
+                                      ?.filter((j: any) => j.templateType && j.templateType !== 'PENDING' && j.templateType !== 'DEBLOCAGE')
+                                      .map((j: any) => j.templateType) || [];
+                                    const firstType = historyTypes.length > 0 ? historyTypes[0] : (documentTypes[0]?.slug || 'BADGE');
+                                    setReprintTemplateType(firstType);
+                                    setReprintReason('');
+                                    setShowReprintDialog(true);
+                                  }}
+                                  className="inline-flex items-center justify-center p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-violet-200 hover:bg-violet-50 dark:hover:bg-violet-950/20 text-neutral-500 dark:text-neutral-400 hover:text-violet-600 dark:hover:text-violet-400 transition"
+                                  title="Demander une réimpression"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                              )}
+                              {/* Fallback if no actions */}
+                              {!(activeTab === 'ready' || activeTab === 'to-reprint' || activeTab === 'printed' || activeTab === 'reprinted' || activeTab === 'history') && !(emp.status === 'IMPRIME' || emp.status === 'REIMPRIME') && (
+                                <span className="text-xs text-neutral-400 italic">Non applicable</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -539,6 +677,69 @@ export default function PrintQueueClient({
           <p className="text-xs text-neutral-400 mt-1 max-w-sm">
             Veuillez sélectionner une entreprise cliente dans la liste déroulante ci-dessus pour charger sa file d&apos;impression.
           </p>
+        </div>
+      )}
+
+      {/* REPRINT DIALOG */}
+      {showReprintDialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-sm font-bold text-neutral-800 dark:text-white flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 text-violet-500" /> Demande de réimpression
+            </h3>
+            <p className="text-xs text-neutral-500">Un motif est obligatoire. Il sera visible sur la fiche et dans la file d&apos;impression.</p>
+            
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Type de carte à réimprimer</label>
+              <select
+                value={reprintTemplateType}
+                onChange={(e) => setReprintTemplateType(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:outline-none"
+              >
+                {documentTypes.length > 0 ? (
+                  documentTypes.map((t) => (
+                    <option key={t.id} value={t.slug || t.name}>{t.name}</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="BADGE">BADGE</option>
+                    <option value="CARTE_PRO">CARTE_PRO</option>
+                    <option value="RECU">RECU</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            <textarea
+              value={reprintReason}
+              onChange={(e) => setReprintReason(e.target.value)}
+              placeholder="Ex: Badge perdu, nom incorrect, photo à changer..."
+              className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs min-h-[80px] focus:ring-2 focus:ring-violet-500/25"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setShowReprintDialog(false); setReprintReason(''); }} className="px-4 py-2 text-xs font-bold text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition">Annuler</button>
+              <button
+                disabled={!reprintReason.trim() || isSaving}
+                onClick={async () => {
+                  setIsSaving(true);
+                  try {
+                    await requestReprint(reprintEmployeeId, reprintReason.trim(), reprintTemplateType);
+                    setShowReprintDialog(false);
+                    setReprintReason('');
+                    // Refresh queue
+                    fetchQueue();
+                  } catch (err: any) {
+                    alert(err.message || 'Erreur lors de la demande de réimpression.');
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+                className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmer la réimpression'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

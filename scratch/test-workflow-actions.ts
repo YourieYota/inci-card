@@ -62,7 +62,7 @@ async function main() {
   console.log("\n--- TEST 4: requestReprint ---");
   try {
     const reprintReason = "Badge cassé / perdu";
-    const reprintResult = await requestReprint(empId, reprintReason);
+    const reprintResult = await requestReprint(empId, reprintReason, 'BADGE');
     console.log("Reprint request result:", {
       status: reprintResult.status,
       isLocked: reprintResult.isLocked
