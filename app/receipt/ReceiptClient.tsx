@@ -148,6 +148,18 @@ const getFieldValue = (emp: SerializedEmployee, field?: string) => {
   return `{${field}}`;
 };
 
+const resolvePlaceholders = (text: string | undefined | null, emp: SerializedEmployee): string => {
+  if (!text) return '';
+  return text.replace(/\{([^}]+)\}/g, (match, fieldName) => {
+    const value = getFieldValue(emp, fieldName);
+    if (value && value.startsWith('{') && value.endsWith('}')) {
+      return '';
+    }
+    return value !== undefined && value !== null ? value : '';
+  });
+};
+
+
 const cardStyle = (template: any) => {
   const config = template.layoutConfig as any;
   let bgUrl = '';
@@ -302,7 +314,10 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                           lineHeight: 'normal',
                         }}
                       >
-                        {getFieldValue(employee, el.field) || el.content || ''}
+                        {el.field
+                          ? (getFieldValue(employee, el.field) || '')
+                          : resolvePlaceholders(el.content, employee)
+                        }
                       </div>
                     )}
 

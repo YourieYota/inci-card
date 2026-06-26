@@ -535,13 +535,21 @@ export default function PropertiesPanel({
                     ))}
                   </select>
                 ) : (
-                  <input
-                    type="text"
-                    value={selectedElement.content || ''}
-                    onChange={(e) => onUpdateElement({ ...selectedElement, content: e.target.value })}
-                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-                    placeholder="Saisir le texte"
-                  />
+                  <div className="flex flex-col gap-1.5">
+                    <input
+                      type="text"
+                      value={selectedElement.content || ''}
+                      onChange={(e) => onUpdateElement({ ...selectedElement, content: e.target.value })}
+                      className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
+                      placeholder="Saisir le texte"
+                    />
+                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 leading-normal px-1">
+                      Astuce : Insérez des champs dynamiques en écrivant :{" "}
+                      <span className="font-bold text-neutral-600 dark:text-neutral-400">
+                        {suggestedFields.map(f => `{${f}}`).join(", ")}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
 

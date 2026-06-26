@@ -586,6 +586,32 @@ const getFieldValue = (
   return `{${field}}`;
 };
 
+const resolvePlaceholders = (
+  text: string | undefined | null,
+  emp: Employee & { company?: { name: string } },
+  selectedCategoryName?: string,
+  selectedPhysicalTypeName?: string,
+  catValidityValue?: number,
+  catValidityUnit?: string
+): string => {
+  if (!text) return '';
+  return text.replace(/\{([^}]+)\}/g, (match, fieldName) => {
+    const value = getFieldValue(
+      emp,
+      fieldName,
+      selectedCategoryName,
+      selectedPhysicalTypeName,
+      catValidityValue,
+      catValidityUnit
+    );
+    if (value && value.startsWith('{') && value.endsWith('}')) {
+      return '';
+    }
+    return value !== undefined && value !== null ? value : '';
+  });
+};
+
+
 const cardStyle = (template: CardTemplate, side: 'recto' | 'verso') => {
   const config = template.layoutConfig as any;
   let bgUrl = '';
@@ -733,7 +759,10 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                         lineHeight: 'normal',
                       }}
                     >
-                      {getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || el.content || ''}
+                      {el.field
+                        ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
+                        : resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit)
+                      }
                     </div>
                   )}
 
