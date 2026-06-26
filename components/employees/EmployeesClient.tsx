@@ -444,6 +444,7 @@ export default function EmployeesClient({
       {/* LASER EXPORT MODAL */}
       {showExportModal && activeCompany && (
         <LaserExportModal
+          companyId={activeCompany.id}
           companyName={activeCompany.name}
           employees={employees}
           onClose={() => setShowExportModal(false)}

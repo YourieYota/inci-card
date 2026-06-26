@@ -1373,11 +1373,13 @@ export default function StudioClient({
               className="bg-transparent text-xs font-semibold text-neutral-700 dark:text-neutral-300 outline-none cursor-pointer"
             >
               <option value="" className="dark:bg-neutral-900 font-medium">(Générique / Par défaut)</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id} className="dark:bg-neutral-900 font-semibold">
-                  {cat.name}
-                </option>
-              ))}
+              {categories
+                .filter((cat) => !cat.documentTypeSlug || cat.documentTypeSlug === cardType)
+                .map((cat) => (
+                  <option key={cat.id} value={cat.id} className="dark:bg-neutral-900 font-semibold">
+                    {cat.name}
+                  </option>
+                ))}
             </select>
           </div>
 

@@ -111,6 +111,7 @@ export async function createCardCategory(data: {
   validityValue?: number | null;
   validityUnit?: string | null;
   companyId?: string | null;
+  documentTypeSlug?: string | null;
 }) {
   try {
     const slug = data.name
@@ -141,6 +142,7 @@ export async function createCardCategory(data: {
         validityUnit,
         formatId: data.formatId,
         companyId: data.companyId || null,
+        documentTypeSlug: data.documentTypeSlug || null,
       },
     });
 

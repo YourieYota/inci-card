@@ -1183,14 +1183,16 @@ export default function PrintClient({ employees, templates, companyName, documen
                 className="px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200 outline-none"
               >
                 <option value="">Toutes les catégories</option>
-                {categories.map((c) => {
-                  const hasSpecificTemplate = templates.some((t) => t.type === selectedTemplateType && t.categoryId === c.id);
-                  return (
-                    <option key={c.id} value={c.id}>
-                      {c.name}{hasSpecificTemplate ? ' (Modèle conçu)' : ''}
-                    </option>
-                  );
-                })}
+                {categories
+                  .filter((c: any) => !c.documentTypeSlug || c.documentTypeSlug === selectedTemplateType)
+                  .map((c: any) => {
+                    const hasSpecificTemplate = templates.some((t) => t.type === selectedTemplateType && t.categoryId === c.id);
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{hasSpecificTemplate ? ' (Modèle conçu)' : ''}
+                      </option>
+                    );
+                  })}
               </select>
             </div>
           )}

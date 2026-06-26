@@ -1,21 +1,44 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Employee } from '@prisma/client';
 import { X, Search, CheckSquare, Square, Download, Loader2, AlertCircle, Users, Columns } from 'lucide-react';
 
 interface LaserExportModalProps {
+  companyId: string;
   companyName: string;
   employees: Employee[];
   onClose: () => void;
 }
 
-export default function LaserExportModal({ companyName, employees, onClose }: LaserExportModalProps) {
+export default function LaserExportModal({ companyId, companyName, employees, onClose }: LaserExportModalProps) {
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [progress, setProgress] = useState<{ current: number; total: number; text: string } | null>(null);
+
+  const [docTypes, setDocTypes] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedDocTypeSlug, setSelectedDocTypeSlug] = useState<string>('ALL');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('ALL');
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { getCardCategories, getCardDocumentTypes } = await import('@/app/actions/cards');
+        const [dTypes, cats] = await Promise.all([
+          getCardDocumentTypes(companyId),
+          getCardCategories(companyId)
+        ]);
+        setDocTypes(dTypes);
+        setCategories(cats);
+      } catch (err) {
+        console.error("Failed to load docTypes / categories in LaserExportModal:", err);
+      }
+    }
+    loadData();
+  }, [companyId]);
 
   // 1. Compute all unique fields available across employees
   const allAvailableFields = useMemo(() => {
@@ -24,6 +47,18 @@ export default function LaserExportModal({ companyName, employees, onClose }: La
     fields.add("Numéro d'enrôlement");
     fields.add("Identifiant unique");
     fields.add("Statut");
+
+    if (selectedDocTypeSlug !== 'ALL') {
+      fields.add("Type de carte");
+    }
+    if (selectedCategoryId !== 'ALL') {
+      fields.add("Catégorie");
+      const cat = categories.find((c) => c.id === selectedCategoryId);
+      if (cat && cat.validityUnit && cat.validityUnit !== 'NONE') {
+        fields.add("Durée de validité");
+        fields.add("Date d'expiration");
+      }
+    }
 
     // Scan dynamic fields
     employees.forEach((emp) => {
@@ -38,7 +73,7 @@ export default function LaserExportModal({ companyName, employees, onClose }: La
     // Link file column
     fields.add("Fichier Photo");
     return Array.from(fields);
-  }, [employees]);
+  }, [employees, selectedDocTypeSlug, selectedCategoryId, categories]);
 
   // 2. Selection states
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(() => {
@@ -48,6 +83,30 @@ export default function LaserExportModal({ companyName, employees, onClose }: La
   const [selectedFields, setSelectedFields] = useState<Set<string>>(() => {
     return new Set(allAvailableFields);
   });
+
+  // Automatically select new dynamic fields when export options change
+  useEffect(() => {
+    const fieldsToAdd: string[] = [];
+    if (selectedDocTypeSlug !== 'ALL') {
+      fieldsToAdd.push("Type de carte");
+    }
+    if (selectedCategoryId !== 'ALL') {
+      fieldsToAdd.push("Catégorie");
+      const cat = categories.find((c) => c.id === selectedCategoryId);
+      if (cat && cat.validityUnit && cat.validityUnit !== 'NONE') {
+        fieldsToAdd.push("Durée de validité");
+        fieldsToAdd.push("Date d'expiration");
+      }
+    }
+    
+    if (fieldsToAdd.length > 0) {
+      setSelectedFields((prev) => {
+        const next = new Set(prev);
+        fieldsToAdd.forEach((f) => next.add(f));
+        return next;
+      });
+    }
+  }, [selectedDocTypeSlug, selectedCategoryId, categories]);
 
   // 3. Filtering logic
   const filteredEmployees = useMemo(() => {
@@ -125,13 +184,18 @@ export default function LaserExportModal({ companyName, employees, onClose }: La
 
     try {
       const { exportLaserBioQR } = await import('@/lib/laserExport');
+      const docTypeObj = selectedDocTypeSlug !== 'ALL' ? docTypes.find(dt => dt.slug === selectedDocTypeSlug) : null;
+      const categoryObj = selectedCategoryId !== 'ALL' ? categories.find(c => c.id === selectedCategoryId) : null;
+
       await exportLaserBioQR(
         companyName,
         employeesToExport,
         Array.from(selectedFields),
         (current, total, text) => {
           setProgress({ current, total, text });
-        }
+        },
+        docTypeObj,
+        categoryObj
       );
     } catch (err: any) {
       console.error(err);
@@ -286,11 +350,54 @@ export default function LaserExportModal({ companyName, employees, onClose }: La
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
                 <Columns className="w-4 h-4" />
-                <span>2. Colonnes Excel</span>
+                <span>2. Paramètres & Colonnes</span>
               </span>
               <span className="text-xs text-neutral-400 dark:text-neutral-500 font-bold">
                 {selectedFields.size} sélectionnée(s)
               </span>
+            </div>
+
+            {/* EXPORT OPTIONS */}
+            <div className="bg-white dark:bg-neutral-900 p-4.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-3 shadow-sm">
+              <span className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider block">
+                Options d&apos;exportation (Optionnel)
+              </span>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Type de carte</label>
+                  <select
+                    value={selectedDocTypeSlug}
+                    onChange={(e) => {
+                      setSelectedDocTypeSlug(e.target.value);
+                      setSelectedCategoryId('ALL'); // Reset category
+                    }}
+                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:outline-none"
+                  >
+                    <option value="ALL">Aucun type sélectionné</option>
+                    {docTypes.map((dt) => (
+                      <option key={dt.id} value={dt.slug}>{dt.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Catégorie</label>
+                  <select
+                    value={selectedCategoryId}
+                    onChange={(e) => setSelectedCategoryId(e.target.value)}
+                    disabled={selectedDocTypeSlug === 'ALL'}
+                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="ALL">Aucune catégorie</option>
+                    {categories
+                      .filter((c) => !c.documentTypeSlug || c.documentTypeSlug === selectedDocTypeSlug)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* SELECTION SHORTCUTS */}

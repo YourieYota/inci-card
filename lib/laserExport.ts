@@ -82,7 +82,9 @@ export async function exportLaserBioQR(
   companyName: string,
   employees: SimplifiedEmployee[],
   selectedFields: string[],
-  onProgress?: (current: number, total: number, statusText: string) => void
+  onProgress?: (current: number, total: number, statusText: string) => void,
+  selectedDocType?: { name: string; slug: string } | null,
+  selectedCategory?: { name: string; validityValue: number | null; validityUnit: string | null } | null
 ) {
   const mainZip = new JSZip();
   const photosZip = new JSZip();
@@ -147,6 +149,36 @@ export async function exportLaserBioQR(
     }
     if (selectedFields.includes("Statut")) {
       row["Statut"] = emp.status;
+    }
+
+    if (selectedFields.includes("Type de carte") && selectedDocType) {
+      row["Type de carte"] = selectedDocType.name;
+    }
+    if (selectedFields.includes("Catégorie") && selectedCategory) {
+      row["Catégorie"] = selectedCategory.name;
+    }
+    if (selectedCategory && selectedCategory.validityUnit && selectedCategory.validityUnit !== 'NONE') {
+      if (selectedFields.includes("Durée de validité")) {
+        const valStr = selectedCategory.validityValue || 1;
+        const unitStr = selectedCategory.validityUnit === 'YEAR' ? 'an(s)' : selectedCategory.validityUnit === 'MONTH' ? 'mois' : 'jour(s)';
+        row["Durée de validité"] = `${valStr} ${unitStr}`;
+      }
+      if (selectedFields.includes("Date d'expiration")) {
+        const val = selectedCategory.validityValue || 1;
+        const unit = selectedCategory.validityUnit;
+        const expDate = new Date();
+        if (unit === 'YEAR') {
+          expDate.setFullYear(expDate.getFullYear() + val);
+        } else if (unit === 'MONTH') {
+          expDate.setMonth(expDate.getMonth() + val);
+        } else if (unit === 'DAY') {
+          expDate.setDate(expDate.getDate() + val);
+        }
+        const day = String(expDate.getDate()).padStart(2, '0');
+        const month = String(expDate.getMonth() + 1).padStart(2, '0');
+        const year = expDate.getFullYear();
+        row["Date d'expiration"] = `${day}/${month}/${year}`;
+      }
     }
 
     // Excel fields next

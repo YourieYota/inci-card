@@ -136,20 +136,21 @@ model CardFormat {
 }
 
 model CardCategory {
-  id            String         @id @default(uuid())
-  name          String
-  slug          String
-  color         String         @default("#6366f1")
-  description   String?
-  validityValue Int?           @default(1)    // Durée de validité de la carte (null = permanente)
-  validityUnit  String?        @default("YEAR") // YEAR, MONTH, DAY (null = permanente)
-  formatId      String
-  format        CardFormat     @relation(fields: [formatId], references: [id], onDelete: Restrict)
-  companyId     String?
-  company       Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  templates     CardTemplate[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id               String         @id @default(uuid())
+  name             String
+  slug             String
+  color            String         @default("#6366f1")
+  description      String?
+  validityValue    Int?           @default(1)    // Durée de validité de la carte (null = permanente)
+  validityUnit     String?        @default("YEAR") // YEAR, MONTH, DAY (null = permanente)
+  formatId         String
+  format           CardFormat     @relation(fields: [formatId], references: [id], onDelete: Restrict)
+  companyId        String?
+  company          Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templates        CardTemplate[]
+  documentTypeSlug String?        @default("")   // Le slug du type de document lié (ex: BADGE, CARTE_PRO, etc.)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@unique([companyId, name])
   @@unique([companyId, slug])

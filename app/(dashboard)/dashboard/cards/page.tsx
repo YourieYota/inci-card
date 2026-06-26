@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Plus, Trash2, Sliders, Layers, Info, Check, RefreshCw, Loader2, Cpu, Clock } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Sliders, Layers, Info, Check, RefreshCw, Loader2, Cpu, Clock, FileText } from 'lucide-react';
 import {
   getCardFormats,
   createCardFormat,
@@ -36,6 +36,7 @@ interface CardCategory {
   format: CardFormat;
   validityValue: number | null;
   validityUnit: string | null;
+  documentTypeSlug?: string | null;
 }
 
 interface CardPhysicalType {
@@ -78,6 +79,7 @@ export default function CardsManagementPage() {
   const [categoryColor, setCategoryColor] = useState('#6366f1');
   const [categoryDesc, setCategoryDesc] = useState('');
   const [categoryFormatId, setCategoryFormatId] = useState('');
+  const [categoryDocTypeSlug, setCategoryDocTypeSlug] = useState('BADGE');
 
   const [formatName, setFormatName] = useState('');
   const [formatWidth, setFormatWidth] = useState('85.6');
@@ -129,6 +131,9 @@ export default function CardsManagementPage() {
       if (formatsData.length > 0) {
         setCategoryFormatId(formatsData[0].id);
       }
+      if (docTypesData.length > 0) {
+        setCategoryDocTypeSlug(docTypesData[0].slug);
+      }
     } catch (error) {
       console.error('Error loading card settings:', error);
     } finally {
@@ -173,6 +178,7 @@ export default function CardsManagementPage() {
         validityValue: categoryValidityUnit === 'NONE' ? null : (parseInt(categoryValidityValue) || 1),
         validityUnit: categoryValidityUnit,
         companyId: selectedCompanyId || undefined,
+        documentTypeSlug: categoryDocTypeSlug || undefined,
       });
       setCategories((prev) => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
       setShowCategoryModal(false);
@@ -180,6 +186,11 @@ export default function CardsManagementPage() {
       setCategoryDesc('');
       setCategoryValidityValue('1');
       setCategoryValidityUnit('YEAR');
+      if (documentTypes.length > 0) {
+        setCategoryDocTypeSlug(documentTypes[0].slug);
+      } else {
+        setCategoryDocTypeSlug('BADGE');
+      }
     } catch (err: any) {
       alert(err.message || 'Impossible de créer la catégorie.');
     } finally {
@@ -493,6 +504,12 @@ export default function CardsManagementPage() {
                     </span>
                   </div>
 
+                  {/* Document Type association */}
+                  <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-neutral-500">
+                    <FileText className="w-4 h-4 text-neutral-400" />
+                    <span>Type associé : {cat.documentTypeSlug ? (documentTypes.find(dt => dt.slug === cat.documentTypeSlug)?.name || cat.documentTypeSlug) : 'Tous (Aucun)'}</span>
+                  </div>
+
                   {/* Validity Info */}
                   <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-neutral-500">
                     <Clock className="w-4 h-4 text-neutral-400" />
@@ -775,6 +792,21 @@ export default function CardsManagementPage() {
                   {formats.map((fmt) => (
                     <option key={fmt.id} value={fmt.id}>
                       {fmt.name} ({fmt.width} x {fmt.height} {fmt.unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Type de document lié</label>
+                <select
+                  value={categoryDocTypeSlug}
+                  onChange={(e) => setCategoryDocTypeSlug(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium outline-none"
+                >
+                  {documentTypes.map((dt) => (
+                    <option key={dt.id} value={dt.slug}>
+                      {dt.name} ({dt.slug})
                     </option>
                   ))}
                 </select>
