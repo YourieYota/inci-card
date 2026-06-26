@@ -5,6 +5,7 @@ import { Employee } from '@prisma/client';
 import { Camera, Search, UserCheck, Check, Printer, AlertCircle, RefreshCw } from 'lucide-react';
 import { updateEmployeeStatus } from '@/app/actions/employees';
 import Pagination from '@/components/ui/Pagination';
+import EmployeePhoto from './EmployeePhoto';
 
 interface EmployeeCardListProps {
   employees: Employee[];
@@ -292,15 +293,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
                   {/* Photo area */}
                   <div className="w-18 h-18 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shrink-0 overflow-hidden flex items-center justify-center shadow-inner relative group-hover:border-neutral-300 dark:group-hover:border-neutral-700 transition-colors">
-                    {emp.photoUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={emp.photoUrl} alt={name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-1 text-center text-[8px] font-bold text-neutral-400">
-                        <Camera className="w-5 h-5 mb-0.5 opacity-60" />
-                        <span>Pas de photo</span>
-                      </div>
-                    )}
+                    <EmployeePhoto employeeId={emp.id} hasPhoto={(emp as any).hasPhoto} />
                     {(emp as any).photoConflict && (
                       <div className="absolute inset-0 bg-rose-500/10 flex items-center justify-center">
                         <div className="bg-rose-600 text-white rounded-full p-1 shadow-sm">

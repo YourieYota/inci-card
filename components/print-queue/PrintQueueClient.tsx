@@ -19,6 +19,7 @@ import {
 import { getEmployees } from '@/app/actions/employees';
 import { markAsPrinted } from '@/app/actions/batches';
 import Pagination from '@/components/ui/Pagination';
+import EmployeePhoto from '@/components/employees/EmployeePhoto';
 
 interface PrintQueueClientProps {
   initialCompanies: any[];
@@ -99,7 +100,7 @@ export default function PrintQueueClient({
 
   // Categories Filtering
   const readyToPrintList = employees.filter((emp) => 
-    emp.photoUrl !== null && 
+    emp.hasPhoto && 
     (emp.status === 'PHOTO_VALIDEE' || emp.status === 'REIMPRESSION') &&
     !emp.isBlocked
   );
@@ -107,7 +108,7 @@ export default function PrintQueueClient({
   const notReadyList = employees.filter((emp) => 
     emp.status === 'A_ENROLER' || 
     emp.status === 'A_VERIFIER' || 
-    emp.photoUrl === null ||
+    !emp.hasPhoto ||
     emp.isBlocked
   );
 
@@ -427,11 +428,7 @@ export default function PrintQueueClient({
                           </td>
                           <td className="py-4 px-4">
                             <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center">
-                              {emp.photoUrl ? (
-                                <img src={emp.photoUrl} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <ImageIcon className="w-4 h-4 text-neutral-400" />
-                              )}
+                              <EmployeePhoto employeeId={emp.id} hasPhoto={emp.hasPhoto} />
                             </div>
                           </td>
                           <td className="py-4 px-4 font-semibold text-xs text-neutral-800 dark:text-neutral-200">

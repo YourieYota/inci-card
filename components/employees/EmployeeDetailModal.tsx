@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Employee } from '@prisma/client';
 import { X, Camera, Upload, Printer, Check, Loader2, AlertCircle, Trash2, Lock, Ban, RotateCcw, Clock, ShieldOff } from 'lucide-react';
-import { updateEmployeeStatus, saveEmployeePhoto, updateEmployeeData, deleteEmployee, requestReprint, blockBadge, unblockBadge, getEmployeePrintHistory } from '@/app/actions/employees';
+import { updateEmployeeStatus, saveEmployeePhoto, updateEmployeeData, deleteEmployee, requestReprint, blockBadge, unblockBadge, getEmployeePrintHistory, getEmployeePhoto } from '@/app/actions/employees';
 import { addOfflineMutation } from '@/lib/offlineQueue';
 import { safeSetItem, safeGetItem } from '@/lib/storage';
 
@@ -64,8 +64,18 @@ export default function EmployeeDetailModal({
   });
 
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(employee.photoUrl);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPhotoUrl(employee.photoUrl);
+    if (!employee.photoUrl && (employee as any).hasPhoto) {
+      getEmployeePhoto(employee.id).then((url) => {
+        if (url) setPhotoUrl(url);
+      });
+    }
+  }, [employee.id, employee.photoUrl, (employee as any).hasPhoto]);
 
   // Lock / Block / Reprint states
   const [showReprintDialog, setShowReprintDialog] = useState(false);
@@ -367,7 +377,7 @@ export default function EmployeeDetailModal({
     }
   };
 
-  const activePhoto = uploadedPhoto || employee.photoUrl;
+  const activePhoto = uploadedPhoto || photoUrl;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 dark:bg-neutral-950/80 backdrop-blur-sm animate-in fade-in duration-200">

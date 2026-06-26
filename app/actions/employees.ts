@@ -91,13 +91,35 @@ async function generateEnrollmentNumber(companyId: string): Promise<string> {
 
 export async function getEmployees(companyId: string) {
   try {
-    return await prisma.employee.findMany({
+    const list = await prisma.employee.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return list.map(emp => {
+      const { photoUrl, ...rest } = emp;
+      return {
+        ...rest,
+        photoUrl: null,
+        hasPhoto: photoUrl !== null && photoUrl !== '',
+      };
     });
   } catch (error) {
     console.warn('Error fetching employees:', error);
     throw new Error('Impossible de récupérer les employés');
+  }
+}
+
+export async function getEmployeePhoto(employeeId: string) {
+  try {
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { photoUrl: true },
+    });
+    return emp?.photoUrl || null;
+  } catch (error) {
+    console.warn('Error fetching employee photo:', error);
+    return null;
   }
 }
 
