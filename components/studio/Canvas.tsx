@@ -19,6 +19,7 @@ export interface StudioElement {
   fontFamily?: string;
   fontWeight?: 'normal' | 'bold';
   fontStyle?: 'normal' | 'italic';
+  textTransform?: 'none' | 'uppercase';
   alignment?: 'left' | 'center' | 'right';
   qrValue?: string;
   opacity?: number; // range 0 to 1, default 1
@@ -372,6 +373,7 @@ export default function Canvas({
                             fontFamily: el.fontFamily || 'sans-serif',
                             fontWeight: el.fontWeight || 'normal',
                             fontStyle: el.fontStyle || 'normal',
+                            textTransform: el.textTransform || 'none',
                             textAlign: el.alignment || 'left',
                           }}
                           className="w-full h-full flex items-center justify-center p-1 break-words select-none leading-normal overflow-hidden"

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload } from 'lucide-react';
+import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type } from 'lucide-react';
 import { StudioElement } from './Canvas';
 
 interface PropertiesPanelProps {
@@ -554,7 +554,7 @@ export default function PropertiesPanel({
                   </div>
                 </div>
 
-                <div className="w-24">
+                <div className="w-36">
                   <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Style</label>
                   <div className="flex border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden bg-neutral-50 dark:bg-neutral-900">
                     <button
@@ -567,6 +567,7 @@ export default function PropertiesPanel({
                       className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
                         selectedElement.fontWeight === 'bold' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
                       }`}
+                      title="Gras"
                     >
                       <Bold className="w-4 h-4" />
                     </button>
@@ -580,8 +581,23 @@ export default function PropertiesPanel({
                       className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
                         selectedElement.fontStyle === 'italic' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
                       }`}
+                      title="Italique"
                     >
                       <Italic className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        onUpdateElement({
+                          ...selectedElement,
+                          textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase',
+                        })
+                      }
+                      className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
+                        selectedElement.textTransform === 'uppercase' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
+                      }`}
+                      title="Majuscules"
+                    >
+                      <Type className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

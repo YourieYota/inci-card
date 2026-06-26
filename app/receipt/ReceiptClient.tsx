@@ -283,6 +283,7 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                           fontFamily: el.fontFamily || 'sans-serif',
                           fontWeight: el.fontWeight || 'normal',
                           fontStyle: el.fontStyle || 'normal',
+                          textTransform: el.textTransform || 'none',
                           textAlign: el.alignment || 'left',
                           display: 'flex',
                           alignItems: 'center',
