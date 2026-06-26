@@ -15,6 +15,7 @@ export interface StudioElement {
   field?: string;
   color?: string;
   fontSize?: number;
+  fontSizeUnit?: 'px' | 'pt';
   fontFamily?: string;
   fontWeight?: 'normal' | 'bold';
   fontStyle?: 'normal' | 'italic';
@@ -367,7 +368,7 @@ export default function Canvas({
                         <div
                           style={{
                             color: el.color || '#000000',
-                            fontSize: `${el.fontSize || 14}px`,
+                            fontSize: `${el.fontSize || 14}${el.fontSizeUnit || 'px'}`,
                             fontFamily: el.fontFamily || 'sans-serif',
                             fontWeight: el.fontWeight || 'normal',
                             fontStyle: el.fontStyle || 'normal',

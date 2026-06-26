@@ -279,7 +279,7 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                           width: '105%',
                           height: '100%',
                           color: el.color || '#000000',
-                          fontSize: `${el.fontSize || 14}px`,
+                          fontSize: `${el.fontSize || 14}${el.fontSizeUnit || 'px'}`,
                           fontFamily: el.fontFamily || 'sans-serif',
                           fontWeight: el.fontWeight || 'normal',
                           fontStyle: el.fontStyle || 'normal',

@@ -435,13 +435,23 @@ export default function PropertiesPanel({
               {/* Font properties */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Taille (px)</label>
-                  <input
-                    type="number"
-                    value={selectedElement.fontSize || 14}
-                    onChange={(e) => onUpdateElement({ ...selectedElement, fontSize: Math.max(6, parseInt(e.target.value) || 12) })}
-                    className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-                  />
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Taille</label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={selectedElement.fontSize || 14}
+                      onChange={(e) => onUpdateElement({ ...selectedElement, fontSize: Math.max(6, parseInt(e.target.value) || 12) })}
+                      className="w-full px-2.5 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
+                    />
+                    <select
+                      value={selectedElement.fontSizeUnit || 'px'}
+                      onChange={(e) => onUpdateElement({ ...selectedElement, fontSizeUnit: e.target.value as 'px' | 'pt' })}
+                      className="px-2 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold min-w-[55px] cursor-pointer"
+                    >
+                      <option value="px">px</option>
+                      <option value="pt">pt</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Police</label>
@@ -450,9 +460,25 @@ export default function PropertiesPanel({
                     onChange={(e) => onUpdateElement({ ...selectedElement, fontFamily: e.target.value })}
                     className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
                   >
-                    <option value="sans-serif">Sans-Serif</option>
-                    <option value="serif">Serif</option>
-                    <option value="monospace">Monospace</option>
+                    <optgroup label="Bases">
+                      <option value="sans-serif">Sans-Serif par défaut</option>
+                      <option value="serif">Serif par défaut</option>
+                      <option value="monospace">Monospace</option>
+                    </optgroup>
+                    <optgroup label="Sans-Serif populaires">
+                      <option value="Arial, sans-serif">Arial</option>
+                      <option value="Helvetica, sans-serif">Helvetica</option>
+                      <option value="Verdana, sans-serif">Verdana</option>
+                      <option value='"Trebuchet MS", sans-serif'>Trebuchet MS</option>
+                      <option value="Tahoma, sans-serif">Tahoma</option>
+                    </optgroup>
+                    <optgroup label="Serif populaires">
+                      <option value='"Times New Roman", serif'>Times New Roman</option>
+                      <option value="Georgia, serif">Georgia</option>
+                      <option value="Garamond, serif">Garamond</option>
+                      <option value='"Palatino Linotype", Palatino, serif'>Palatino</option>
+                      <option value='"Bookman Old Style", Bookman, serif'>Bookman</option>
+                    </optgroup>
                   </select>
                 </div>
               </div>
