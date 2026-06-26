@@ -259,6 +259,37 @@ export default function PropertiesPanel({
             />
           </div>
 
+          {/* Rotation (Pivotement) */}
+          <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
+            <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+              Rotation ({selectedElement.rotation || 0}°)
+            </label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="range"
+                min="0"
+                max="360"
+                step="1"
+                value={selectedElement.rotation || 0}
+                onChange={(e) => onUpdateElement({ ...selectedElement, rotation: parseInt(e.target.value) || 0 })}
+                className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+              <input
+                type="number"
+                min="0"
+                max="360"
+                value={selectedElement.rotation || 0}
+                onChange={(e) => {
+                  let val = parseInt(e.target.value) || 0;
+                  if (val < 0) val = 0;
+                  if (val > 360) val = 360;
+                  onUpdateElement({ ...selectedElement, rotation: val });
+                }}
+                className="w-16 px-2 py-1 text-center border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-indigo-500/20 outline-none transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
+          </div>
+
           {/* Layer Ordering (Calques) */}
           {onMoveElement && (
             <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">

@@ -687,7 +687,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
         }}
       >
         <div style={bgStyle} />
-        <div className="absolute inset-0 z-10 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none">
           {elements.map((el) => {
             const opacity = el.opacity !== undefined ? el.opacity : 1;
             return (
@@ -704,7 +704,14 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                   mixBlendMode: (el as any).blendMode || 'normal',
                 }}
               >
-                <div className="w-full h-full relative flex items-center justify-center">
+                <div
+                  className="w-full h-full relative flex items-center justify-center"
+                  style={{
+                    transform: `rotate(${(el as any).rotation || 0}deg)`,
+                    width: '100%',
+                    height: '100%',
+                  }}
+                >
                   {el.type === 'text' && (
                     <div
                       style={{

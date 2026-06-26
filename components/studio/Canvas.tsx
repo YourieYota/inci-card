@@ -28,6 +28,7 @@ export interface StudioElement {
   borderWidth?: number;
   borderColor?: string;
   blendMode?: string;
+  rotation?: number;
 }
 
 interface CanvasProps {
@@ -303,7 +304,7 @@ export default function Canvas({
             )}
 
             {/* Elements layer */}
-            <div className="absolute inset-0 z-10 pointer-events-none">
+            <div className="absolute inset-0 pointer-events-none">
               {elements.map((el) => {
                 const isSelected = selectedElementIds.includes(el.id);
                 const isPrimary = el.id === selectedElementId;
@@ -365,7 +366,14 @@ export default function Canvas({
                       mixBlendMode: (el as any).blendMode || 'normal',
                     }}
                   >
-                    <div className="w-full h-full relative flex items-center justify-center">
+                    <div
+                      className="w-full h-full relative flex items-center justify-center"
+                      style={{
+                        transform: `rotate(${el.rotation || 0}deg)`,
+                        width: '100%',
+                        height: '100%',
+                      }}
+                    >
                       {/* Element Type Renderers */}
                       {el.type === 'text' && (
                         <div
