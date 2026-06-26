@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type } from 'lucide-react';
+import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react';
 import { StudioElement } from './Canvas';
 
 interface PropertiesPanelProps {
@@ -19,6 +19,7 @@ interface PropertiesPanelProps {
   onDeleteElement: (id: string) => void;
   suggestedFields?: string[];
   formats: any[];
+  onMoveElement?: (direction: 'front' | 'back' | 'up' | 'down') => void;
 }
 
 interface DimensionInputProps {
@@ -103,6 +104,7 @@ export default function PropertiesPanel({
   onDeleteElement,
   suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'],
   formats = [],
+  onMoveElement,
 }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [recentColors, setRecentColors] = useState<string[]>([]);
@@ -255,6 +257,86 @@ export default function PropertiesPanel({
               onChange={(e) => onUpdateElement({ ...selectedElement, borderRadius: parseInt(e.target.value) || 0 })}
               className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
             />
+          </div>
+
+          {/* Layer Ordering (Calques) */}
+          {onMoveElement && (
+            <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
+              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                Ordre du calque
+              </label>
+              <div className="flex border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => onMoveElement('front')}
+                  className="flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Placer tout devant (Premier plan)"
+                >
+                  <ChevronsUp className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMoveElement('up')}
+                  className="flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Avancer d'un niveau"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMoveElement('down')}
+                  className="flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Reculer d'un niveau"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMoveElement('back')}
+                  className="flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                  title="Placer tout derrière (Arrière-plan)"
+                >
+                  <ChevronsDown className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Options de Fusion (Blend Mode) */}
+          <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
+            <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+              Mode de fusion
+            </label>
+            <div className="relative">
+              <select
+                value={selectedElement.blendMode || 'normal'}
+                onChange={(e) => onUpdateElement({ ...selectedElement, blendMode: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer transition appearance-none pr-8"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E")`,
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundSize: '1.25em 1.25em',
+                  backgroundRepeat: 'no-repeat',
+                }}
+              >
+                <option value="normal">Normal (Défaut)</option>
+                <option value="multiply">Produit (Multiply)</option>
+                <option value="screen">Superposition (Screen)</option>
+                <option value="overlay">Incrustation (Overlay)</option>
+                <option value="darken">Obscurcir (Darken)</option>
+                <option value="lighten">Éclaircir (Lighten)</option>
+                <option value="color-dodge">Densité couleur - (Color Dodge)</option>
+                <option value="color-burn">Densité couleur + (Color Burn)</option>
+                <option value="hard-light">Lumière crue (Hard Light)</option>
+                <option value="soft-light">Lumière tamisée (Soft Light)</option>
+                <option value="difference">Différence (Difference)</option>
+                <option value="exclusion">Exclusion</option>
+                <option value="hue">Teinte (Hue)</option>
+                <option value="saturation">Saturation</option>
+                <option value="color">Couleur (Color)</option>
+                <option value="luminosity">Luminosité (Luminosity)</option>
+              </select>
+            </div>
           </div>
 
           {/* Border Width & Color for Image/Logo/QR */}

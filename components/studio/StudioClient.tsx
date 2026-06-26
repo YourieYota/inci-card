@@ -1139,6 +1139,38 @@ export default function StudioClient({
     pushHistoryState(newElements);
   };
 
+  const handleMoveElement = (direction: 'front' | 'back' | 'up' | 'down') => {
+    if (!selectedElementId) return;
+    const idx = elements.findIndex((el) => el.id === selectedElementId);
+    if (idx === -1) return;
+
+    const newElements = [...elements];
+    const element = newElements[idx];
+
+    if (direction === 'up') {
+      if (idx === elements.length - 1) return;
+      newElements[idx] = newElements[idx + 1];
+      newElements[idx + 1] = element;
+    } else if (direction === 'down') {
+      if (idx === 0) return;
+      newElements[idx] = newElements[idx - 1];
+      newElements[idx - 1] = element;
+    } else if (direction === 'front') {
+      if (idx === elements.length - 1) return;
+      newElements.splice(idx, 1);
+      newElements.push(element);
+    } else if (direction === 'back') {
+      if (idx === 0) return;
+      newElements.splice(idx, 1);
+      newElements.unshift(element);
+    }
+
+    setElements(newElements);
+    if (currentSide === 'recto') setRectoElements(newElements);
+    else setVersoElements(newElements);
+    pushHistoryState(newElements);
+  };
+
   const handleUpdateCanvas = (width: number, height: number, background: string, opacity: number, borderRadius: number) => {
     setCanvasWidth(width);
     setCanvasHeight(height);
@@ -1543,6 +1575,7 @@ export default function StudioClient({
               onDeleteElement={handleDeleteElement}
               suggestedFields={dynamicFields}
               formats={formats}
+              onMoveElement={handleMoveElement}
             />
           </div>
         </div>

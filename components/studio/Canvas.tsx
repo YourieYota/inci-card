@@ -27,6 +27,7 @@ export interface StudioElement {
   borderRadius?: number;
   borderWidth?: number;
   borderColor?: string;
+  blendMode?: string;
 }
 
 interface CanvasProps {
@@ -361,6 +362,7 @@ export default function Canvas({
                     style={{
                       zIndex: isSelected ? 50 : 10,
                       opacity: elementOpacity,
+                      mixBlendMode: (el as any).blendMode || 'normal',
                     }}
                   >
                     <div className="w-full h-full relative flex items-center justify-center">

@@ -270,6 +270,7 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                     height: `${el.height}px`,
                     zIndex: 10,
                     opacity,
+                    mixBlendMode: (el as any).blendMode || 'normal',
                   }}
                 >
                   <div className="w-full h-full relative flex items-center justify-center">
