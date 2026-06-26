@@ -72,7 +72,7 @@ async function generateEnrollmentNumber(companyId: string): Promise<string> {
     return `${prefix}${num}`;
   }
 
-  const physicalType = await prisma.cardPhysicalType.findFirst({
+  const docType = await prisma.cardDocumentType.findFirst({
     where: {
       companyId: companyId || null,
       cardCode: { not: "" }
@@ -80,9 +80,9 @@ async function generateEnrollmentNumber(companyId: string): Promise<string> {
     orderBy: { createdAt: 'asc' },
   });
 
-  if (physicalType && physicalType.cardCode) {
+  if (docType && docType.cardCode) {
     const num = String(count + 1).padStart(4, '0');
-    return `${physicalType.cardCode}${num}`;
+    return `${docType.cardCode}${num}`;
   }
 
   const num = String(count + 1).padStart(5, '0');

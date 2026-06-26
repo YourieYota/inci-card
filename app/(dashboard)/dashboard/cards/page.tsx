@@ -88,11 +88,10 @@ export default function CardsManagementPage() {
   const [typeDesc, setTypeDesc] = useState('');
   const [codePart1, setCodePart1] = useState('');
   const [codePart2, setCodePart2] = useState('');
-  const [codePart3, setCodePart3] = useState('');
+  const [codePart3, setCodePart3] = useState('0001');
 
   const [docTypeName, setDocTypeName] = useState('');
   const [docTypeDesc, setDocTypeDesc] = useState('');
-  const [docTypeCardCode, setDocTypeCardCode] = useState('');
 
   const [categoryValidityValue, setCategoryValidityValue] = useState('1');
   const [categoryValidityUnit, setCategoryValidityUnit] = useState('YEAR');
@@ -218,27 +217,18 @@ export default function CardsManagementPage() {
     e.preventDefault();
     if (!typeName.trim()) return;
 
-    const prefixCode = (codePart1.trim() + codePart2.trim()).toUpperCase();
-    if (prefixCode.length < 6 || prefixCode.length > 11) {
-      alert(`Le préfixe (Partie 1 + Partie 2) doit faire entre 6 et 11 caractères pour que l'identifiant complet (avec le compteur de 4 chiffres) fasse entre 10 et 15 caractères (Actuellement: ${prefixCode.length} caractères).`);
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const newType = await createCardPhysicalType({
         name: typeName.trim(),
         description: typeDesc.trim() || undefined,
-        cardCode: prefixCode,
+        cardCode: "",
         companyId: selectedCompanyId || undefined,
       });
       setPhysicalTypes((prev) => [...prev, newType].sort((a, b) => a.name.localeCompare(b.name)));
       setShowTypeModal(false);
       setTypeName('');
       setTypeDesc('');
-      setCodePart1('');
-      setCodePart2('');
-      setCodePart3('');
     } catch (err: any) {
       alert(err.message || 'Impossible de créer le type de carte.');
     } finally {
@@ -280,19 +270,27 @@ export default function CardsManagementPage() {
     e.preventDefault();
     if (!docTypeName.trim()) return;
 
+    const prefixCode = (codePart1.trim() + codePart2.trim()).toUpperCase();
+    if (prefixCode.length < 6 || prefixCode.length > 11) {
+      alert(`Le préfixe (Partie 1 + Partie 2) doit faire entre 6 et 11 caractères pour que l'identifiant complet (avec le compteur de 4 chiffres) fasse entre 10 et 15 caractères (Actuellement: ${prefixCode.length} caractères).`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const newType = await createCardDocumentType({
         name: docTypeName.trim(),
         description: docTypeDesc.trim() || undefined,
-        cardCode: docTypeCardCode.trim() || undefined,
+        cardCode: prefixCode,
         companyId: selectedCompanyId || undefined,
       });
       setDocumentTypes((prev) => [...prev, { ...newType, isSystem: false }].sort((a, b) => a.name.localeCompare(b.name)));
       setShowDocTypeModal(false);
       setDocTypeName('');
       setDocTypeDesc('');
-      setDocTypeCardCode('');
+      setCodePart1('');
+      setCodePart2('');
+      setCodePart3('0001');
     } catch (err: any) {
       alert(err.message || 'Impossible de créer le type de document.');
     } finally {
@@ -624,14 +622,6 @@ export default function CardsManagementPage() {
                       <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 text-[10px] font-mono">
                         {type.slug}
                       </span>
-                      {type.cardCode && (
-                        <div className="mt-2 flex items-center gap-1">
-                          <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">CODE ID:</span>
-                          <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-mono font-bold tracking-wider border border-indigo-100/35 dark:border-indigo-900/30">
-                            {type.cardCode}
-                          </span>
-                        </div>
-                      )}
                     </div>
                     <button
                       onClick={() => handleDeletePhysicalType(type.id, type.name)}
@@ -688,6 +678,14 @@ export default function CardsManagementPage() {
                       <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 text-[10px] font-mono">
                         {type.slug}
                       </span>
+                      {type.cardCode && (
+                        <div className="mt-2 flex items-center gap-1">
+                          <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">CODE ID:</span>
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-mono font-bold tracking-wider border border-indigo-100/35 dark:border-indigo-900/30">
+                            {type.cardCode}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     {!type.isSystem && (
                       <button
@@ -930,9 +928,9 @@ export default function CardsManagementPage() {
       {showTypeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter un type de carte</h3>
+            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter un type de support</h3>
             <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
-              Configurez une technologie de support de carte physique ou d&apos;identification.
+              Configurez une technologie de support de carte physique ou d&apos;identification (ex: RFID, NFC, PVC).
             </p>
 
             <form onSubmit={handleCreatePhysicalType} className="flex flex-col gap-4">
@@ -941,7 +939,7 @@ export default function CardsManagementPage() {
                 <input
                   type="text"
                   required
-                  placeholder="Ex: RFID (Mifare 1k), NFC, Bande Magnétique, Code-barres, PVC standard"
+                  placeholder="Ex: RFID (Mifare 1k), NFC, Bande Magnétique, PVC standard"
                   value={typeName}
                   onChange={(e) => setTypeName(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
@@ -954,6 +952,64 @@ export default function CardsManagementPage() {
                   placeholder="Détails techniques, cas d'usage ou consignes pour cette technologie..."
                   value={typeDesc}
                   onChange={(e) => setTypeDesc(e.target.value)}
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 border-t border-neutral-100 dark:border-neutral-800 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTypeModal(false);
+                    setTypeName('');
+                    setTypeDesc('');
+                  }}
+                  className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !typeName.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:bg-neutral-100 disabled:text-neutral-400 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-500 disabled:cursor-not-allowed shadow-sm"
+                >
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Ajouter</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* CREATE DOCUMENT TYPE MODAL */}
+      {showDocTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter un type de document</h3>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
+              Créez un nouveau type de document à concevoir et à imprimer (ex: Laissez-passer, Carte VIP).
+            </p>
+
+            <form onSubmit={handleCreateDocumentType} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Nom du type de document</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Laissez-passer, Carte de fidélité, Badge VIP"
+                  value={docTypeName}
+                  onChange={(e) => setDocTypeName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Description (Optionnel)</label>
+                <textarea
+                  placeholder="Expliquez l'usage de ce type de document..."
+                  value={docTypeDesc}
+                  onChange={(e) => setDocTypeDesc(e.target.value)}
                   rows={3}
                   className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
                 />
@@ -1038,83 +1094,12 @@ export default function CardsManagementPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowTypeModal(false);
-                    setTypeName('');
-                    setTypeDesc('');
-                    setCodePart1('');
-                    setCodePart2('');
-                    setCodePart3('');
-                  }}
-                  className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 transition"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || (codePart1.length + codePart2.length) < 6 || (codePart1.length + codePart2.length) > 11}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:bg-neutral-100 disabled:text-neutral-400 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-500 disabled:cursor-not-allowed shadow-sm"
-                >
-                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Ajouter</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* CREATE DOCUMENT TYPE MODAL */}
-      {showDocTypeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter un type de document</h3>
-            <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
-              Créez un nouveau type de document à concevoir et à imprimer (ex: Laissez-passer, Carte VIP).
-            </p>
-
-            <form onSubmit={handleCreateDocumentType} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Nom du type de document</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Laissez-passer, Carte de fidélité, Badge VIP"
-                  value={docTypeName}
-                  onChange={(e) => setDocTypeName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Description (Optionnel)</label>
-                <textarea
-                  placeholder="Expliquez l'usage de ce type de document..."
-                  value={docTypeDesc}
-                  onChange={(e) => setDocTypeDesc(e.target.value)}
-                  rows={3}
-                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Code du document (pour numérotation)</label>
-                <input
-                  type="text"
-                  placeholder="Ex: BADGE, CPRO, LP (sera utilisé dans le N° carte: CODE-0001)"
-                  value={docTypeCardCode}
-                  onChange={(e) => setDocTypeCardCode(e.target.value.toUpperCase())}
-                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-medium font-mono"
-                />
-                <p className="text-[10px] text-neutral-400 mt-1">Si non renseigné, le slug du nom sera utilisé comme code.</p>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 border-t border-neutral-100 dark:border-neutral-800 pt-4 mt-2">
-                <button
-                  type="button"
-                  onClick={() => {
                     setShowDocTypeModal(false);
                     setDocTypeName('');
                     setDocTypeDesc('');
-                    setDocTypeCardCode('');
+                    setCodePart1('');
+                    setCodePart2('');
+                    setCodePart3('0001');
                   }}
                   className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 transition"
                 >
@@ -1122,7 +1107,7 @@ export default function CardsManagementPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !docTypeName.trim()}
+                  disabled={isSubmitting || !docTypeName.trim() || (codePart1.length + codePart2.length) < 6 || (codePart1.length + codePart2.length) > 11}
                   className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:bg-neutral-100 disabled:text-neutral-400 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-500 disabled:cursor-not-allowed shadow-sm"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
