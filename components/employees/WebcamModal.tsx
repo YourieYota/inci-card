@@ -263,9 +263,12 @@ export default function WebcamModal({ employeeName, onSave, onClose }: WebcamMod
       }
 
       if (data.success && data.imageUrl && !data.isMock) {
-        setCapturedUrl(data.imageUrl);
+        const imageUrlWithCacheBuster = data.imageUrl.startsWith('data:') 
+          ? data.imageUrl 
+          : `${data.imageUrl}${data.imageUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+        setCapturedUrl(imageUrlWithCacheBuster);
         setState('preview');
-        analyzeCapturedImage(data.imageUrl);
+        analyzeCapturedImage(imageUrlWithCacheBuster);
         return;
       }
 
