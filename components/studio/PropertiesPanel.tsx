@@ -432,6 +432,112 @@ export default function PropertiesPanel({
             </div>
           )}
 
+          {/* Intaglio security effect for Employee Photo (image) */}
+          {selectedElement.type === 'image' && (
+            <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="block text-xs font-bold text-neutral-800 dark:text-white">
+                    Effet Intaglio (Taille-douce)
+                  </span>
+                  <span className="block text-[10px] text-neutral-400 dark:text-neutral-500">
+                    Simuler une gravure de billet de banque
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedElement.intaglio || false}
+                    onChange={(e) =>
+                      onUpdateElement({
+                        ...selectedElement,
+                        intaglio: e.target.checked,
+                        intaglioSpacing: selectedElement.intaglioSpacing || 10,
+                        intaglioLineWidth: selectedElement.intaglioLineWidth || 0.85,
+                        intaglioWaveAmp: selectedElement.intaglioWaveAmp || 7,
+                      })
+                    }
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
+              {selectedElement.intaglio && (
+                <div className="flex flex-col gap-3.5 bg-neutral-50 dark:bg-neutral-900/50 p-3 rounded-2xl border border-neutral-200/50 dark:border-neutral-800/50">
+                  {/* Spacing */}
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">
+                        Espacement des traits ({selectedElement.intaglioSpacing || 10})
+                      </label>
+                    </div>
+                    <input
+                      type="range"
+                      min="4"
+                      max="25"
+                      step="1"
+                      value={selectedElement.intaglioSpacing || 10}
+                      onChange={(e) =>
+                        onUpdateElement({
+                          ...selectedElement,
+                          intaglioSpacing: parseInt(e.target.value) || 10,
+                        })
+                      }
+                      className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Line Width */}
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">
+                        Épaisseur de l&apos;encre ({selectedElement.intaglioLineWidth || 0.85})
+                      </label>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.3"
+                      max="2.0"
+                      step="0.05"
+                      value={selectedElement.intaglioLineWidth || 0.85}
+                      onChange={(e) =>
+                        onUpdateElement({
+                          ...selectedElement,
+                          intaglioLineWidth: parseFloat(e.target.value) || 0.85,
+                        })
+                      }
+                      className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Wave Amplitude */}
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide">
+                        Amplitude de l&apos;ondulation ({selectedElement.intaglioWaveAmp || 7})
+                      </label>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="15"
+                      step="0.5"
+                      value={selectedElement.intaglioWaveAmp || 7}
+                      onChange={(e) =>
+                        onUpdateElement({
+                          ...selectedElement,
+                          intaglioWaveAmp: parseFloat(e.target.value) || 7,
+                        })
+                      }
+                      className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Logo Image Uploader */}
           {selectedElement.type === 'logo' && (
             <div className="flex flex-col gap-3 border-t border-neutral-100 dark:border-neutral-800 pt-4">

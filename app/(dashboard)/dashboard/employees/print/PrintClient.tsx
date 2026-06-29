@@ -6,6 +6,7 @@ import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, Aler
 import { confirmPrint, validatePrintEligibility } from '@/app/actions/employees';
 import { StudioElement } from '@/components/studio/Canvas';
 import QRCode from 'react-qr-code';
+import IntaglioImage from '@/components/studio/IntaglioImage';
 
 interface PrintClientProps {
   employees: (Employee & { company: { name: string } })[];
@@ -777,16 +778,26 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       }}
                     >
                       {emp.photoUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={emp.photoUrl}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                          alt="Photo"
-                        />
+                        el.intaglio ? (
+                          <IntaglioImage
+                            src={emp.photoUrl}
+                            spacing={el.intaglioSpacing}
+                            lineWidth={el.intaglioLineWidth}
+                            waveAmp={el.intaglioWaveAmp}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={emp.photoUrl}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                            alt="Photo"
+                          />
+                        )
                       ) : (
                         <span className="text-[8px] font-bold text-neutral-400">Pas de photo</span>
                       )}

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Rnd } from 'react-rnd';
 import { QrCode, User, Image as ImageIcon } from 'lucide-react';
+import IntaglioImage from './IntaglioImage';
 
 export interface StudioElement {
   id: string;
@@ -29,6 +30,12 @@ export interface StudioElement {
   borderColor?: string;
   blendMode?: string;
   rotation?: number;
+  // Intaglio effect parameters
+  intaglio?: boolean;
+  intaglioResolution?: number;
+  intaglioSpacing?: number;
+  intaglioLineWidth?: number;
+  intaglioWaveAmp?: number;
 }
 
 interface CanvasProps {
@@ -399,20 +406,36 @@ export default function Canvas({
                       )}
 
                       {el.type === 'image' && (
-                        <div
-                          style={{
-                            borderRadius: `${el.borderRadius || 0}px`,
-                            borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
-                            borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
-                            borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
-                          }}
-                          className={`w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-2 text-neutral-400 dark:text-neutral-500 overflow-hidden ${
-                            el.borderWidth === undefined ? 'border border-neutral-300 dark:border-neutral-700' : ''
-                          }`}
-                        >
-                          <User className="w-8 h-8 opacity-75 mb-1" />
-                          <span className="text-[10px] font-medium tracking-wide uppercase">Photo Employé</span>
-                        </div>
+                        el.intaglio ? (
+                          <IntaglioImage
+                            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80"
+                            spacing={el.intaglioSpacing}
+                            lineWidth={el.intaglioLineWidth}
+                            waveAmp={el.intaglioWaveAmp}
+                            className="w-full h-full object-cover"
+                            style={{
+                              borderRadius: `${el.borderRadius || 0}px`,
+                              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+                              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+                              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              borderRadius: `${el.borderRadius || 0}px`,
+                              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+                              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+                              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                            }}
+                            className={`w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-2 text-neutral-400 dark:text-neutral-500 overflow-hidden ${
+                              el.borderWidth === undefined ? 'border border-neutral-300 dark:border-neutral-700' : ''
+                            }`}
+                          >
+                            <User className="w-8 h-8 opacity-75 mb-1" />
+                            <span className="text-[10px] font-medium tracking-wide uppercase">Photo Employé</span>
+                          </div>
+                        )
                       )}
 
                       {el.type === 'qr' && (

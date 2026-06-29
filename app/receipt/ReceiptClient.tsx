@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { Printer, X, User, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
+import IntaglioImage from '@/components/studio/IntaglioImage';
 
 interface SerializedEmployee {
   id: string;
@@ -332,16 +333,26 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                         }}
                       >
                         {employee.photoUrl ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={employee.photoUrl}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                            }}
-                            alt="Photo"
-                          />
+                          el.intaglio ? (
+                            <IntaglioImage
+                              src={employee.photoUrl}
+                              spacing={el.intaglioSpacing}
+                              lineWidth={el.intaglioLineWidth}
+                              waveAmp={el.intaglioWaveAmp}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={employee.photoUrl}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                              }}
+                              alt="Photo"
+                            />
+                          )
                         ) : (
                           <User className="w-8 h-8 text-neutral-400" />
                         )}
