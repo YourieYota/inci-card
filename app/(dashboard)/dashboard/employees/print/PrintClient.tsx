@@ -1350,12 +1350,38 @@ export default function PrintClient({ employees, templates, companyName, documen
         }
         
         @media print {
+          /* Hide all screen components by default */
+          body * {
+            visibility: hidden;
+          }
+          /* Make only the print pages container and its children visible */
+          .print-container,
+          .print-container * {
+            visibility: visible;
+          }
+          /* Absolute position print container at top left */
+          .print-container {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+            overflow: visible !important;
+          }
+          /* Hide layout components completely from document flow */
+          div.h-screen > div.w-64,
+          div.h-14,
+          header,
+          nav,
+          aside,
+          .no-print {
+            display: none !important;
+          }
           body {
             background: white !important;
             color: black !important;
-          }
-          .no-print {
-            display: none !important;
           }
           .print-page {
             page-break-after: always !important;
@@ -1376,11 +1402,6 @@ export default function PrintClient({ employees, templates, companyName, documen
             overflow: hidden !important;
             margin: 0 !important;
             padding: 0 !important;
-          }
-          .print-container {
-            overflow: visible !important;
-            padding: 0 !important;
-            margin: 0 !important;
           }
           /* Hide scrollbars during print */
           * {
