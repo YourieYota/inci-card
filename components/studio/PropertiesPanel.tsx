@@ -107,6 +107,7 @@ export default function PropertiesPanel({
   onMoveElement,
 }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [recentColors, setRecentColors] = useState<string[]>([]);
 
   useEffect(() => {
@@ -546,6 +547,7 @@ export default function PropertiesPanel({
                   Source de l&apos;Image / Logo
                 </label>
                 <input
+                  key="logo-url-input"
                   type="text"
                   value={selectedElement.logoUrl || ''}
                   onChange={(e) => onUpdateElement({ ...selectedElement, logoUrl: e.target.value })}
@@ -570,8 +572,9 @@ export default function PropertiesPanel({
               )}
               <div>
                 <input
+                  key="logo-file-input"
+                  ref={logoFileInputRef}
                   type="file"
-                  id="logo-upload-input"
                   accept="image/*"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -589,7 +592,7 @@ export default function PropertiesPanel({
                 />
                 <button
                   type="button"
-                  onClick={() => document.getElementById('logo-upload-input')?.click()}
+                  onClick={() => logoFileInputRef.current?.click()}
                   className="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 rounded-xl text-xs font-bold transition"
                 >
                   <Upload className="w-3.5 h-3.5" />
@@ -967,6 +970,7 @@ export default function PropertiesPanel({
                 Image de fond (URL)
               </label>
               <input
+                key="canvas-bg-url"
                 type="text"
                 value={(canvasBackground || '').startsWith('data:') ? 'Image Locale (Base64)' : (canvasBackground || '')}
                 onChange={(e) => onUpdateCanvas(canvasWidth, canvasHeight, e.target.value, canvasBackgroundOpacity, canvasBorderRadius)}
@@ -978,6 +982,7 @@ export default function PropertiesPanel({
             {/* Local Image Uploader */}
             <div>
               <input
+                key="canvas-bg-file"
                 type="file"
                 ref={fileInputRef}
                 accept="image/*"
