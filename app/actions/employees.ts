@@ -204,11 +204,12 @@ export async function importEmployees({
             updatedCount++;
           }
         } else {
-          // Standard overwrite import
+          // Standard merge import (preserves other existing columns, adds or updates new ones)
+          const oldData = (existingEmployee.dynamicData as Record<string, any>) || {};
           await prisma.employee.update({
             where: { id: existingEmployee.id },
             data: {
-              dynamicData: row,
+              dynamicData: { ...oldData, ...row },
               updatedAt: new Date(),
             },
           });
