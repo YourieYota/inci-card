@@ -43,9 +43,9 @@ export async function createCompany(name: string, identifierPrefix?: string | nu
         protectAppModified: protectAppModified ?? true,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Error creating company:', error);
-    throw new Error('Impossible de créer l\'entreprise (ce nom existe peut-être déjà)');
+    throw new Error(`Impossible de créer l'entreprise : ${error?.message || error}`);
   }
 }
 
@@ -66,9 +66,9 @@ export async function updateCompany(
         protectAppModified: protectAppModified ?? true,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Error updating company:', error);
-    throw new Error('Impossible de modifier l\'entreprise');
+    throw new Error(`Impossible de modifier l'entreprise : ${error?.message || error}`);
   }
 }
 
