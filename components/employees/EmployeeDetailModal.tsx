@@ -65,6 +65,7 @@ export default function EmployeeDetailModal({
 
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(employee.photoUrl);
+  const [appModified, setAppModified] = useState<boolean>(employee.appModified || false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
@@ -342,7 +343,7 @@ export default function EmployeeDetailModal({
       }
 
       // 2. Update Excel Data
-      await updateEmployeeData(employee.id, processedData);
+      await updateEmployeeData(employee.id, processedData, appModified);
 
       // 3. Update Status
       const targetStatus = uploadedPhoto 
@@ -598,6 +599,20 @@ export default function EmployeeDetailModal({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Protection status toggle */}
+              <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="appModifiedProtection"
+                  checked={appModified}
+                  onChange={(e) => setAppModified(e.target.checked)}
+                  className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500/25 h-4 w-4 cursor-pointer"
+                />
+                <label htmlFor="appModifiedProtection" className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer select-none">
+                  Protéger cette fiche contre les écrasements d&apos;imports Excel
+                </label>
               </div>
             </div>
 

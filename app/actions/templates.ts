@@ -33,13 +33,14 @@ export async function getCompaniesWithCounts() {
   }
 }
 
-export async function createCompany(name: string, identifierPrefix?: string | null, isLaserEnabled?: boolean) {
+export async function createCompany(name: string, identifierPrefix?: string | null, isLaserEnabled?: boolean, protectAppModified?: boolean) {
   try {
     return await prisma.company.create({
       data: { 
         name,
         identifierPrefix: identifierPrefix || null,
         isLaserEnabled: isLaserEnabled ?? false,
+        protectAppModified: protectAppModified ?? true,
       },
     });
   } catch (error) {
@@ -48,7 +49,13 @@ export async function createCompany(name: string, identifierPrefix?: string | nu
   }
 }
 
-export async function updateCompany(companyId: string, name: string, identifierPrefix?: string | null, isLaserEnabled?: boolean) {
+export async function updateCompany(
+  companyId: string,
+  name: string,
+  identifierPrefix?: string | null,
+  isLaserEnabled?: boolean,
+  protectAppModified?: boolean
+) {
   try {
     return await prisma.company.update({
       where: { id: companyId },
@@ -56,6 +63,7 @@ export async function updateCompany(companyId: string, name: string, identifierP
         name,
         identifierPrefix: identifierPrefix || null,
         isLaserEnabled: isLaserEnabled ?? false,
+        protectAppModified: protectAppModified ?? true,
       },
     });
   } catch (error) {

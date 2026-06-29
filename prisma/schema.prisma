@@ -51,6 +51,7 @@ model Company {
   identifierPrefix String?
   isLocked         Boolean            @default(false)
   isLaserEnabled   Boolean            @default(false)
+  protectAppModified Boolean          @default(true) // Empêcher l'écrasement des modifs appli par l'import Excel
   createdAt        DateTime           @default(now())
   
   // Relations
@@ -83,6 +84,7 @@ model Employee {
   status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME, A_VERIFIER, REIMPRESSION
   isLocked         Boolean  @default(false) // Verrouillé après impression
   isBlocked        Boolean  @default(false) // Badge bloqué (volé, perdu, etc.)
+  appModified      Boolean  @default(false) // Indique si la fiche a été modifiée dans l'application
   printCount       Int      @default(0)     // Nombre d'impressions réalisées
   
   printedAt        DateTime? 

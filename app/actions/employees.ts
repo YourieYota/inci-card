@@ -132,15 +132,35 @@ export async function importEmployees({
   companyId,
   uniqueField,
   rows,
+  isModificationOnly = false,
 }: {
   companyId: string;
   uniqueField: string;
   rows: any[];
+  isModificationOnly?: boolean;
 }) {
   try {
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
 
+    // 1. Fetch company protect configuration
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { protectAppModified: true },
+    });
+    const shouldProtect = company?.protectAppModified ?? true;
+
+    // 2. Fetch all existing employees to do fast lookup
+    const existingEmployees = await prisma.employee.findMany({
+      where: { companyId },
+    });
+    const existingMap = new Map(existingEmployees.map(emp => [emp.uniqueIdentifier, emp]));
+
+    let addedCount = 0;
+    let updatedCount = 0;
+    let skippedProtectedCount = 0;
+
+    // 3. Process rows
     const importPromises = rows.map(async (row) => {
       const uniqueVal = row[uniqueField];
       if (uniqueVal === undefined || uniqueVal === null || uniqueVal === '') {
@@ -148,29 +168,78 @@ export async function importEmployees({
       }
 
       const uniqueIdentifier = String(uniqueVal).trim();
+      const existingEmployee = existingMap.get(uniqueIdentifier);
 
-      return prisma.employee.upsert({
-        where: {
-          companyId_uniqueIdentifier: {
-            companyId,
-            uniqueIdentifier,
-          },
-        },
-        update: {
-          dynamicData: row,
-        },
-        create: {
-          companyId,
-          uniqueIdentifier,
-          dynamicData: row,
-          status: 'A_ENROLER',
-          enrolledBy: operatorName,
-        },
-      });
+      if (existingEmployee) {
+        // Guard: check if the employee was modified in the app and is protected
+        if (shouldProtect && existingEmployee.appModified) {
+          skippedProtectedCount++;
+          return;
+        }
+
+        if (isModificationOnly) {
+          // Compare dynamicData and only update modified fields
+          const oldData = (existingEmployee.dynamicData as Record<string, any>) || {};
+          const newData = { ...oldData };
+          let hasChanges = false;
+
+          Object.entries(row).forEach(([key, value]) => {
+            const oldValStr = oldData[key] !== undefined && oldData[key] !== null ? String(oldData[key]).trim() : '';
+            const newValStr = value !== undefined && value !== null ? String(value).trim() : '';
+
+            if (oldValStr !== newValStr) {
+              newData[key] = value;
+              hasChanges = true;
+            }
+          });
+
+          if (hasChanges) {
+            await prisma.employee.update({
+              where: { id: existingEmployee.id },
+              data: {
+                dynamicData: newData,
+                updatedAt: new Date(),
+              },
+            });
+            updatedCount++;
+          }
+        } else {
+          // Standard overwrite import
+          await prisma.employee.update({
+            where: { id: existingEmployee.id },
+            data: {
+              dynamicData: row,
+              updatedAt: new Date(),
+            },
+          });
+          updatedCount++;
+        }
+      } else {
+        // If not found and we are not in modifications-only mode, create the employee
+        if (!isModificationOnly) {
+          await prisma.employee.create({
+            data: {
+              companyId,
+              uniqueIdentifier,
+              dynamicData: row,
+              status: 'A_ENROLER',
+              enrolledBy: operatorName,
+            },
+          });
+          addedCount++;
+        }
+      }
     });
 
     await Promise.all(importPromises);
-    return { success: true, count: rows.length };
+
+    return {
+      success: true,
+      count: addedCount + updatedCount,
+      addedCount,
+      updatedCount,
+      skippedProtectedCount
+    };
   } catch (error) {
     console.warn('Error importing employees:', error);
     throw new Error('Erreur lors de l\'importation des employés');
@@ -347,7 +416,7 @@ export async function saveEmployeePhoto(employeeId: string, photoUrl: string) {
   }
 }
 
-export async function updateEmployeeData(employeeId: string, dynamicData: any) {
+export async function updateEmployeeData(employeeId: string, dynamicData: any, appModified?: boolean) {
   try {
     const oldEmployee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -378,6 +447,8 @@ export async function updateEmployeeData(employeeId: string, dynamicData: any) {
       data: {
         uniqueIdentifier,
         dynamicData,
+        appModified: appModified !== undefined ? appModified : true,
+        updatedAt: new Date(),
       },
     });
   } catch (error) {

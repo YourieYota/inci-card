@@ -7,7 +7,7 @@ import { importEmployees } from '@/app/actions/employees';
 
 interface ExcelImporterProps {
   companyId: string;
-  onImportSuccess: (count: number) => void;
+  onImportSuccess: (count: number, added?: number, updated?: number, skippedProtected?: number) => void;
   onCancel: () => void;
   isOfflineMode?: boolean;
   onImportOffline?: (uniqueField: string, rows: any[]) => void;
@@ -222,7 +222,7 @@ export default function ExcelImporter({
     });
   };
 
-  const handleImport = async () => {
+  const handleImport = async (isModificationOnly: boolean = false) => {
     if (!file || !uniqueField || rows.length === 0) return;
 
     setIsImporting(true);
@@ -252,10 +252,11 @@ export default function ExcelImporter({
         companyId,
         uniqueField,
         rows: serializedRows,
+        isModificationOnly,
       });
 
       if (res.success) {
-        onImportSuccess(res.count);
+        onImportSuccess(res.count, res.addedCount, res.updatedCount, res.skippedProtectedCount);
       }
     } catch (err: any) {
       setError(err.message || "Erreur lors de l'importation.");
@@ -537,7 +538,7 @@ export default function ExcelImporter({
           </div>
 
           {/* Buttons */}
-          <div className="flex justify-end gap-3 border-t border-neutral-100 dark:border-neutral-800 pt-5 mt-2">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutral-100 dark:border-neutral-800 pt-5 mt-2">
             <button
               onClick={onCancel}
               className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 transition"
@@ -545,7 +546,16 @@ export default function ExcelImporter({
               Annuler
             </button>
             <button
-              onClick={handleImport}
+              onClick={() => handleImport(true)}
+              disabled={isImporting || !uniqueField}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition shadow-sm disabled:opacity-50"
+              title="Compare le fichier et applique uniquement les modifications aux employés existants sans toucher aux fiches protégées"
+            >
+              {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckSquare className="w-3.5 h-3.5" />}
+              <span>Importer les modifications</span>
+            </button>
+            <button
+              onClick={() => handleImport(false)}
               disabled={isImporting || !uniqueField}
               className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition shadow-sm disabled:opacity-50"
             >

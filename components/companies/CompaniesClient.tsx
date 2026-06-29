@@ -36,6 +36,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
   const [newCompanyName, setNewCompanyName] = useState<string>( '');
   const [newCompanyPrefix, setNewCompanyPrefix] = useState<string>('');
   const [newCompanyLaser, setNewCompanyLaser] = useState<boolean>(false);
+  const [newCompanyProtect, setNewCompanyProtect] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -44,6 +45,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
   const [editCompanyName, setEditCompanyName] = useState<string>('');
   const [editCompanyPrefix, setEditCompanyPrefix] = useState<string>('');
   const [editCompanyLaser, setEditCompanyLaser] = useState<boolean>(false);
+  const [editCompanyProtect, setEditCompanyProtect] = useState<boolean>(true);
 
   // Delete State
   const [deletingCompany, setDeletingCompany] = useState<CompanyWithCounts | null>(null);
@@ -126,7 +128,8 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
       const newCompany = await createCompany(
         newCompanyName.trim(),
         newCompanyPrefix.trim() || null,
-        newCompanyLaser
+        newCompanyLaser,
+        newCompanyProtect
       );
       
       const newCompanyWithCounts: CompanyWithCounts = {
@@ -144,6 +147,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
       setNewCompanyName('');
       setNewCompanyPrefix('');
       setNewCompanyLaser(false);
+      setNewCompanyProtect(true);
       setShowCreateModal(false);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -164,7 +168,8 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
         editingCompany.id,
         editCompanyName.trim(),
         editCompanyPrefix.trim() || null,
-        editCompanyLaser
+        editCompanyLaser,
+        editCompanyProtect
       );
 
       const updatedCompanies = companies.map((c) => {
@@ -174,6 +179,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
             name: updated.name,
             identifierPrefix: updated.identifierPrefix,
             isLaserEnabled: updated.isLaserEnabled,
+            protectAppModified: updated.protectAppModified,
           };
         }
         return c;
@@ -282,10 +288,11 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
                       </button>
                       <button
                         onClick={() => {
-                          setEditingCompany(company);
-                          setEditCompanyName(company.name);
-                          setEditCompanyPrefix(company.identifierPrefix || '');
-                          setEditCompanyLaser(!!company.isLaserEnabled);
+                           setEditingCompany(company);
+                           setEditCompanyName(company.name);
+                           setEditCompanyPrefix(company.identifierPrefix || '');
+                           setEditCompanyLaser(!!company.isLaserEnabled);
+                           setEditCompanyProtect(!!company.protectAppModified);
                         }}
                          className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
                         title="Modifier l'entreprise"
@@ -433,6 +440,19 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
                 </label>
               </div>
 
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  id="newCompanyProtect"
+                  checked={newCompanyProtect}
+                  onChange={(e) => setNewCompanyProtect(e.target.checked)}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/25 h-4 w-4"
+                />
+                <label htmlFor="newCompanyProtect" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                  Protéger les fiches modifiées sur l&apos;application des imports Excel
+                </label>
+              </div>
+
               <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-4 mt-2">
                 <button
                   type="button"
@@ -508,6 +528,19 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
                 />
                 <label htmlFor="editCompanyLaser" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                   Activer les bioQR au laser (Export Excel + Photos ZIP)
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  id="editCompanyProtect"
+                  checked={editCompanyProtect}
+                  onChange={(e) => setEditCompanyProtect(e.target.checked)}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/25 h-4 w-4"
+                />
+                <label htmlFor="editCompanyProtect" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                  Protéger les fiches modifiées sur l&apos;application des imports Excel
                 </label>
               </div>
 

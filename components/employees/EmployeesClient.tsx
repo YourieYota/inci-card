@@ -111,10 +111,22 @@ export default function EmployeesClient({
     }
   };
 
-  const handleImportSuccess = (count: number) => {
+  const handleImportSuccess = (count: number, added?: number, updated?: number, skippedProtected?: number) => {
     setShowImporter(false);
-    setSuccessBanner(`${count} employés ont été importés / mis à jour avec succès !`);
-    setTimeout(() => setSuccessBanner(null), 5000);
+    
+    let msg = `${count} employé(s) importé(s) / mis à jour avec succès !`;
+    if (added !== undefined || updated !== undefined || skippedProtected !== undefined) {
+      const parts = [];
+      if (added !== undefined && added > 0) parts.push(`${added} créé(s)`);
+      if (updated !== undefined && updated > 0) parts.push(`${updated} mis à jour`);
+      if (skippedProtected !== undefined && skippedProtected > 0) parts.push(`${skippedProtected} protégé(s) et non modifié(s)`);
+      if (parts.length > 0) {
+        msg = `Importation terminée : ${parts.join(', ')}.`;
+      }
+    }
+    
+    setSuccessBanner(msg);
+    setTimeout(() => setSuccessBanner(null), 7000);
     refreshEmployees();
   };
 

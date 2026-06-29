@@ -327,6 +327,11 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                         {emp.status === 'IMPRIME' && ((emp as any).isLocked ? '🔒 Imprimé' : 'Imprimé')}
                         {emp.status === 'REIMPRESSION' && '♻️ Réimpression'}
                       </span>
+                      {emp.appModified && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25" title="Fiche modifiée manuellement dans l'application (Protégée des futurs imports Excel)">
+                          ✏️ Modifié
+                        </span>
+                      )}
                       {(emp as any).isBlocked && (
                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/70 dark:border-rose-800/40">
                           🚫 Bloqué
