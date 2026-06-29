@@ -180,16 +180,24 @@ export default function LaserExportModal({ companyId, companyName, employees, on
     }
 
     setIsExporting(true);
-    setProgress({ current: 0, total: employeesToExport.length, text: "Initialisation..." });
+    setProgress({ current: 0, total: employeesToExport.length, text: "Récupération des photos..." });
 
     try {
+      const { getEmployeesPhotos } = await import('@/app/actions/employees');
+      const photoMap = await getEmployeesPhotos(employeesToExport.map(e => e.id));
+
+      const employeesWithPhotos = employeesToExport.map(emp => ({
+        ...emp,
+        photoUrl: photoMap[emp.id] || null,
+      }));
+
       const { exportLaserBioQR } = await import('@/lib/laserExport');
       const docTypeObj = selectedDocTypeSlug !== 'ALL' ? docTypes.find(dt => dt.slug === selectedDocTypeSlug) : null;
       const categoryObj = selectedCategoryId !== 'ALL' ? categories.find(c => c.id === selectedCategoryId) : null;
 
       await exportLaserBioQR(
         companyName,
-        employeesToExport,
+        employeesWithPhotos,
         Array.from(selectedFields),
         (current, total, text) => {
           setProgress({ current, total, text });

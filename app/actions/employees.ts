@@ -842,3 +842,26 @@ export async function getEmployeePrintHistory(employeeId: string) {
     throw new Error('Impossible de récupérer l\'historique d\'impression');
   }
 }
+
+export async function getEmployeesPhotos(employeeIds: string[]) {
+  try {
+    const list = await prisma.employee.findMany({
+      where: {
+        id: { in: employeeIds },
+      },
+      select: {
+        id: true,
+        photoUrl: true,
+      },
+    });
+    
+    const photoMap: Record<string, string | null> = {};
+    list.forEach(emp => {
+      photoMap[emp.id] = emp.photoUrl;
+    });
+    return photoMap;
+  } catch (error) {
+    console.warn('Error fetching employees photos:', error);
+    throw new Error('Impossible de récupérer les photos des employés');
+  }
+}
