@@ -793,7 +793,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                             style={{
                               width: '100%',
                               height: '100%',
-                              objectFit: 'contain',
+                              objectFit: ((emp.dynamicData as any)?._photoFit === 'contain') ? 'contain' : 'cover',
                             }}
                             alt="Photo"
                           />

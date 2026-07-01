@@ -8,12 +8,14 @@ interface EmployeePhotoProps {
   employeeId: string;
   hasPhoto: boolean;
   className?: string;
+  photoFit?: 'cover' | 'contain';
 }
 
 export default function EmployeePhoto({
   employeeId,
   hasPhoto,
-  className = "w-full h-full object-contain bg-white dark:bg-neutral-900",
+  className,
+  photoFit = 'cover',
 }: EmployeePhotoProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,8 +71,13 @@ export default function EmployeePhoto({
   }
 
   if (photoUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={photoUrl} alt="" className={className} />;
+    return (
+      <img 
+        src={photoUrl} 
+        alt="" 
+        className={className || `w-full h-full bg-white dark:bg-neutral-900 ${photoFit === 'contain' ? 'object-contain' : 'object-cover'}`} 
+      />
+    );
   }
 
   return (

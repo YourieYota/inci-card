@@ -1070,7 +1070,15 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                           <tr key={emp.id} className="text-xs hover:bg-neutral-50/50 dark:hover:bg-neutral-800/10">
                             <td className="py-2.5 px-4">
                               <div className="w-8 h-8 rounded bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden">
-                                {emp.photoUrl ? <img src={emp.photoUrl} alt="" className="w-full h-full object-contain" /> : <User className="w-3.5 h-3.5 text-neutral-400" />}
+                                {emp.photoUrl ? (
+                                  <img 
+                                    src={emp.photoUrl} 
+                                    alt="" 
+                                    className={`w-full h-full ${((emp.dynamicData as any)?._photoFit === 'contain') ? 'object-contain' : 'object-cover'}`} 
+                                  />
+                                ) : (
+                                  <User className="w-3.5 h-3.5 text-neutral-400" />
+                                )}
                               </div>
                             </td>
                             <td className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>

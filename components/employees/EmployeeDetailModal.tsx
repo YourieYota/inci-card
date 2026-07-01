@@ -68,6 +68,10 @@ export default function EmployeeDetailModal({
   const [appModified, setAppModified] = useState<boolean>(employee.appModified || false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoFit, setPhotoFit] = useState<'cover' | 'contain'>(() => {
+    const data = employee.dynamicData as Record<string, any>;
+    return (data?._photoFit === 'contain' ? 'contain' : 'cover');
+  });
 
   useEffect(() => {
     setPhotoUrl(employee.photoUrl);
@@ -260,6 +264,9 @@ export default function EmployeeDetailModal({
       }
       processedData[trimmedKey] = val;
     });
+
+    // Preserve _photoFit preference in dynamicData
+    processedData._photoFit = photoFit;
 
     if (isOfflineMode) {
       // Prepare updated employee object
@@ -461,7 +468,11 @@ export default function EmployeeDetailModal({
               <div className="w-40 h-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center relative shadow-inner group">
                 {activePhoto ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={activePhoto} alt="Employee Photo" className="w-full h-full object-contain" />
+                  <img 
+                    src={activePhoto} 
+                    alt="Employee Photo" 
+                    className={`w-full h-full ${photoFit === 'contain' ? 'object-contain' : 'object-cover'}`} 
+                  />
                 ) : (
                   <div className="text-center p-4">
                     <Camera className="w-10 h-10 mx-auto text-neutral-400 opacity-60 mb-2" />
@@ -474,6 +485,39 @@ export default function EmployeeDetailModal({
                   </div>
                 )}
               </div>
+
+              {/* Photo Fit Selector */}
+              {activePhoto && (
+                <div className="flex flex-col gap-1 w-full max-w-[160px]">
+                  <label className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                    Ajustement de la photo
+                  </label>
+                  <div className="flex bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPhotoFit('cover')}
+                      className={`flex-1 text-center py-1 rounded-lg text-[10px] font-bold transition-all ${
+                        photoFit === 'cover'
+                          ? 'bg-white dark:bg-neutral-700 text-neutral-800 dark:text-white shadow-sm'
+                          : 'text-neutral-450 hover:text-neutral-600 dark:text-neutral-400'
+                      }`}
+                    >
+                      Remplir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoFit('contain')}
+                      className={`flex-1 text-center py-1 rounded-lg text-[10px] font-bold transition-all ${
+                        photoFit === 'contain'
+                          ? 'bg-white dark:bg-neutral-700 text-neutral-800 dark:text-white shadow-sm'
+                          : 'text-neutral-450 hover:text-neutral-600 dark:text-neutral-400'
+                      }`}
+                    >
+                      Ajuster
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {photoError && (
                 <div className="text-[10px] text-rose-500 font-semibold flex items-center gap-1">

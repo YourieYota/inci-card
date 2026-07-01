@@ -505,7 +505,11 @@ export default function PrintQueueClient({
                           </td>
                           <td className="py-4 px-4">
                             <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center">
-                              <EmployeePhoto employeeId={emp.id} hasPhoto={emp.hasPhoto} />
+                              <EmployeePhoto 
+                                employeeId={emp.id} 
+                                hasPhoto={emp.hasPhoto} 
+                                photoFit={(emp.dynamicData as any)?._photoFit}
+                              />
                             </div>
                           </td>
                           <td className="py-4 px-4 font-semibold text-xs text-neutral-800 dark:text-neutral-200">

@@ -348,7 +348,7 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                               style={{
                                 width: '100%',
                                 height: '100%',
-                                objectFit: 'contain',
+                                objectFit: ((employee.dynamicData as any)?._photoFit === 'contain') ? 'contain' : 'cover',
                               }}
                               alt="Photo"
                             />

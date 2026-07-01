@@ -293,7 +293,11 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
                   {/* Photo area */}
                   <div className="w-18 h-18 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shrink-0 overflow-hidden flex items-center justify-center shadow-inner relative group-hover:border-neutral-300 dark:group-hover:border-neutral-700 transition-colors">
-                    <EmployeePhoto employeeId={emp.id} hasPhoto={(emp as any).hasPhoto} />
+                    <EmployeePhoto 
+                      employeeId={emp.id} 
+                      hasPhoto={(emp as any).hasPhoto} 
+                      photoFit={(emp.dynamicData as any)?._photoFit}
+                    />
                     {(emp as any).photoConflict && (
                       <div className="absolute inset-0 bg-rose-500/10 flex items-center justify-center">
                         <div className="bg-rose-600 text-white rounded-full p-1 shadow-sm">
