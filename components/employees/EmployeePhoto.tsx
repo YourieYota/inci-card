@@ -13,7 +13,7 @@ interface EmployeePhotoProps {
 export default function EmployeePhoto({
   employeeId,
   hasPhoto,
-  className = "w-full h-full object-cover",
+  className = "w-full h-full object-contain bg-white dark:bg-neutral-900",
 }: EmployeePhotoProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

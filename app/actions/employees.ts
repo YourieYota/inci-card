@@ -162,13 +162,62 @@ export async function importEmployees({
 
     // 3. Process rows
     const importPromises = rows.map(async (row) => {
-      const uniqueVal = row[uniqueField];
+      // Extract photo if present and remove it from row data to prevent DB JSON bloat
+      const { _photoBase64, ...cleanedRow } = row;
+
+      const uniqueVal = cleanedRow[uniqueField];
       if (uniqueVal === undefined || uniqueVal === null || uniqueVal === '') {
         return; // skip rows without unique identifiers
       }
 
       const uniqueIdentifier = String(uniqueVal).trim();
       const existingEmployee = existingMap.get(uniqueIdentifier);
+
+      // Process photo if present
+      let photoData: any = {};
+      if (_photoBase64) {
+        const hash = await computePhotoHash(_photoBase64);
+        const duplicate = await prisma.employee.findFirst({
+          where: {
+            photoHash: hash,
+            id: existingEmployee ? { not: existingEmployee.id } : undefined,
+          },
+        });
+
+        photoData = {
+          photoUrl: _photoBase64,
+          photoHash: hash,
+        };
+
+        if (duplicate) {
+          photoData.photoConflict = true;
+          photoData.status = 'A_VERIFIER';
+          
+          // Mark other duplicates as in conflict
+          await prisma.employee.updateMany({
+            where: { photoHash: hash },
+            data: {
+              photoConflict: true,
+              status: 'A_VERIFIER',
+            },
+          });
+        } else {
+          photoData.photoConflict = false;
+          photoData.status = 'PHOTO_VALIDEE';
+        }
+
+        // If the photo is validated, pre-assign enrollment number and enrolledBy if missing
+        if (photoData.status === 'PHOTO_VALIDEE') {
+          const hasEnrollment = existingEmployee ? !!existingEmployee.enrollmentNumber : false;
+          if (!hasEnrollment) {
+            photoData.enrollmentNumber = await generateEnrollmentNumber(companyId);
+          }
+          const hasEnrolledBy = existingEmployee ? !!existingEmployee.enrolledBy : false;
+          if (!hasEnrolledBy) {
+            photoData.enrolledBy = operatorName;
+          }
+        }
+      }
 
       if (existingEmployee) {
         // Guard: check if the employee was modified in the app and is protected
@@ -183,7 +232,7 @@ export async function importEmployees({
           const newData = { ...oldData };
           let hasChanges = false;
 
-          Object.entries(row).forEach(([key, value]) => {
+          Object.entries(cleanedRow).forEach(([key, value]) => {
             const oldValStr = oldData[key] !== undefined && oldData[key] !== null ? String(oldData[key]).trim() : '';
             const newValStr = value !== undefined && value !== null ? String(value).trim() : '';
 
@@ -193,12 +242,13 @@ export async function importEmployees({
             }
           });
 
-          if (hasChanges) {
+          if (hasChanges || _photoBase64) {
             await prisma.employee.update({
               where: { id: existingEmployee.id },
               data: {
                 dynamicData: newData,
                 updatedAt: new Date(),
+                ...photoData,
               },
             });
             updatedCount++;
@@ -209,8 +259,9 @@ export async function importEmployees({
           await prisma.employee.update({
             where: { id: existingEmployee.id },
             data: {
-              dynamicData: { ...oldData, ...row },
+              dynamicData: { ...oldData, ...cleanedRow },
               updatedAt: new Date(),
+              ...photoData,
             },
           });
           updatedCount++;
@@ -222,9 +273,10 @@ export async function importEmployees({
             data: {
               companyId,
               uniqueIdentifier,
-              dynamicData: row,
-              status: 'A_ENROLER',
-              enrolledBy: operatorName,
+              dynamicData: cleanedRow,
+              status: _photoBase64 ? (photoData.status || 'A_ENROLER') : 'A_ENROLER',
+              enrolledBy: _photoBase64 ? (photoData.enrolledBy || operatorName) : operatorName,
+              ...photoData,
             },
           });
           addedCount++;

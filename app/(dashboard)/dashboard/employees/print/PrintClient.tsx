@@ -769,7 +769,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
 
                   {el.type === 'image' && (
                     <div
-                      className="w-full h-full overflow-hidden flex items-center justify-center bg-neutral-100"
+                      className="w-full h-full overflow-hidden flex items-center justify-center bg-white"
                       style={{
                         borderRadius: `${el.borderRadius || 0}px`,
                         borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
@@ -793,7 +793,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                             style={{
                               width: '100%',
                               height: '100%',
-                              objectFit: 'cover',
+                              objectFit: 'contain',
                             }}
                             alt="Photo"
                           />

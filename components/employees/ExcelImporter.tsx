@@ -2,7 +2,8 @@
 
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, Check, AlertTriangle, Loader2, CheckSquare, Square, Eye } from 'lucide-react';
+import { Upload, FileSpreadsheet, Check, AlertTriangle, Loader2, CheckSquare, Square, Eye, Archive } from 'lucide-react';
+import JSZip from 'jszip';
 import { importEmployees } from '@/app/actions/employees';
 
 interface ExcelImporterProps {
@@ -25,6 +26,11 @@ export default function ExcelImporter({
   const [rows, setRows] = useState<any[]>([]);
   const [uniqueField, setUniqueField] = useState<string>('');
   const [selectedHeaders, setSelectedHeaders] = useState<Set<string>>(new Set());
+  
+  // ZIP Import States
+  const [importType, setImportType] = useState<'excel' | 'zip'>('excel');
+  const [zipImages, setZipImages] = useState<Map<string, JSZip.JSZipObject>>(new Map());
+  const [photoField, setPhotoField] = useState<string>('');
   
   // States
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
@@ -90,11 +96,11 @@ export default function ExcelImporter({
     return val;
   };
 
-  // Read and parse Excel file
-  const handleFile = (file: File) => {
+  // Read and parse Excel file (helper)
+  const handleExcelFile = (excelFile: File) => {
     setError(null);
     setIsProcessing(true);
-    setFile(file);
+    setFile(excelFile);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -167,7 +173,141 @@ export default function ExcelImporter({
       setIsProcessing(false);
     };
 
-    reader.readAsBinaryString(file);
+    reader.readAsBinaryString(excelFile);
+  };
+
+  // Read and parse ZIP archive containing Excel and photos
+  const handleZipFile = async (zipFile: File) => {
+    setError(null);
+    setIsProcessing(true);
+    setFile(zipFile);
+    setZipImages(new Map());
+
+    try {
+      const zip = await JSZip.loadAsync(zipFile);
+      
+      // 1. Locate Excel/CSV file, index image files and locate nested ZIP files
+      let excelFileObj: JSZip.JSZipObject | null = null;
+      let nestedZipObj: JSZip.JSZipObject | null = null;
+      const imageMap = new Map<string, JSZip.JSZipObject>();
+
+      for (const [relativePath, fileObj] of Object.entries(zip.files)) {
+        if (fileObj.dir) continue;
+        
+        const lowerName = relativePath.toLowerCase();
+        if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || lowerName.endsWith('.csv')) {
+          // Prefer root files or first found
+          if (!excelFileObj || !relativePath.includes('/')) {
+            excelFileObj = fileObj;
+          }
+        } else if (lowerName.endsWith('.zip')) {
+          nestedZipObj = fileObj;
+        } else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png') || lowerName.endsWith('.webp')) {
+          // Extract base filename (ignoring parent directories in the zip)
+          const baseName = relativePath.split('/').pop() || relativePath;
+          imageMap.set(baseName.toLowerCase().trim(), fileObj);
+        }
+      }
+
+      // If a nested ZIP was found, load and index its images
+      if (nestedZipObj) {
+        try {
+          const nestedZipBuffer = await nestedZipObj.async('arraybuffer');
+          const nestedZip = await JSZip.loadAsync(nestedZipBuffer);
+          for (const [nestedPath, nestedFileObj] of Object.entries(nestedZip.files)) {
+            if (nestedFileObj.dir) continue;
+            const lowerNestedName = nestedPath.toLowerCase();
+            if (lowerNestedName.endsWith('.jpg') || lowerNestedName.endsWith('.jpeg') || lowerNestedName.endsWith('.png') || lowerNestedName.endsWith('.webp')) {
+              const baseName = nestedPath.split('/').pop() || nestedPath;
+              imageMap.set(baseName.toLowerCase().trim(), nestedFileObj);
+            }
+          }
+        } catch (zipErr) {
+          console.warn("Erreur lors de la lecture du ZIP imbriqué:", zipErr);
+        }
+      }
+
+      if (!excelFileObj) {
+        throw new Error("Aucun fichier Excel (.xlsx, .xls) ou CSV (.csv) trouvé dans l'archive ZIP.");
+      }
+
+      // 2. Read Excel data
+      const excelBuffer = await excelFileObj.async('arraybuffer');
+      const workbook = XLSX.read(excelBuffer, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+
+      if (jsonData.length === 0) {
+        throw new Error("Le fichier Excel à l'intérieur du ZIP est vide.");
+      }
+
+      setZipImages(imageMap);
+
+      // Get all headers from any row
+      const allKeys = new Set<string>();
+      jsonData.forEach((row: any) => {
+        Object.keys(row).forEach((k) => {
+          if (k && k.trim()) {
+            allKeys.add(k.trim());
+          }
+        });
+      });
+      const sheetHeaders = Array.from(allKeys);
+
+      const processedRows = jsonData.map((row: any) => {
+        const newRow: Record<string, any> = {};
+        Object.entries(row).forEach(([key, val]) => {
+          const trimmedKey = key.trim();
+          if (!trimmedKey) return;
+          if (trimmedKey in newRow && (newRow[trimmedKey] !== undefined && newRow[trimmedKey] !== null && newRow[trimmedKey] !== '')) {
+            return;
+          }
+          if (trimmedKey.toLowerCase().startsWith('date')) {
+            newRow[trimmedKey] = parseDateValue(val);
+          } else {
+            newRow[trimmedKey] = val;
+          }
+        });
+        return newRow;
+      });
+
+      setHeaders(sheetHeaders);
+      setRows(processedRows);
+      setSelectedHeaders(new Set(sheetHeaders));
+
+      // Pre-select columns
+      if (sheetHeaders.length > 0) {
+        setUniqueField(sheetHeaders[0]);
+        // Auto-detect a photo/image column
+        const foundPhoto = sheetHeaders.find(h => {
+          const l = h.toLowerCase();
+          return l.includes('photo') || l.includes('image') || l.includes('pic') || l.includes('fichier');
+        });
+        if (foundPhoto) setPhotoField(foundPhoto);
+      }
+
+    } catch (err: any) {
+      setError(err.message || "Erreur lors du traitement de l'archive ZIP.");
+      setFile(null);
+      setHeaders([]);
+      setRows([]);
+      setSelectedHeaders(new Set());
+      setZipImages(new Map());
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Entrypoint file handler
+  const handleFile = (selectedFile: File) => {
+    if (importType === 'zip' || selectedFile.name.endsWith('.zip')) {
+      setImportType('zip');
+      handleZipFile(selectedFile);
+    } else {
+      setImportType('excel');
+      handleExcelFile(selectedFile);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -184,10 +324,16 @@ export default function ExcelImporter({
     setIsDragOver(false);
     
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls') || droppedFile.name.endsWith('.csv'))) {
-      handleFile(droppedFile);
-    } else {
-      setError('Format de fichier non supporté. Veuillez déposer un fichier .xlsx, .xls ou .csv.');
+    if (droppedFile) {
+      if (droppedFile.name.endsWith('.zip')) {
+        setImportType('zip');
+        handleZipFile(droppedFile);
+      } else if (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls') || droppedFile.name.endsWith('.csv')) {
+        setImportType('excel');
+        handleExcelFile(droppedFile);
+      } else {
+        setError('Format de fichier non supporté. Veuillez déposer un fichier .xlsx, .xls, .csv ou .zip.');
+      }
     }
   };
 
@@ -230,16 +376,48 @@ export default function ExcelImporter({
 
     try {
       // Build clean row objects containing only selected columns (always keeping keys with empty string fallbacks)
-      const cleanRows = rows.map((row) => {
-        const filteredRow: Record<string, any> = {};
-        // Always include uniqueField
-        filteredRow[uniqueField] = (row[uniqueField] !== undefined && row[uniqueField] !== null) ? String(row[uniqueField]).trim() : "";
-        // Include selected columns
-        selectedHeaders.forEach((h) => {
-          filteredRow[h] = (row[h] !== undefined && row[h] !== null) ? row[h] : "";
-        });
-        return filteredRow;
-      });
+      const cleanRows = await Promise.all(
+        rows.map(async (row) => {
+          const filteredRow: Record<string, any> = {};
+          // Always include uniqueField
+          filteredRow[uniqueField] = (row[uniqueField] !== undefined && row[uniqueField] !== null) ? String(row[uniqueField]).trim() : "";
+          // Include selected columns
+          selectedHeaders.forEach((h) => {
+            filteredRow[h] = (row[h] !== undefined && row[h] !== null) ? row[h] : "";
+          });
+
+          // Fetch photo from ZIP if ZIP import type is active
+          if (importType === 'zip' && photoField && row[photoField]) {
+            const originalFilename = String(row[photoField]).trim();
+            const filenameKey = originalFilename.toLowerCase();
+            let imageFileObj = zipImages.get(filenameKey);
+
+            // Fallback match: if extension is missing in Excel column
+            if (!imageFileObj) {
+              for (const [key, obj] of Array.from(zipImages.entries())) {
+                const nameWithoutExt = key.substring(0, key.lastIndexOf('.')) || key;
+                if (nameWithoutExt === filenameKey) {
+                  imageFileObj = obj;
+                  break;
+                }
+              }
+            }
+
+            if (imageFileObj) {
+              const imgBlob = await imageFileObj.async('blob');
+              const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(imgBlob);
+              });
+              filteredRow._photoBase64 = base64;
+            }
+          }
+
+          return filteredRow;
+        })
+      );
 
       const serializedRows = JSON.parse(JSON.stringify(cleanRows));
       
@@ -273,9 +451,43 @@ export default function ExcelImporter({
           <span>Importer des employés</span>
         </h2>
         <p className="text-xs text-neutral-400 dark:text-neutral-500">
-          Uploadez votre fichier d&apos;employés (.xlsx, .xls, ou .csv) pour les enregistrer.
+          Uploadez votre fichier d&apos;employés ou une archive ZIP complète.
         </p>
       </div>
+
+      {/* Tabs */}
+      {!file && (
+        <div className="flex border-b border-neutral-100 dark:border-neutral-800 mb-6">
+          <button
+            onClick={() => {
+              setImportType('excel');
+              setError(null);
+            }}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 text-sm font-bold transition-all ${
+              importType === 'excel'
+                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Fichier Excel simple</span>
+          </button>
+          <button
+            onClick={() => {
+              setImportType('zip');
+              setError(null);
+            }}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 text-sm font-bold transition-all ${
+              importType === 'zip'
+                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300'
+            }`}
+          >
+            <Archive className="w-4 h-4" />
+            <span>Archive ZIP (Excel + Photos)</span>
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-900 dark:text-rose-400 rounded-xl text-sm flex items-start gap-2.5">
@@ -301,7 +513,7 @@ export default function ExcelImporter({
             type="file"
             ref={fileInputRef}
             onChange={handleFileInputChange}
-            accept=".xlsx,.xls,.csv"
+            accept={importType === 'zip' ? '.zip' : '.xlsx,.xls,.csv'}
             className="hidden"
           />
 
@@ -346,7 +558,7 @@ export default function ExcelImporter({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`grid grid-cols-1 ${importType === 'zip' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
             {/* Identifier Selector */}
             <div className="p-5 bg-indigo-50/20 dark:bg-indigo-950/15 border border-indigo-100/50 dark:border-indigo-950/50 rounded-xl flex flex-col justify-between">
               <div>
@@ -370,6 +582,32 @@ export default function ExcelImporter({
                 Si un employé avec le même identifiant existe déjà, ses informations seront mises à jour.
               </p>
             </div>
+
+            {/* Photo Column Selector (ZIP only) */}
+            {importType === 'zip' && (
+              <div className="p-5 bg-amber-50/25 dark:bg-amber-950/10 border border-amber-100/50 dark:border-amber-950/50 rounded-xl flex flex-col justify-between">
+                <div>
+                  <label className="block text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-2">
+                    Colonne de la Photo
+                  </label>
+                  <select
+                    value={photoField}
+                    onChange={(e) => setPhotoField(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-amber-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-xl text-sm font-medium focus:ring-2 focus:ring-amber-500/25 focus:outline-none"
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    {headers.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-[10px] text-amber-500 dark:text-amber-500 mt-3 leading-relaxed">
+                  L'application cherchera une photo dans le ZIP correspondant au nom indiqué dans cette colonne (ex: <code className="font-mono bg-amber-50 dark:bg-neutral-850 px-1 py-0.5 rounded text-[9px]">matricule.jpg</code>).
+                </p>
+              </div>
+            )}
 
             {/* Column Selection */}
             <div className="p-5 bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800 rounded-xl flex flex-col space-y-3">

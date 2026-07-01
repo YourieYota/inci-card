@@ -458,10 +458,10 @@ export default function EmployeeDetailModal({
               <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider self-start">Photo de Profil</span>
               
               {/* Image Preview Box */}
-              <div className="w-40 h-48 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center relative shadow-inner group">
+              <div className="w-40 h-48 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center relative shadow-inner group">
                 {activePhoto ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={activePhoto} alt="Employee Photo" className="w-full h-full object-cover" />
+                  <img src={activePhoto} alt="Employee Photo" className="w-full h-full object-contain" />
                 ) : (
                   <div className="text-center p-4">
                     <Camera className="w-10 h-10 mx-auto text-neutral-400 opacity-60 mb-2" />
