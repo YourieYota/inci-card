@@ -199,6 +199,11 @@ export default function EmployeesClient({
       }
 
       const updatedEmployee = await saveEmployeePhoto(activeWebcamEmployee.id, finalPhotoUrl);
+      try {
+        sessionStorage.removeItem(`emp-photo:${activeWebcamEmployee.id}`);
+      } catch (e) {
+        console.warn("Failed to clear sessionStorage cache:", e);
+      }
       setSuccessBanner(`Photo enregistrée pour ${updatedEmployee.enrollmentNumber || activeWebcamEmployee.uniqueIdentifier}.`);
       setActiveWebcamEmployee(null);
       setSelectedEmployeeForDetail(updatedEmployee);

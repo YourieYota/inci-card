@@ -333,6 +333,11 @@ export default function EmployeeDetailModal({
       // 1. Save Photo first (if new local upload)
       if (uploadedPhoto) {
         await saveEmployeePhoto(employee.id, uploadedPhoto);
+        try {
+          sessionStorage.removeItem(`emp-photo:${employee.id}`);
+        } catch (e) {
+          console.warn("Failed to clear sessionStorage cache:", e);
+        }
       }
 
       // 2. Update Excel Data
