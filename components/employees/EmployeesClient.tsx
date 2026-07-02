@@ -73,12 +73,12 @@ export default function EmployeesClient({
     url.searchParams.set('companyId', selectedCompanyId);
     window.history.replaceState({}, '', url.toString());
 
-    refreshEmployees();
+    refreshEmployees(true);
   }, [selectedCompanyId]);
 
-  const refreshEmployees = async () => {
+  const refreshEmployees = async (showLoader = false) => {
     if (!selectedCompanyId) return;
-    setIsLoading(true);
+    if (showLoader) setIsLoading(true);
     try {
       const [data, stats] = await Promise.all([
         getEmployees(selectedCompanyId),
@@ -107,7 +107,7 @@ export default function EmployeesClient({
         alert(err.message || 'Impossible de charger les employés.');
       }
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   };
 
@@ -127,7 +127,7 @@ export default function EmployeesClient({
     
     setSuccessBanner(msg);
     setTimeout(() => setSuccessBanner(null), 7000);
-    refreshEmployees();
+    refreshEmployees(true);
   };
 
   const handleSavePhoto = async (photoUrl: string) => {
@@ -286,7 +286,7 @@ export default function EmployeesClient({
                 <span>Importer Excel</span>
               </button>
               <button
-                onClick={refreshEmployees}
+                onClick={() => refreshEmployees(true)}
                 className="p-2.5 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-500 hover:text-blue-600 rounded-xl transition"
                 title="Rafraîchir"
               >
