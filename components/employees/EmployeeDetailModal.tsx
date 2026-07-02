@@ -75,12 +75,12 @@ export default function EmployeeDetailModal({
 
   useEffect(() => {
     setPhotoUrl(employee.photoUrl);
-    if (!employee.photoUrl && (employee as any).hasPhoto) {
+    if (!isOfflineMode && !employee.photoUrl && (employee as any).hasPhoto) {
       getEmployeePhoto(employee.id).then((url) => {
         if (url) setPhotoUrl(url);
       });
     }
-  }, [employee.id, employee.photoUrl, (employee as any).hasPhoto]);
+  }, [employee.id, employee.photoUrl, (employee as any).hasPhoto, isOfflineMode]);
 
   // Lock / Block / Reprint states
   const [showReprintDialog, setShowReprintDialog] = useState(false);
@@ -710,7 +710,13 @@ export default function EmployeeDetailModal({
             {isEmployeeLocked && !isEmployeeBlocked && (
               <button
                 type="button"
-                onClick={() => setShowReprintDialog(true)}
+                onClick={() => {
+                  if (isOfflineMode) {
+                    alert("La demande de réimpression est indisponible en mode hors-ligne.");
+                    return;
+                  }
+                  setShowReprintDialog(true);
+                }}
                 className="flex items-center gap-1.5 py-2 px-4 border border-violet-200 dark:border-violet-900 bg-violet-50 dark:bg-violet-950/20 hover:bg-violet-100 dark:hover:bg-violet-950/40 text-violet-700 dark:text-violet-400 rounded-xl text-xs font-bold transition shadow-sm"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -723,6 +729,10 @@ export default function EmployeeDetailModal({
               <button
                 type="button"
                 onClick={async () => {
+                  if (isOfflineMode) {
+                    alert("Le blocage de badge est indisponible en mode hors-ligne.");
+                    return;
+                  }
                   if (!confirm('Bloquer ce badge ? Il ne pourra plus être imprimé ni réimprimé.')) return;
                   try {
                     await blockBadge(employee.id);
@@ -741,7 +751,13 @@ export default function EmployeeDetailModal({
             {isEmployeeBlocked && (
               <button
                 type="button"
-                onClick={() => setShowUnblockDialog(true)}
+                onClick={() => {
+                  if (isOfflineMode) {
+                    alert("Le déblocage de badge est indisponible en mode hors-ligne.");
+                    return;
+                  }
+                  setShowUnblockDialog(true);
+                }}
                 className="flex items-center gap-1.5 py-2 px-4 border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold transition shadow-sm"
               >
                 <ShieldOff className="w-4 h-4" />
