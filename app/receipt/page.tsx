@@ -25,29 +25,29 @@ export default async function ReceiptPage({ searchParams }: PageProps) {
     );
   }
 
-  const employee = await prisma.employee.findUnique({
-    where: { id },
-    include: { company: true },
-  });
+  let employee: any = null;
+  let template: any = null;
+  let dbError = false;
 
-  if (!employee) {
-    return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6 text-center">
-        <div className="max-w-sm bg-white p-8 rounded-3xl border border-neutral-200 shadow-sm">
-          <p className="text-sm font-semibold text-rose-500">Erreur : Employé introuvable</p>
-          <p className="text-xs text-neutral-500 mt-2">L&apos;employé associé à cet identifiant n&apos;existe pas ou a été supprimé.</p>
-        </div>
-      </div>
-    );
+  try {
+    employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { company: true },
+    });
+
+    if (employee) {
+      // Retrieve the custom RECEIPT template from database if it exists
+      template = await prisma.cardTemplate.findFirst({
+        where: {
+          companyId: employee.companyId,
+          type: 'RECU',
+        },
+      });
+    }
+  } catch (error) {
+    console.warn("Receipt page database offline error:", error);
+    dbError = true;
   }
-
-  // Retrieve the custom RECEIPT template from database if it exists
-  const template = await prisma.cardTemplate.findFirst({
-    where: {
-      companyId: employee.companyId,
-      type: 'RECU',
-    },
-  });
 
   const defaultTemplate = template ? {
     width: template.width,
@@ -299,7 +299,7 @@ export default async function ReceiptPage({ searchParams }: PageProps) {
     },
   };
 
-  const serializedEmployee = {
+  const serializedEmployee = employee ? {
     id: employee.id,
     uniqueIdentifier: employee.uniqueIdentifier,
     enrollmentNumber: employee.enrollmentNumber,
@@ -313,7 +313,14 @@ export default async function ReceiptPage({ searchParams }: PageProps) {
       createdAt: employee.company.createdAt.toISOString(),
     },
     dynamicData: employee.dynamicData,
-  };
+  } : null;
 
-  return <ReceiptClient employee={serializedEmployee} template={defaultTemplate} />;
+  return (
+    <ReceiptClient
+      employee={serializedEmployee as any}
+      template={defaultTemplate}
+      dbError={dbError}
+      employeeId={id}
+    />
+  );
 }

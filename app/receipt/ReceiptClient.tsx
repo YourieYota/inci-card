@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { Printer, X, User, QrCode } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Printer, X, User, QrCode, Loader2 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
+import { safeGetItem } from '@/lib/storage';
 
 interface SerializedEmployee {
   id: string;
@@ -29,6 +30,8 @@ interface ReceiptClientProps {
     backgroundUrl: string;
     layoutConfig: any;
   };
+  dbError?: boolean;
+  employeeId?: string;
 }
 
 const getFieldValue = (emp: SerializedEmployee, field?: string) => {
@@ -187,19 +190,104 @@ const cardStyle = (template: any) => {
   return { bgStyle, borderRadius };
 };
 
-export default function ReceiptClient({ employee, template }: ReceiptClientProps) {
+export default function ReceiptClient({ employee, template, dbError, employeeId }: ReceiptClientProps) {
+  const [localEmployee, setLocalEmployee] = useState<SerializedEmployee | null>(employee);
+  const [localTemplate, setLocalTemplate] = useState<any>(template);
+
   // Auto-print on load
   useEffect(() => {
-    const timer = setTimeout(() => {
-      window.print();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+    if (localEmployee) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [localEmployee]);
 
-  const width = template.width;
-  const height = template.height;
+  useEffect(() => {
+    if (!dbError) {
+      setLocalEmployee(employee);
+      setLocalTemplate(template);
+      return;
+    }
+
+    try {
+      const id = employeeId || '';
+      let matchedEmp: any = null;
+
+      // Scan localStorage for matched employee
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('inci-cache:employees:')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const list = JSON.parse(raw);
+            const found = list.find((e: any) => e.id === id);
+            if (found) {
+              matchedEmp = found;
+              break;
+            }
+          }
+        }
+      }
+
+      if (matchedEmp) {
+        // Resolve company name
+        const firstCoId = matchedEmp.companyId;
+        let coName = 'Entreprise (Hors-ligne)';
+        const cachedCompaniesRaw = safeGetItem('inci-cache:companies');
+        if (cachedCompaniesRaw) {
+          const companiesList: any[] = JSON.parse(cachedCompaniesRaw);
+          const co = companiesList.find((c) => c.id === firstCoId);
+          if (co) {
+            coName = co.name;
+          }
+        }
+
+        const finalEmployee = {
+          ...matchedEmp,
+          company: {
+            id: firstCoId,
+            name: coName,
+            createdAt: new Date().toISOString()
+          }
+        };
+
+        // Load RECEIPT template cached for this company
+        const templateKey = `inci-cache:template:${firstCoId}:RECU`;
+        const cachedTemplateRaw = safeGetItem(templateKey);
+        if (cachedTemplateRaw) {
+          const cachedT = JSON.parse(cachedTemplateRaw);
+          setLocalTemplate({
+            width: cachedT.width,
+            height: cachedT.height,
+            backgroundUrl: cachedT.backgroundUrl || '',
+            layoutConfig: cachedT.layoutConfig,
+          });
+        }
+
+        setLocalEmployee(finalEmployee);
+      }
+    } catch (e) {
+      console.warn("Failed to load receipt from offline cache:", e);
+    }
+  }, [employee, template, dbError, employeeId]);
+
+  if (!localEmployee) {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6 text-center">
+        <div className="max-w-sm bg-white p-8 rounded-3xl border border-neutral-200 shadow-sm flex flex-col items-center">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
+          <p className="text-xs text-neutral-500 font-semibold">Chargement des données du reçu hors-ligne...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const width = localTemplate.width;
+  const height = localTemplate.height;
   
-  const config = template.layoutConfig as any;
+  const config = localTemplate.layoutConfig as any;
   let elements: any[] = [];
   if (config && typeof config === 'object') {
     elements = (config.recto?.elements || config.elements || []) as any[];
@@ -207,7 +295,7 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
     elements = (config as unknown as any[]) || [];
   }
 
-  const { bgStyle, borderRadius } = cardStyle(template);
+  const { bgStyle, borderRadius } = cardStyle(localTemplate);
   const mmWidth = width * 0.264583;
   const mmHeight = height * 0.264583;
 
@@ -309,8 +397,8 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                         }}
                       >
                         {el.field
-                          ? (getFieldValue(employee, el.field) || '')
-                          : resolvePlaceholders(el.content, employee)
+                          ? (getFieldValue(localEmployee, el.field) || '')
+                          : resolvePlaceholders(el.content, localEmployee)
                         }
                       </div>
                     )}
@@ -325,10 +413,10 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                           borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
                         }}
                       >
-                        {employee.photoUrl ? (
+                        {localEmployee.photoUrl ? (
                           el.intaglio ? (
                             <IntaglioImage
-                              src={employee.photoUrl}
+                              src={localEmployee.photoUrl}
                               spacing={el.intaglioSpacing}
                               lineWidth={el.intaglioLineWidth}
                               waveAmp={el.intaglioWaveAmp}
@@ -337,11 +425,11 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                           ) : (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img
-                              src={employee.photoUrl}
+                              src={localEmployee.photoUrl}
                               style={{
                                 width: '100%',
                                 height: '100%',
-                                objectFit: ((employee.dynamicData as any)?._photoFit === 'contain') ? 'contain' : 'cover',
+                                objectFit: ((localEmployee.dynamicData as any)?._photoFit === 'contain') ? 'contain' : 'cover',
                               }}
                               alt="Photo"
                             />
@@ -365,7 +453,7 @@ export default function ReceiptClient({ employee, template }: ReceiptClientProps
                       >
                         <QRCode
                           value={
-                            getFieldValue(employee, el.field) || employee.enrollmentNumber || employee.uniqueIdentifier
+                            getFieldValue(localEmployee, el.field) || localEmployee.enrollmentNumber || localEmployee.uniqueIdentifier
                           }
                           size={150}
                           style={{ height: "auto", maxWidth: "100%", width: "100%" }}
