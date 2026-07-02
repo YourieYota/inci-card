@@ -195,7 +195,7 @@ export default function OfflineBanner() {
   // 2. Offline Banner
   if (!isOnline && !dismissed) {
     return (
-      <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between gap-3 px-4 py-2.5 bg-orange-500 text-white text-xs font-semibold shadow-lg animate-in slide-in-from-top-2 duration-300">
+      <div className="no-print print:hidden fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between gap-3 px-4 py-2.5 bg-orange-500 text-white text-xs font-semibold shadow-lg animate-in slide-in-from-top-2 duration-300">
         <div className="flex items-center gap-2.5">
           <WifiOff className="w-4 h-4 shrink-0" />
           <span>
@@ -223,7 +223,7 @@ export default function OfflineBanner() {
   // 3. Reconnected Confirmation Banner
   if (showReconnected && !dismissed && queueSize === 0) {
     return (
-      <div className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between gap-3 px-4 py-2.5 bg-emerald-500 text-white text-xs font-semibold shadow-lg animate-in slide-in-from-top-2 duration-300">
+      <div className="no-print print:hidden fixed top-0 left-0 right-0 z-[9999] flex items-center justify-between gap-3 px-4 py-2.5 bg-emerald-500 text-white text-xs font-semibold shadow-lg animate-in slide-in-from-top-2 duration-300">
         <div className="flex items-center gap-2.5">
           <Wifi className="w-4 h-4 shrink-0" />
           <span>Connexion rétablie — Vous êtes de nouveau en ligne et toutes les données sont à jour.</span>

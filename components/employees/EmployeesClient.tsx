@@ -212,6 +212,67 @@ export default function EmployeesClient({
         }
       }
 
+      if (dbError) {
+        // Save photo offline
+        // 1. Prepare updated employee object
+        const updatedEmployee = {
+          ...activeWebcamEmployee,
+          photoUrl: finalPhotoUrl,
+          status: 'PHOTO_VALIDEE',
+        };
+        if (!updatedEmployee.enrollmentNumber) {
+          updatedEmployee.enrollmentNumber = `INCI-ENR-${new Date().getFullYear()}-TEMP (HORS-LIGNE)`;
+        }
+
+        // 2. Cache in sessionStorage for fast display
+        try {
+          sessionStorage.setItem(`emp-photo:${activeWebcamEmployee.id}`, finalPhotoUrl);
+        } catch (e) {
+          console.warn("Failed to set sessionStorage photo:", e);
+        }
+
+        // 3. Update localStorage employees cache
+        try {
+          const cachedRaw = safeGetItem(`inci-cache:employees:${selectedCompanyId}`);
+          if (cachedRaw) {
+            const cachedList = JSON.parse(cachedRaw);
+            const idx = cachedList.findIndex((e: any) => e.id === activeWebcamEmployee.id);
+            if (idx !== -1) {
+              cachedList[idx] = updatedEmployee;
+              safeSetItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(cleanEmployeesForCache(cachedList)));
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to write offline photo cache:", e);
+        }
+
+        // 4. Queue mutations
+        const tempEmployeeKey = activeWebcamEmployee.id.startsWith('temp_employee_') ? {
+          companyId: activeWebcamEmployee.companyId,
+          uniqueIdentifier: activeWebcamEmployee.uniqueIdentifier,
+        } : undefined;
+
+        const { addOfflineMutation } = await import('@/lib/offlineQueue');
+        addOfflineMutation(
+          'SAVE_EMPLOYEE_PHOTO',
+          { employeeId: activeWebcamEmployee.id, photoBase64: finalPhotoUrl, tempEmployeeKey },
+          `Enregistrer la photo de ${activeWebcamEmployee.uniqueIdentifier} (Hors-ligne)`
+        );
+
+        addOfflineMutation(
+          'UPDATE_EMPLOYEE_STATUS',
+          { employeeId: activeWebcamEmployee.id, status: 'PHOTO_VALIDEE', tempEmployeeKey },
+          `Changer le statut de ${activeWebcamEmployee.uniqueIdentifier} à PHOTO_VALIDEE (Hors-ligne)`
+        );
+
+        setSuccessBanner(`Photo enregistrée localement pour ${updatedEmployee.enrollmentNumber || activeWebcamEmployee.uniqueIdentifier}.`);
+        setActiveWebcamEmployee(null);
+        setSelectedEmployeeForDetail(updatedEmployee);
+        setTimeout(() => setSuccessBanner(null), 4000);
+        refreshEmployees();
+        return;
+      }
+
       const updatedEmployee = await saveEmployeePhoto(activeWebcamEmployee.id, finalPhotoUrl);
       try {
         sessionStorage.removeItem(`emp-photo:${activeWebcamEmployee.id}`);
