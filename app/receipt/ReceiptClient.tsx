@@ -113,14 +113,7 @@ const getFieldValue = (emp: SerializedEmployee, field?: string) => {
     }
   }
 
-  // 4. Fallback for general identifier fields to use enrollmentNumber
-  const isIdentifierField = [
-    'matricule', 'id', 'uuid', 'code', 'identifiant', 'numéro', 'numero'
-  ].includes(normalizedTarget);
 
-  if (isIdentifierField && emp.enrollmentNumber) {
-    return emp.enrollmentNumber;
-  }
 
   // 5. Combined name splitting fallback
   if (data && (normalizedTarget === 'nom' || normalizedTarget === 'prenom')) {
