@@ -460,6 +460,7 @@ export default function EmployeesClient({
           }}
           isCompanyLocked={activeCompany?.isLocked}
           companyFields={allCompanyFields}
+          isOfflineMode={dbError}
         />
       )}
 

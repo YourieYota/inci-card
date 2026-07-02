@@ -6,6 +6,7 @@ import { Building2, Plus, Search, Users, Layout, Calendar, ArrowUpRight, Loader2
 import Link from 'next/link';
 import { createCompany, updateCompany, deleteCompany, toggleCompanyLock } from '@/app/actions/templates';
 import { safeSetItem, safeGetItem } from '@/lib/storage';
+import { addOfflineMutation } from '@/lib/offlineQueue';
 
 interface CompanyWithCounts extends Company {
   _count: {
@@ -67,6 +68,10 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
   const [confirmNameInput, setConfirmNameInput] = useState<string>('');
 
   const handleToggleLock = async (company: CompanyWithCounts) => {
+    if (dbError) {
+      alert("La modification du verrouillage d'entreprise est indisponible en mode hors-ligne.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const nextLocked = !company.isLocked;
@@ -106,6 +111,10 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
 
   const handleDeleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (dbError) {
+      alert("La suppression d'entreprise est indisponible en mode hors-ligne.");
+      return;
+    }
     if (!deletingCompany) return;
     if (confirmNameInput.trim() !== deletingCompany.name) {
       alert("Le nom saisi ne correspond pas. Veuillez saisir exactement le nom de l'entreprise pour confirmer la suppression.");
@@ -139,6 +148,44 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
     if (!newCompanyName.trim()) return;
 
     setIsSubmitting(true);
+    
+    if (dbError) {
+      const tempId = `temp_co_${Date.now()}`;
+      const mockCompany: CompanyWithCounts = {
+        id: tempId,
+        name: newCompanyName.trim(),
+        identifierPrefix: newCompanyPrefix.trim() || null,
+        isLocked: false,
+        isLaserEnabled: newCompanyLaser,
+        protectAppModified: newCompanyProtect,
+        createdAt: new Date(),
+        _count: {
+          employees: 0,
+          templates: 0,
+        },
+      };
+
+      const updatedCompanies = [mockCompany, ...companies].sort((a, b) => a.name.localeCompare(b.name));
+      setCompanies(updatedCompanies);
+      safeSetItem("inci-cache:companies", JSON.stringify(updatedCompanies));
+
+      addOfflineMutation(
+        'CREATE_COMPANY',
+        { tempId, name: newCompanyName.trim(), prefix: newCompanyPrefix.trim() || null, laser: newCompanyLaser, protect: newCompanyProtect },
+        `Créer l'entreprise ${newCompanyName.trim()} (Hors-ligne)`
+      );
+
+      setSuccessMessage(`L'entreprise "${newCompanyName.trim()}" a été créée localement !`);
+      setNewCompanyName('');
+      setNewCompanyPrefix('');
+      setNewCompanyLaser(false);
+      setNewCompanyProtect(true);
+      setShowCreateModal(false);
+      setTimeout(() => setSuccessMessage(null), 4000);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const newCompany = await createCompany(
         newCompanyName.trim(),
@@ -175,6 +222,10 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
   // Edit Company Action
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (dbError) {
+      alert("La modification d'entreprise est indisponible en mode hors-ligne.");
+      return;
+    }
     if (!editingCompany || !editCompanyName.trim()) return;
 
     setIsSubmitting(true);
