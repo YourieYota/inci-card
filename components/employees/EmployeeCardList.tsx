@@ -17,11 +17,14 @@ interface EmployeeCardListProps {
 
 type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME' | 'A_VERIFIER' | 'REIMPRESSION';
 
+type SortOption = 'RECENT' | 'OLD' | 'ALPHABETIC_AZ' | 'ALPHABETIC_ZA';
+
 export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh, onOpenDetail, isOfflineMode = false }: EmployeeCardListProps) {
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SortOption>('RECENT');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -65,45 +68,6 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
     }
 
     return false;
-  };
-
-  // Status filter implementation
-  const matchesFilter = (emp: Employee) => {
-    if (filter === 'ALL') return true;
-    return emp.status === filter;
-  };
-
-  const filteredEmployees = employees.filter((e) => matchesSearch(e) && matchesFilter(e));
-
-  // Paginated slice
-  const paginatedEmployees = filteredEmployees.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
-
-  // Selection handlers
-  const handleToggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleSelectAll = () => {
-    const printableEmployees = filteredEmployees.filter((emp) => emp.status !== 'A_ENROLER');
-    if (selectedIds.length === printableEmployees.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(printableEmployees.map((emp) => emp.id));
-    }
-  };
-
-  const handlePrintSelection = () => {
-    if (selectedIds.length === 0) return;
-    window.open(`/dashboard/employees/print?ids=${encodeURIComponent(selectedIds.join(','))}`, '_blank');
-  };
-
-  const handlePrintIndividual = (id: string) => {
-    window.open(`/dashboard/employees/print?ids=${encodeURIComponent(id)}`, '_blank');
   };
 
   // Helper to extract main employee details from dynamicData
@@ -150,6 +114,73 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
     return { name: fullName, fields };
   };
 
+  // Status filter implementation
+  const matchesFilter = (emp: Employee) => {
+    if (filter === 'ALL') return true;
+    return emp.status === filter;
+  };
+
+  const filteredEmployees = employees.filter((e) => matchesSearch(e) && matchesFilter(e));
+
+  // Sort implementation
+  const sortedEmployees = React.useMemo(() => {
+    const list = [...filteredEmployees];
+    if (sortBy === 'RECENT') {
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    if (sortBy === 'OLD') {
+      return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+    if (sortBy === 'ALPHABETIC_AZ') {
+      return list.sort((a, b) => {
+        const nameA = getEmployeeDetails(a).name.toLowerCase();
+        const nameB = getEmployeeDetails(b).name.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+    }
+    if (sortBy === 'ALPHABETIC_ZA') {
+      return list.sort((a, b) => {
+        const nameA = getEmployeeDetails(a).name.toLowerCase();
+        const nameB = getEmployeeDetails(b).name.toLowerCase();
+        return nameB.localeCompare(nameA);
+      });
+    }
+    return list;
+  }, [filteredEmployees, sortBy]);
+
+  // Paginated slice
+  const paginatedEmployees = sortedEmployees.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  // Selection handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const printableEmployees = sortedEmployees.filter((emp) => emp.status !== 'A_ENROLER');
+    if (selectedIds.length === printableEmployees.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(printableEmployees.map((emp) => emp.id));
+    }
+  };
+
+  const handlePrintSelection = () => {
+    if (selectedIds.length === 0) return;
+    window.open(`/dashboard/employees/print?ids=${encodeURIComponent(selectedIds.join(','))}`, '_blank');
+  };
+
+  const handlePrintIndividual = (id: string) => {
+    window.open(`/dashboard/employees/print?ids=${encodeURIComponent(id)}`, '_blank');
+  };
+
+
+
   // Only employees with validated photo or already printed can be printed
   const printableFilteredCount = filteredEmployees.filter((emp) => emp.status !== 'A_ENROLER').length;
 
@@ -184,18 +215,31 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
           ))}
         </div>
 
-        {/* Search */}
-        <div className="relative w-full lg:w-80">
-          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-            <Search className="w-4 h-4" />
-          </span>
-          <input
-            type="text"
-            placeholder="Rechercher par nom, matricule..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500/25"
-          />
+        {/* Search & Sort */}
+        <div className="flex items-center gap-3 w-full lg:w-auto shrink-0">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="px-3.5 py-2 border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-xl text-xs font-bold text-slate-700 dark:text-neutral-300 focus:ring-2 focus:ring-indigo-500/20 outline-none shadow-sm hover:border-slate-350 dark:hover:border-neutral-700 transition"
+          >
+            <option value="RECENT">Plus récent</option>
+            <option value="OLD">Plus ancien</option>
+            <option value="ALPHABETIC_AZ">Nom (A-Z)</option>
+            <option value="ALPHABETIC_ZA">Nom (Z-A)</option>
+          </select>
+
+          <div className="relative w-full lg:w-64">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+              <Search className="w-4 h-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Rechercher par nom, matricule..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500/25"
+            />
+          </div>
         </div>
       </div>
 
