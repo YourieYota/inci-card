@@ -32,74 +32,80 @@ export default async function PrintPage({ searchParams }: PageProps) {
     );
   }
 
-  // Fetch employees
-  const employees = await prisma.employee.findMany({
-    where: {
-      id: { in: ids },
-    },
-    include: {
-      company: true,
-    },
-  });
+  let employees: any[] = [];
+  let templates: any[] = [];
+  let companyName = '';
+  let serializedDocTypes: any[] = [];
+  let serializedCategories: any[] = [];
+  let serializedPhysicalTypes: any[] = [];
+  let dbError = false;
 
-  if (employees.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] p-6 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center shadow-sm">
-        <AlertCircle className="w-10 h-10 text-rose-500 mb-3" />
-        <h2 className="text-lg font-bold text-neutral-800 dark:text-white">Employés introuvables</h2>
-        <p className="text-sm text-neutral-400 mt-1 max-w-sm">Les employés sélectionnés n&apos;existent pas ou ont été supprimés.</p>
-        <Link href="/dashboard/employees" className="mt-5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retour</span>
-        </Link>
-      </div>
-    );
+  try {
+    // Fetch employees
+    employees = await prisma.employee.findMany({
+      where: {
+        id: { in: ids },
+      },
+      include: {
+        company: true,
+      },
+    });
+
+    if (employees.length > 0) {
+      // Fetch templates for the company of the first employee
+      const companyId = employees[0].companyId;
+      companyName = employees[0].company.name;
+      const [tList, documentTypes, categories, physicalTypes] = await Promise.all([
+        prisma.cardTemplate.findMany({
+          where: {
+            companyId,
+          },
+        }),
+        getCardDocumentTypes(companyId),
+        getCardCategories(companyId),
+        getCardPhysicalTypes(companyId),
+      ]);
+      templates = tList;
+
+      serializedDocTypes = documentTypes.map((t: any) => ({
+        ...t,
+        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : (t.createdAt || null),
+        updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : (t.updatedAt || null),
+      }));
+
+      serializedCategories = categories.map((c: any) => ({
+        ...c,
+        createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : (c.createdAt || null),
+        updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : (c.updatedAt || null),
+        format: c.format ? {
+          ...c.format,
+          createdAt: c.format.createdAt instanceof Date ? c.format.createdAt.toISOString() : (c.format.createdAt || null),
+          updatedAt: c.format.updatedAt instanceof Date ? c.format.updatedAt.toISOString() : (c.format.updatedAt || null),
+        } : null,
+      }));
+
+      serializedPhysicalTypes = physicalTypes.map((p: any) => ({
+        ...p,
+        createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : (p.createdAt || null),
+        updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : (p.updatedAt || null),
+      }));
+    }
+  } catch (error) {
+    console.warn("Print page database offline error:", error);
+    dbError = true;
   }
 
-  // Fetch templates for the company of the first employee
-  const companyId = employees[0].companyId;
-  const [templates, documentTypes, categories, physicalTypes] = await Promise.all([
-    prisma.cardTemplate.findMany({
-      where: {
-        companyId,
-      },
-    }),
-    getCardDocumentTypes(companyId),
-    getCardCategories(companyId),
-    getCardPhysicalTypes(companyId),
-  ]);
-
-  const serializedDocTypes = documentTypes.map((t: any) => ({
-    ...t,
-    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : (t.createdAt || null),
-    updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : (t.updatedAt || null),
-  }));
-
-  const serializedCategories = categories.map((c: any) => ({
-    ...c,
-    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : (c.createdAt || null),
-    updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : (c.updatedAt || null),
-    format: c.format ? {
-      ...c.format,
-      createdAt: c.format.createdAt instanceof Date ? c.format.createdAt.toISOString() : (c.format.createdAt || null),
-      updatedAt: c.format.updatedAt instanceof Date ? c.format.updatedAt.toISOString() : (c.format.updatedAt || null),
-    } : null,
-  }));
-
-  const serializedPhysicalTypes = physicalTypes.map((p: any) => ({
-    ...p,
-    createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : (p.createdAt || null),
-    updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : (p.updatedAt || null),
-  }));
-
+  // Render PrintClient even if DB is offline, passing raw inputs and flags
   return (
     <PrintClient
       employees={employees}
       templates={templates}
-      companyName={employees[0].company.name}
+      companyName={companyName}
       documentTypes={serializedDocTypes}
       categories={serializedCategories}
       physicalTypes={serializedPhysicalTypes}
+      dbError={dbError}
+      employeeIds={ids}
     />
   );
 }

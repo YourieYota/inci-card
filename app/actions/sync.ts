@@ -8,7 +8,8 @@ import {
   updateEmployeeStatus, 
   bulkUpdateEmployeeStatus, 
   updateEmployeeData,
-  deleteEmployee
+  deleteEmployee,
+  confirmPrint
 } from '@/app/actions/employees';
 import { createRole, updateRole, deleteRole } from '@/app/actions/roles';
 import { adminCreateUser, adminUpdateUser, adminDeleteUser } from '@/app/actions/users';
@@ -175,6 +176,35 @@ export async function syncOfflineMutations(mutations: any[]) {
         }
 
         await deleteEmployee(resolvedEmployeeId);
+        results.push({ id, success: true });
+      }
+      else if (type === 'CONFIRM_PRINT') {
+        const resolvedIds = [];
+        for (let i = 0; i < payload.ids.length; i++) {
+          let empId = payload.ids[i];
+          const tempKey = payload.tempEmployeeKeys?.[i];
+          if (tempKey) {
+            const { companyId, uniqueIdentifier } = tempKey;
+            const realCoId = companyIdMap[companyId] || companyId;
+            const emp = await prisma.employee.findUnique({
+              where: {
+                companyId_uniqueIdentifier: {
+                  companyId: realCoId,
+                  uniqueIdentifier,
+                },
+              },
+            });
+            if (emp) empId = emp.id;
+          }
+          resolvedIds.push(empId);
+        }
+
+        await confirmPrint(
+          resolvedIds,
+          payload.templateType,
+          payload.categoryId,
+          payload.physicalTypeId
+        );
         results.push({ id, success: true });
       }
       else if (type === 'SAVE_TEMPLATE') {

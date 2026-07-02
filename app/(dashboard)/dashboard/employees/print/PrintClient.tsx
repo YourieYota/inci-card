@@ -8,6 +8,8 @@ import { StudioElement } from '@/components/studio/Canvas';
 import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
 
+import { safeGetItem, safeSetItem } from '@/lib/storage';
+
 interface PrintClientProps {
   employees: (Employee & { company: { name: string } })[];
   templates: CardTemplate[];
@@ -15,6 +17,8 @@ interface PrintClientProps {
   documentTypes: any[];
   categories: any[];
   physicalTypes: any[];
+  dbError?: boolean;
+  employeeIds?: string[];
 }
 
 type PrintLayoutMode = 'side-by-side' | 'duplex' | 'recto-only' | 'verso-only';
@@ -853,7 +857,74 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
   );
 }
 
-export default function PrintClient({ employees, templates, companyName, documentTypes, categories, physicalTypes }: PrintClientProps) {
+export default function PrintClient({ employees, templates, companyName, documentTypes, categories, physicalTypes, dbError, employeeIds }: PrintClientProps) {
+  const [localEmployees, setLocalEmployees] = useState<typeof employees>(employees);
+  const [localTemplates, setLocalTemplates] = useState<typeof templates>(templates);
+  const [localCompanyName, setLocalCompanyName] = useState<string>(companyName);
+
+  useEffect(() => {
+    if (!dbError) {
+      setLocalEmployees(employees);
+      setLocalTemplates(templates);
+      setLocalCompanyName(companyName);
+      return;
+    }
+
+    try {
+      const ids = employeeIds || [];
+      const cachedEmployees: any[] = [];
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('inci-cache:employees:')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const list = JSON.parse(raw);
+            cachedEmployees.push(...list);
+          }
+        }
+      }
+
+      const matched = cachedEmployees.filter((emp) => ids.includes(emp.id));
+      
+      if (matched.length > 0) {
+        const firstCoId = matched[0].companyId;
+        
+        let resolvedCoName = 'Entreprise (Hors-ligne)';
+        const cachedCompaniesRaw = safeGetItem('inci-cache:companies');
+        if (cachedCompaniesRaw) {
+          const companiesList: any[] = JSON.parse(cachedCompaniesRaw);
+          const co = companiesList.find((c) => c.id === firstCoId);
+          if (co) {
+            resolvedCoName = co.name;
+            setLocalCompanyName(co.name);
+          }
+        }
+
+        const loadedTemplates: CardTemplate[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(`inci-cache:template:${firstCoId}:`)) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              loadedTemplates.push(JSON.parse(raw));
+            }
+          }
+        }
+
+        const finalEmployees = matched.map((emp) => ({
+          ...emp,
+          company: { name: resolvedCoName }
+        }));
+
+        setLocalEmployees(finalEmployees);
+        setLocalTemplates(loadedTemplates);
+      }
+    } catch (e) {
+      console.warn("Failed to load print data from offline cache:", e);
+    }
+  }, [employees, templates, companyName, dbError, employeeIds]);
+
   // Always initialize selected template type to 'BADGE' as standard printable format
   const [selectedTemplateType, setSelectedTemplateType] = useState<string>('BADGE');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -870,21 +941,21 @@ export default function PrintClient({ employees, templates, companyName, documen
   useEffect(() => {
     const checkEligibility = async () => {
       try {
-        const ids = employees.map((e) => e.id);
+        const ids = localEmployees.map((e) => e.id);
         const result = await validatePrintEligibility(ids);
-        setEligibleEmployees(employees.filter((e) =>
+        setEligibleEmployees(localEmployees.filter((e) =>
           result.eligible.some((el: any) => el.id === e.id)
         ));
         setIneligibleEmployees(result.ineligible);
       } catch (err) {
         // If validation fails, show all employees but log warning
         console.warn('Eligibility check failed, showing all employees:', err);
-        setEligibleEmployees(employees);
+        setEligibleEmployees(localEmployees);
       }
       setEligibilityChecked(true);
     };
     checkEligibility();
-  }, [employees]);
+  }, [localEmployees]);
 
   // Compute validity for expiration date based on selected category
   const selectedCategory = categories.find((c: any) => c.id === selectedCategoryId);
@@ -894,11 +965,11 @@ export default function PrintClient({ employees, templates, companyName, documen
   // Helper to load appropriate template or build fallback with suitable type & dimensions
   const getTemplateForType = (type: string, categoryId?: string) => {
     if (categoryId) {
-      const foundWithCategory = templates.find((t) => t.type === type && t.categoryId === categoryId);
+      const foundWithCategory = localTemplates.find((t) => t.type === type && t.categoryId === categoryId);
       if (foundWithCategory) return foundWithCategory;
     }
 
-    const foundGeneric = templates.find((t) => t.type === type && !t.categoryId);
+    const foundGeneric = localTemplates.find((t) => t.type === type && !t.categoryId);
     if (foundGeneric) return foundGeneric;
 
     let w = 324;
@@ -922,7 +993,7 @@ export default function PrintClient({ employees, templates, companyName, documen
 
     return {
       id: `fallback-${type}-${categoryId || 'generic'}`,
-      companyId: employees[0].companyId,
+      companyId: localEmployees[0]?.companyId || 'fallback-co',
       type,
       categoryId: categoryId || null,
       width: w,
@@ -967,6 +1038,55 @@ export default function PrintClient({ employees, templates, companyName, documen
         alert('Aucun employé éligible à l\'impression.');
         return;
       }
+
+      if (dbError) {
+        // Offline print validation!
+        // 1. Queue mutation
+        const tempEmployeeKeys = eligibleEmployees.map((emp) => ({
+          companyId: emp.companyId,
+          uniqueIdentifier: emp.uniqueIdentifier,
+        }));
+        
+        const { addOfflineMutation } = await import('@/lib/offlineQueue');
+        const { cleanEmployeesForCache } = await import('@/lib/storage');
+        addOfflineMutation(
+          'CONFIRM_PRINT',
+          {
+            ids,
+            templateType: selectedTemplateType,
+            categoryId: selectedCategoryId || undefined,
+            physicalTypeId: selectedPhysicalTypeId || undefined,
+            tempEmployeeKeys,
+          },
+          `Valider l'impression de ${ids.length} badge(s) (Hors-ligne)`
+        );
+
+        // 2. Update local storage employees statuses to IMPRIME
+        const firstCoId = eligibleEmployees[0].companyId;
+        const cachedRaw = safeGetItem(`inci-cache:employees:${firstCoId}`);
+        if (cachedRaw) {
+          const cachedList = JSON.parse(cachedRaw);
+          const updatedList = cachedList.map((emp: any) => {
+            if (ids.includes(emp.id)) {
+              return {
+                ...emp,
+                status: 'IMPRIME',
+                printedAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                printCount: (emp.printCount || 0) + 1,
+                cardNumber: emp.cardNumber || `TEMP-CARD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              };
+            }
+            return emp;
+          });
+          safeSetItem(`inci-cache:employees:${firstCoId}`, JSON.stringify(cleanEmployeesForCache(updatedList)));
+        }
+
+        alert(`Validation d'impression effectuée localement pour ${ids.length} badge(s) ! Ils seront synchronisés au retour en ligne.`);
+        window.close();
+        return;
+      }
+
       const result = await confirmPrint(
         ids,
         selectedTemplateType,
@@ -1141,11 +1261,11 @@ export default function PrintClient({ employees, templates, companyName, documen
             <Printer className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-neutral-800 dark:text-white">Impression de Badges - {companyName}</h1>
+            <h1 className="text-base font-bold text-neutral-800 dark:text-white">Impression de Badges - {localCompanyName}</h1>
             <p className="text-xs text-neutral-400 dark:text-neutral-500">
-              {eligibleEmployees.length === employees.length
-                ? `Préparez le fichier de sortie pour ${employees.length} employé${employees.length > 1 ? 's' : ''}.`
-                : `${eligibleEmployees.length} éligible(s) sur ${employees.length} employé(s) sélectionné(s).`
+              {eligibleEmployees.length === localEmployees.length
+                ? `Préparez le fichier de sortie pour ${localEmployees.length} employé${localEmployees.length > 1 ? 's' : ''}.`
+                : `${eligibleEmployees.length} éligible(s) sur ${localEmployees.length} employé(s) sélectionné(s).`
               }
             </p>
           </div>
@@ -1166,7 +1286,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                 className="px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200 outline-none"
               >
                 {documentTypes.map((dt) => {
-                  const hasTemplate = templates.some((t) => t.type === dt.slug);
+                  const hasTemplate = localTemplates.some((t) => t.type === dt.slug);
                   return (
                     <option key={dt.id} value={dt.slug}>
                       {dt.name}{hasTemplate ? ' (Modèle conçu)' : ' (Par défaut)'}
@@ -1190,7 +1310,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                 {categories
                   .filter((c: any) => !c.documentTypeSlug || c.documentTypeSlug === selectedTemplateType)
                   .map((c: any) => {
-                    const hasSpecificTemplate = templates.some((t) => t.type === selectedTemplateType && t.categoryId === c.id);
+                    const hasSpecificTemplate = localTemplates.some((t) => t.type === selectedTemplateType && t.categoryId === c.id);
                     return (
                       <option key={c.id} value={c.id}>
                         {c.name}{hasSpecificTemplate ? ' (Modèle conçu)' : ''}
@@ -1284,8 +1404,18 @@ export default function PrintClient({ employees, templates, companyName, documen
         </div>
       </div>
 
+      {/* OFFLINE WARNING BANNER */}
+      {dbError && (
+        <div className="no-print mx-6 mt-4 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 text-orange-800 dark:text-orange-400 rounded-xl text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-orange-500 shrink-0" />
+          <div>
+            <span className="font-bold">Mode Hors-ligne :</span> Vous êtes actuellement déconnecté de la base de données. Les fiches de membres et les gabarits de badges sont chargés depuis le cache local de votre navigateur. La validation de l'impression sera enregistrée localement et synchronisée automatiquement dès le retour en ligne.
+          </div>
+        </div>
+      )}
+
       {/* WARNING IF NO CUSTOM TEMPLATES */}
-      {templates.length === 0 && (
+      {localTemplates.length === 0 && (
         <div className="no-print mx-6 mt-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-400 rounded-xl text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
           <div>
