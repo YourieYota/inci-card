@@ -34,10 +34,24 @@ export default function EmployeesClient({
     setMounted(true);
   }, []);
 
-  // Sync companies list
+  // Sync companies list / read from cache if db is offline
   useEffect(() => {
-    setLocalCompanies(companies || []);
-  }, [companies]);
+    if (!dbError) {
+      setLocalCompanies(companies || []);
+      if (companies && companies.length > 0) {
+        safeSetItem("inci-cache:companies", JSON.stringify(companies));
+      }
+    } else {
+      try {
+        const cached = safeGetItem("inci-cache:companies");
+        if (cached) {
+          setLocalCompanies(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.warn("Failed to read cached companies list in EmployeesClient:", e);
+      }
+    }
+  }, [companies, dbError]);
 
   // UI views / modals
   const [showImporter, setShowImporter] = useState<boolean>(false);

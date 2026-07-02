@@ -5,6 +5,7 @@ import { Company } from '@prisma/client';
 import { Building2, Plus, Search, Users, Layout, Calendar, ArrowUpRight, Loader2, CheckCircle, Edit2, Lock, Unlock, Trash2, AlertTriangle, X } from 'lucide-react';
 import Link from 'next/link';
 import { createCompany, updateCompany, deleteCompany, toggleCompanyLock } from '@/app/actions/templates';
+import { safeSetItem, safeGetItem } from '@/lib/storage';
 
 interface CompanyWithCounts extends Company {
   _count: {
@@ -28,8 +29,22 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
   }, []);
 
   useEffect(() => {
-    setCompanies(initialCompanies);
-  }, [initialCompanies]);
+    if (!dbError) {
+      setCompanies(initialCompanies);
+      if (initialCompanies && initialCompanies.length > 0) {
+        safeSetItem("inci-cache:companies", JSON.stringify(initialCompanies));
+      }
+    } else {
+      try {
+        const cached = safeGetItem("inci-cache:companies");
+        if (cached) {
+          setCompanies(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.warn("Failed to read cached companies:", e);
+      }
+    }
+  }, [initialCompanies, dbError]);
   
   // UI States
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
