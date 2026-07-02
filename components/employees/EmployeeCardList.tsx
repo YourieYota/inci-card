@@ -122,14 +122,25 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
   const filteredEmployees = employees.filter((e) => matchesSearch(e) && matchesFilter(e));
 
+  // Get date based on status filter
+  const getStatusDate = (emp: Employee) => {
+    if (filter === 'ALL') {
+      return new Date(emp.createdAt).getTime();
+    }
+    if (filter === 'IMPRIME' && emp.printedAt) {
+      return new Date(emp.printedAt).getTime();
+    }
+    return new Date(emp.updatedAt).getTime();
+  };
+
   // Sort implementation
   const sortedEmployees = React.useMemo(() => {
     const list = [...filteredEmployees];
     if (sortBy === 'RECENT') {
-      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return list.sort((a, b) => getStatusDate(b) - getStatusDate(a));
     }
     if (sortBy === 'OLD') {
-      return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      return list.sort((a, b) => getStatusDate(a) - getStatusDate(b));
     }
     if (sortBy === 'ALPHABETIC_AZ') {
       return list.sort((a, b) => {
@@ -146,7 +157,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
       });
     }
     return list;
-  }, [filteredEmployees, sortBy]);
+  }, [filteredEmployees, sortBy, filter]);
 
   // Paginated slice
   const paginatedEmployees = sortedEmployees.slice(
