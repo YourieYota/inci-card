@@ -35,10 +35,11 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 // --- Sidebar content (shared between desktop & mobile) ------------------------
-function SidebarContent({ pathname, role, name, onClose }: {
+function SidebarContent({ pathname, role, name, isLoading, onClose }: {
   pathname: string;
   role: string;
   name: string;
+  isLoading: boolean;
   onClose?: () => void;
 }) {
   const visibleLinks = navigation.filter(item => item.roles.includes(role));
@@ -64,7 +65,14 @@ function SidebarContent({ pathname, role, name, onClose }: {
         {/* Group label */}
         <p className="text-[9px] font-bold text-slate-400/80 uppercase tracking-widest px-3 mb-2">Navigation</p>
 
-        {visibleLinks.map((item) => {
+        {isLoading ? (
+          <div className="space-y-2.5 px-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-9 bg-slate-100 dark:bg-slate-700/60 animate-pulse rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          visibleLinks.map((item) => {
           const isActive = item.href === "/dashboard"
             ? pathname === "/dashboard"
             : pathname.startsWith(item.href);
@@ -89,32 +97,39 @@ function SidebarContent({ pathname, role, name, onClose }: {
               {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-50 text-blue-500" />}
             </Link>
           );
-        })}
+        })
+      )}
       </nav>
 
       {/* User card + logout */}
       <div className="p-3 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1 shrink-0">
-        {/* User info */}
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-900/50 dark:to-slate-900/30 border border-slate-100/80 dark:border-slate-700/40 mb-1">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-sm ${ROLE_COLORS[role] || 'bg-slate-500/10 text-slate-600'}`}>
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{name || 'Utilisateur'}</p>
-            <p className={`text-[10px] font-semibold truncate ${ROLE_COLORS[role]?.split(' ').filter(c => c.startsWith('text-')).join(' ') || 'text-slate-500'}`}>
-              {ROLE_LABELS[role] || role}
-            </p>
-          </div>
-        </div>
+        {isLoading ? (
+          <div className="h-14 bg-slate-50 dark:bg-slate-900/50 animate-pulse rounded-xl border border-slate-100/80 dark:border-slate-750/30" />
+        ) : (
+          <>
+            {/* User info */}
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-900/50 dark:to-slate-900/30 border border-slate-100/80 dark:border-slate-700/40 mb-1">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-sm ${ROLE_COLORS[role] || 'bg-slate-500/10 text-slate-600'}`}>
+                {initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{name || 'Utilisateur'}</p>
+                <p className={`text-[10px] font-semibold truncate ${ROLE_COLORS[role]?.split(' ').filter(c => c.startsWith('text-')).join(' ') || 'text-slate-500'}`}>
+                  {ROLE_LABELS[role] || role}
+                </p>
+              </div>
+            </div>
 
-        {/* Logout */}
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex w-full items-center px-3 py-2.5 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
-        >
-          <LogOut className="mr-3 flex-shrink-0" style={{ width: 16, height: 16 }} />
-          Déconnexion
-        </button>
+            {/* Logout */}
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="flex w-full items-center px-3 py-2.5 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+            >
+              <LogOut className="mr-3 flex-shrink-0" style={{ width: 16, height: 16 }} />
+              Déconnexion
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -123,18 +138,19 @@ function SidebarContent({ pathname, role, name, onClose }: {
 // --- Layout -------------------------------------------------------------------
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const role = (session?.user as any)?.role || 'OPERATEUR';
   const name = session?.user?.name || '';
+  const isLoading = status === 'loading';
 
   return (
     <div className="h-screen bg-slate-50/80 dark:bg-slate-900 flex overflow-hidden">
 
       {/* -- Desktop sidebar ------------------------------------------- */}
       <div className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200/60 dark:border-slate-700/60 hidden md:flex flex-col h-full shadow-sm">
-        <SidebarContent pathname={pathname} role={role} name={name} />
+        <SidebarContent pathname={pathname} role={role} name={name} isLoading={isLoading} />
       </div>
 
       {/* -- Mobile overlay sidebar ------------------------------------ */}
@@ -151,6 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               pathname={pathname}
               role={role}
               name={name}
+              isLoading={isLoading}
               onClose={() => setMobileOpen(false)}
             />
           </div>
