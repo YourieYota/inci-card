@@ -5,7 +5,7 @@ import { Employee } from '@prisma/client';
 import { X, Camera, Upload, Printer, Check, Loader2, AlertCircle, Trash2, Lock, Ban, RotateCcw, Clock, ShieldOff } from 'lucide-react';
 import { updateEmployeeStatus, saveEmployeePhoto, updateEmployeeData, deleteEmployee, requestReprint, blockBadge, unblockBadge, getEmployeePrintHistory, getEmployeePhoto } from '@/app/actions/employees';
 import { addOfflineMutation } from '@/lib/offlineQueue';
-import { safeSetItem, safeGetItem } from '@/lib/storage';
+import { safeSetItem, safeGetItem, cleanEmployeesForCache } from '@/lib/storage';
 
 interface EmployeeDetailModalProps {
   employee: Employee;
@@ -222,7 +222,7 @@ export default function EmployeeDetailModal({
           if (cachedRaw) {
             const cachedList: Employee[] = JSON.parse(cachedRaw);
             const filtered = cachedList.filter(e => e.id !== employee.id);
-            safeSetItem(`inci-cache:employees:${employee.companyId}`, JSON.stringify(filtered));
+            safeSetItem(`inci-cache:employees:${employee.companyId}`, JSON.stringify(cleanEmployeesForCache(filtered)));
           }
         } catch (e) {
           console.warn("Failed to write offline cache on delete:", e);
@@ -323,7 +323,7 @@ export default function EmployeeDetailModal({
           const idx = cachedList.findIndex(e => e.id === employee.id);
           if (idx !== -1) {
             cachedList[idx] = updatedEmployee;
-            safeSetItem(`inci-cache:employees:${employee.companyId}`, JSON.stringify(cachedList));
+            safeSetItem(`inci-cache:employees:${employee.companyId}`, JSON.stringify(cleanEmployeesForCache(cachedList)));
           }
         }
       } catch (e) {

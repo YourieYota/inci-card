@@ -89,3 +89,17 @@ export function safeRemoveItem(key: string): boolean {
     return false;
   }
 }
+
+/**
+ * Strips bulky base64 data URLs from employee objects before storing them in localStorage cache.
+ * This prevents QuotaExceededError while retaining metadata for offline support.
+ */
+export function cleanEmployeesForCache(employees: any[]): any[] {
+  if (!Array.isArray(employees)) return [];
+  return employees.map((emp) => {
+    if (emp && emp.photoUrl && emp.photoUrl.startsWith('data:')) {
+      return { ...emp, photoUrl: null };
+    }
+    return emp;
+  });
+}

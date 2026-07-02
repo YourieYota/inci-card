@@ -5,7 +5,7 @@ import { WifiOff, Wifi, X, RefreshCw, Loader2 } from 'lucide-react';
 import { getOfflineQueue, clearOfflineQueue, OfflineMutation } from '@/lib/offlineQueue';
 import { syncOfflineMutations } from '@/app/actions/sync';
 import { fetchAllPreCacheData } from '@/app/actions/preCache';
-import { safeSetItem } from '@/lib/storage';
+import { safeSetItem, cleanEmployeesForCache } from '@/lib/storage';
 
 export default function OfflineBanner() {
   const [isOnline, setIsOnline] = useState(true);
@@ -89,7 +89,7 @@ export default function OfflineBanner() {
             if (data.companies) {
               data.companies.forEach(co => {
                 const coEmps = empsByCo[co.id] || [];
-                safeSetItem(`inci-cache:employees:${co.id}`, JSON.stringify(coEmps));
+                safeSetItem(`inci-cache:employees:${co.id}`, JSON.stringify(cleanEmployeesForCache(coEmps)));
                 
                 const total = coEmps.length;
                 const printed = coEmps.filter(e => e.status === 'IMPRIME').length;

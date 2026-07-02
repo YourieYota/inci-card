@@ -10,7 +10,7 @@ import WebcamModal from './WebcamModal';
 import EmployeeDetailModal from './EmployeeDetailModal';
 import LaserExportModal from './LaserExportModal';
 import { getEmployees, saveEmployeePhoto, getCompanyDashboardStats } from '@/app/actions/employees';
-import { safeSetItem, safeGetItem } from '@/lib/storage';
+import { safeSetItem, safeGetItem, cleanEmployeesForCache } from '@/lib/storage';
 
 interface EmployeesClientProps {
   companies: Company[];
@@ -86,7 +86,7 @@ export default function EmployeesClient({
       ]);
       setEmployees(data);
       setCompanyStats(stats);
-      safeSetItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(data));
+      safeSetItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(cleanEmployeesForCache(data)));
       safeSetItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(stats));
     } catch (err: any) {
       // Fetch failed, try local cache
