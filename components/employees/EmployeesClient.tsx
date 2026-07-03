@@ -125,17 +125,25 @@ export default function EmployeesClient({
     }
   };
 
-  const handleImportSuccess = (count: number, added?: number, updated?: number, skippedProtected?: number) => {
+  const handleImportSuccess = (count: number, added?: number, updated?: number, skippedProtected?: number, isDelete?: boolean) => {
     setShowImporter(false);
     
-    let msg = `${count} employé(s) importé(s) / mis à jour avec succès !`;
-    if (added !== undefined || updated !== undefined || skippedProtected !== undefined) {
-      const parts = [];
-      if (added !== undefined && added > 0) parts.push(`${added} créé(s)`);
-      if (updated !== undefined && updated > 0) parts.push(`${updated} mis à jour`);
-      if (skippedProtected !== undefined && skippedProtected > 0) parts.push(`${skippedProtected} protégé(s) et non modifié(s)`);
-      if (parts.length > 0) {
-        msg = `Importation terminée : ${parts.join(', ')}.`;
+    let msg = "";
+    if (isDelete) {
+      msg = `${count} employé(s) supprimé(s) avec succès !`;
+      if (skippedProtected !== undefined && skippedProtected > 0) {
+        msg += ` (${skippedProtected} protégé(s) et non supprimé(s))`;
+      }
+    } else {
+      msg = `${count} employé(s) importé(s) / mis à jour avec succès !`;
+      if (added !== undefined || updated !== undefined || skippedProtected !== undefined) {
+        const parts = [];
+        if (added !== undefined && added > 0) parts.push(`${added} créé(s)`);
+        if (updated !== undefined && updated > 0) parts.push(`${updated} mis à jour`);
+        if (skippedProtected !== undefined && skippedProtected > 0) parts.push(`${skippedProtected} protégé(s) et non modifié(s)`);
+        if (parts.length > 0) {
+          msg = `Importation terminée : ${parts.join(', ')}.`;
+        }
       }
     }
     

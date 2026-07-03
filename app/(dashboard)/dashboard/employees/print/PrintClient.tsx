@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Employee, CardTemplate } from '@prisma/client';
-import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle, Lock, Ban, RotateCcw } from 'lucide-react';
-import { confirmPrint, validatePrintEligibility } from '@/app/actions/employees';
+import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle, Lock, Ban, RotateCcw, Trash2 } from 'lucide-react';
+import { confirmPrint, validatePrintEligibility, deleteEmployeesByIds } from '@/app/actions/employees';
 import { StudioElement } from '@/components/studio/Canvas';
 import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
@@ -931,6 +931,7 @@ export default function PrintClient({ employees, templates, companyName, documen
   const [selectedPhysicalTypeId, setSelectedPhysicalTypeId] = useState<string>('');
   const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>('side-by-side');
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Eligibility state
   const [eligibleEmployees, setEligibleEmployees] = useState<typeof employees>(employees);
@@ -1105,6 +1106,56 @@ export default function PrintClient({ employees, templates, companyName, documen
       alert(err.message || 'Erreur lors de la confirmation d\'impression.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBulkDeleteEmployees = async () => {
+    if (eligibleEmployees.length === 0) return;
+
+    const confirmDelete = window.confirm(
+      `Êtes-vous sûr de vouloir supprimer définitivement ces ${eligibleEmployees.length} employé(s) ? Cette action est irréversible.`
+    );
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const ids = eligibleEmployees.map((e) => e.id);
+      
+      if (dbError) {
+        const { addOfflineMutation } = await import('@/lib/offlineQueue');
+        const { cleanEmployeesForCache } = await import('@/lib/storage');
+
+        // 1. Queue offline delete mutation for each employee
+        for (const emp of eligibleEmployees) {
+          addOfflineMutation(
+            'DELETE_EMPLOYEE',
+            { employeeId: emp.id },
+            `Supprimer l'employé ${emp.uniqueIdentifier} (Hors-ligne)`
+          );
+        }
+
+        // 2. Filter out deleted employees from localStorage
+        const firstCoId = eligibleEmployees[0].companyId;
+        const cachedRaw = safeGetItem(`inci-cache:employees:${firstCoId}`);
+        if (cachedRaw) {
+          const cachedList = JSON.parse(cachedRaw);
+          const filteredList = cachedList.filter((emp: any) => !ids.includes(emp.id));
+          safeSetItem(`inci-cache:employees:${firstCoId}`, JSON.stringify(cleanEmployeesForCache(filteredList)));
+        }
+
+        alert(`Suppression effectuée localement pour ${ids.length} employé(s) ! Elle sera synchronisée au retour en ligne.`);
+        window.close();
+        return;
+      }
+
+      // Online mode
+      const result = await deleteEmployeesByIds(ids);
+      alert(`${result.count} employé(s) supprimé(s) avec succès.`);
+      window.close();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la suppression groupée.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1399,6 +1450,14 @@ export default function PrintClient({ employees, templates, companyName, documen
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               <span>Valider &amp; Verrouiller ({eligibleEmployees.length})</span>
+            </button>
+            <button
+              onClick={handleBulkDeleteEmployees}
+              disabled={isDeleting || eligibleEmployees.length === 0}
+              className="flex items-center gap-1.5 px-4 py-2 border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold transition shadow-sm"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              <span>Supprimer ({eligibleEmployees.length})</span>
             </button>
           </div>
         </div>

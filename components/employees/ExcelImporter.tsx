@@ -2,13 +2,13 @@
 
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, Check, AlertTriangle, Loader2, CheckSquare, Square, Eye, Archive } from 'lucide-react';
+import { Upload, FileSpreadsheet, Check, AlertTriangle, Loader2, CheckSquare, Square, Eye, Archive, Trash2 } from 'lucide-react';
 import JSZip from 'jszip';
-import { importEmployees } from '@/app/actions/employees';
+import { importEmployees, deleteEmployeesBulk } from '@/app/actions/employees';
 
 interface ExcelImporterProps {
   companyId: string;
-  onImportSuccess: (count: number, added?: number, updated?: number, skippedProtected?: number) => void;
+  onImportSuccess: (count: number, added?: number, updated?: number, skippedProtected?: number, isDelete?: boolean) => void;
   onCancel: () => void;
   isOfflineMode?: boolean;
   onImportOffline?: (uniqueField: string, rows: any[]) => void;
@@ -443,6 +443,44 @@ export default function ExcelImporter({
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!file || !uniqueField || rows.length === 0) return;
+
+    const confirmDelete = window.confirm(
+      `Êtes-vous sûr de vouloir supprimer définitivement les employés correspondant aux identifiants de ce fichier ? Cette action est irréversible.`
+    );
+    if (!confirmDelete) return;
+
+    setIsImporting(true);
+    setError(null);
+
+    try {
+      // Build clean row objects containing only uniqueField
+      const cleanRows = rows.map((row) => {
+        const filteredRow: Record<string, any> = {};
+        filteredRow[uniqueField] = (row[uniqueField] !== undefined && row[uniqueField] !== null) ? String(row[uniqueField]).trim() : "";
+        return filteredRow;
+      });
+
+      const serializedRows = JSON.parse(JSON.stringify(cleanRows));
+
+      const res = await deleteEmployeesBulk({
+        companyId,
+        uniqueField,
+        rows: serializedRows,
+      });
+
+      if (res.success) {
+        onImportSuccess(res.count, 0, 0, res.skippedProtectedCount, true);
+      }
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la suppression groupée.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+
   return (
     <div className={`bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 shadow-sm mx-auto transition-all duration-300 ${file ? 'max-w-5xl' : 'max-w-2xl'}`}>
       <div className="border-b border-neutral-100 dark:border-neutral-800 pb-4 mb-6">
@@ -782,6 +820,15 @@ export default function ExcelImporter({
               className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 transition"
             >
               Annuler
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={isImporting || !uniqueField}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition shadow-sm disabled:opacity-50"
+              title="Supprime tous les employés du fichier correspondant à la clé unique choisie"
+            >
+              {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              <span>Lancer la suppression groupée ({rows.length} lignes)</span>
             </button>
             <button
               onClick={() => handleImport(true)}

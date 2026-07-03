@@ -655,6 +655,142 @@ export async function deleteEmployee(employeeId: string) {
   }
 }
 
+export async function deleteEmployeesBulk({
+  companyId,
+  uniqueField,
+  rows,
+}: {
+  companyId: string;
+  uniqueField: string;
+  rows: any[];
+}) {
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { isLocked: true, protectAppModified: true },
+    });
+
+    if (!company) {
+      throw new Error("Entreprise introuvable");
+    }
+
+    if (company.isLocked) {
+      throw new Error("L'entreprise est verrouillée. Impossible de supprimer ses employés.");
+    }
+
+    const shouldProtect = company.protectAppModified ?? true;
+
+    // Extract unique identifier values from rows
+    const uniqueVals = rows
+      .map((row) => {
+        const val = row[uniqueField];
+        return val !== undefined && val !== null ? String(val).trim() : null;
+      })
+      .filter((val): val is string => val !== null && val !== '');
+
+    if (uniqueVals.length === 0) {
+      return { success: true, count: 0, skippedProtectedCount: 0 };
+    }
+
+    // Find employees that match
+    const employees = await prisma.employee.findMany({
+      where: {
+        companyId,
+        uniqueIdentifier: { in: uniqueVals },
+      },
+    });
+
+    let deleteIds: string[] = [];
+    let skippedProtectedCount = 0;
+
+    for (const emp of employees) {
+      if (shouldProtect && emp.appModified) {
+        skippedProtectedCount++;
+        continue;
+      }
+      deleteIds.push(emp.id);
+    }
+
+    if (deleteIds.length > 0) {
+      await prisma.employee.deleteMany({
+        where: {
+          id: { in: deleteIds },
+        },
+      });
+    }
+
+    return {
+      success: true,
+      count: deleteIds.length,
+      skippedProtectedCount,
+    };
+  } catch (error: any) {
+    console.warn('Error bulk deleting employees:', error);
+    throw new Error(error.message || 'Impossible d\'effectuer la suppression groupée');
+  }
+}
+
+export async function deleteEmployeesByIds(employeeIds: string[]) {
+  try {
+    if (employeeIds.length === 0) {
+      return { success: true, count: 0, skippedProtectedCount: 0 };
+    }
+
+    // Fetch the employees and check their companies' lock state
+    const employees = await prisma.employee.findMany({
+      where: {
+        id: { in: employeeIds },
+      },
+      include: {
+        company: true,
+      },
+    });
+
+    const lockedCompany = employees.find((emp) => emp.company.isLocked);
+    if (lockedCompany) {
+      throw new Error(`L'entreprise "${lockedCompany.company.name}" est verrouillée. Impossible de supprimer ses employés.`);
+    }
+
+    // Check if we should protect app-modified sheets
+    const companyIds = Array.from(new Set(employees.map(emp => emp.companyId)));
+    const companies = await prisma.company.findMany({
+      where: { id: { in: companyIds } },
+      select: { id: true, protectAppModified: true }
+    });
+    const protectMap = new Map(companies.map(c => [c.id, c.protectAppModified ?? true]));
+
+    let deleteIds: string[] = [];
+    let skippedProtectedCount = 0;
+
+    for (const emp of employees) {
+      const shouldProtect = protectMap.get(emp.companyId) ?? true;
+      if (shouldProtect && emp.appModified) {
+        skippedProtectedCount++;
+        continue;
+      }
+      deleteIds.push(emp.id);
+    }
+
+    if (deleteIds.length > 0) {
+      await prisma.employee.deleteMany({
+        where: {
+          id: { in: deleteIds },
+        },
+      });
+    }
+
+    return {
+      success: true,
+      count: deleteIds.length,
+      skippedProtectedCount,
+    };
+  } catch (error: any) {
+    console.warn('Error deleting employees by IDs:', error);
+    throw new Error(error.message || 'Impossible de supprimer les employés sélectionnés');
+  }
+}
+
+
 // ============================================
 // WORKFLOW D'IMPRESSION
 // ============================================
