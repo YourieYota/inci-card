@@ -4,11 +4,11 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, Check, AlertTriangle, Loader2, CheckSquare, Square, Eye, Archive, Trash2 } from 'lucide-react';
 import JSZip from 'jszip';
-import { importEmployees, deleteEmployeesBulk } from '@/app/actions/employees';
+import { importEmployees, deleteEmployeesBulk, purgeEmployees } from '@/app/actions/employees';
 
 interface ExcelImporterProps {
   companyId: string;
-  onImportSuccess: (count: number, added?: number, updated?: number, skippedProtected?: number, isDelete?: boolean) => void;
+  onImportSuccess: (count: number, added?: number, updated?: number, skippedProtected?: number, isDelete?: boolean, deletedEmployees?: any[]) => void;
   onCancel: () => void;
   isOfflineMode?: boolean;
   onImportOffline?: (uniqueField: string, rows: any[]) => void;
@@ -471,10 +471,47 @@ export default function ExcelImporter({
       });
 
       if (res.success) {
-        onImportSuccess(res.count, 0, 0, res.skippedProtectedCount, true);
+        onImportSuccess(res.count, 0, 0, res.skippedProtectedCount, true, res.deletedEmployees);
       }
     } catch (err: any) {
       setError(err.message || "Erreur lors de la suppression groupée.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handlePurge = async () => {
+    if (!file || !uniqueField || rows.length === 0) return;
+
+    const confirmPurge = window.confirm(
+      `ATTENTION : Cette action va supprimer définitivement TOUS les employés inscrits dans cette entreprise qui ne figurent PAS dans ce fichier Excel. Voulez-vous continuer ?`
+    );
+    if (!confirmPurge) return;
+
+    setIsImporting(true);
+    setError(null);
+
+    try {
+      // Build clean row objects containing only uniqueField
+      const cleanRows = rows.map((row) => {
+        const filteredRow: Record<string, any> = {};
+        filteredRow[uniqueField] = (row[uniqueField] !== undefined && row[uniqueField] !== null) ? String(row[uniqueField]).trim() : "";
+        return filteredRow;
+      });
+
+      const serializedRows = JSON.parse(JSON.stringify(cleanRows));
+
+      const res = await purgeEmployees({
+        companyId,
+        uniqueField,
+        rows: serializedRows,
+      });
+
+      if (res.success) {
+        onImportSuccess(res.count, 0, 0, res.skippedProtectedCount, true, res.deletedEmployees);
+      }
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la purge.");
     } finally {
       setIsImporting(false);
     }
@@ -820,6 +857,15 @@ export default function ExcelImporter({
               className="px-4 py-2 text-xs font-bold border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl text-neutral-500 transition"
             >
               Annuler
+            </button>
+            <button
+              onClick={handlePurge}
+              disabled={isImporting || !uniqueField}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400 rounded-xl transition shadow-sm disabled:opacity-50"
+              title="Supprime tous les employés de l'entreprise absents du fichier"
+            >
+              {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+              <span>Lancer la purge (Supprimer les absents)</span>
             </button>
             <button
               onClick={handleBulkDelete}

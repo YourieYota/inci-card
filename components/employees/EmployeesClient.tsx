@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Company, Employee } from '@prisma/client';
-import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2, Users as UsersIcon, CreditCard, Clock, AlertCircle, Download } from 'lucide-react';
+import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2, Users as UsersIcon, CreditCard, Clock, AlertCircle, Download, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import ExcelImporter from './ExcelImporter';
 import EmployeeCardList from './EmployeeCardList';
 import WebcamModal from './WebcamModal';
 import EmployeeDetailModal from './EmployeeDetailModal';
 import LaserExportModal from './LaserExportModal';
-import { getEmployees, saveEmployeePhoto, getCompanyDashboardStats } from '@/app/actions/employees';
+import TrashModal from './TrashModal';
+import { getEmployees, saveEmployeePhoto, getCompanyDashboardStats, restoreEmployees } from '@/app/actions/employees';
 import { safeSetItem, safeGetItem, cleanEmployeesForCache } from '@/lib/storage';
 
 interface EmployeesClientProps {
@@ -58,10 +59,30 @@ export default function EmployeesClient({
   const [activeWebcamEmployee, setActiveWebcamEmployee] = useState<Employee | null>(null);
   const [selectedEmployeeForDetail, setSelectedEmployeeForDetail] = useState<Employee | null>(null);
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [trashCount, setTrashCount] = useState<number>(0);
+  const [showTrashModal, setShowTrashModal] = useState<boolean>(false);
   
   // States
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  const updateTrashCount = () => {
+    if (!selectedCompanyId) {
+      setTrashCount(0);
+      return;
+    }
+    try {
+      const trashRaw = localStorage.getItem(`inci-trash:${selectedCompanyId}`);
+      if (trashRaw) {
+        const trashList = JSON.parse(trashRaw);
+        setTrashCount(trashList.length);
+      } else {
+        setTrashCount(0);
+      }
+    } catch (e) {
+      setTrashCount(0);
+    }
+  };
 
   const [companyStats, setCompanyStats] = useState<{
     totalEmployees: number;
@@ -79,6 +100,7 @@ export default function EmployeesClient({
       setEmployees([]);
       setCompanyStats(null);
       setShowImporter(false);
+      setTrashCount(0);
       return;
     }
 
@@ -88,6 +110,7 @@ export default function EmployeesClient({
     window.history.replaceState({}, '', url.toString());
 
     refreshEmployees(true);
+    updateTrashCount();
   }, [selectedCompanyId]);
 
   const refreshEmployees = async (showLoader = false) => {
@@ -102,6 +125,7 @@ export default function EmployeesClient({
       setCompanyStats(stats);
       safeSetItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(cleanEmployeesForCache(data)));
       safeSetItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(stats));
+      updateTrashCount();
     } catch (err: any) {
       // Fetch failed, try local cache
       try {
@@ -120,12 +144,20 @@ export default function EmployeesClient({
         console.warn("Failed to read employees cache:", e);
         alert(err.message || 'Impossible de charger les employés.');
       }
+      updateTrashCount();
     } finally {
       if (showLoader) setIsLoading(false);
     }
   };
 
-  const handleImportSuccess = (count: number, added?: number, updated?: number, skippedProtected?: number, isDelete?: boolean) => {
+  const handleImportSuccess = (
+    count: number,
+    added?: number,
+    updated?: number,
+    skippedProtected?: number,
+    isDelete?: boolean,
+    deletedEmployees?: any[]
+  ) => {
     setShowImporter(false);
     
     let msg = "";
@@ -133,6 +165,22 @@ export default function EmployeesClient({
       msg = `${count} employé(s) supprimé(s) avec succès !`;
       if (skippedProtected !== undefined && skippedProtected > 0) {
         msg += ` (${skippedProtected} protégé(s) et non supprimé(s))`;
+      }
+
+      if (deletedEmployees && deletedEmployees.length > 0) {
+        try {
+          const trashRaw = localStorage.getItem(`inci-trash:${selectedCompanyId}`);
+          let trashList = trashRaw ? JSON.parse(trashRaw) : [];
+          const nowStr = new Date().toISOString();
+          const newTrashItems = deletedEmployees.map(emp => ({
+            ...emp,
+            deletedAt: nowStr
+          }));
+          trashList = [...newTrashItems, ...trashList];
+          localStorage.setItem(`inci-trash:${selectedCompanyId}`, JSON.stringify(trashList));
+        } catch (e) {
+          console.warn("Failed to write to localStorage trash:", e);
+        }
       }
     } else {
       msg = `${count} employé(s) importé(s) / mis à jour avec succès !`;
@@ -362,6 +410,19 @@ export default function EmployeesClient({
                 </button>
               )}
               <button
+                onClick={() => setShowTrashModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-xl text-xs font-bold transition shadow-sm relative"
+                title="Corbeille de Restauration"
+              >
+                <Trash2 className="w-4 h-4 text-neutral-500" />
+                <span>Corbeille</span>
+                {trashCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white border border-white dark:border-neutral-850 shadow-sm animate-pulse">
+                    {trashCount}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setShowImporter(true)}
                 className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
               >
@@ -549,6 +610,17 @@ export default function EmployeesClient({
           companyName={activeCompany.name}
           employees={employees}
           onClose={() => setShowExportModal(false)}
+        />
+      )}
+
+      {/* TRASH RECOVERY MODAL */}
+      {showTrashModal && activeCompany && (
+        <TrashModal
+          companyId={activeCompany.id}
+          companyName={activeCompany.name}
+          onClose={() => setShowTrashModal(false)}
+          onRefresh={refreshEmployees}
+          isOfflineMode={dbError}
         />
       )}
     </div>

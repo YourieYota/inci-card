@@ -1120,6 +1120,8 @@ export default function PrintClient({ employees, templates, companyName, documen
     setIsDeleting(true);
     try {
       const ids = eligibleEmployees.map((e) => e.id);
+      const firstCoId = eligibleEmployees[0].companyId;
+      const nowStr = new Date().toISOString();
       
       if (dbError) {
         const { addOfflineMutation } = await import('@/lib/offlineQueue');
@@ -1134,8 +1136,21 @@ export default function PrintClient({ employees, templates, companyName, documen
           );
         }
 
-        // 2. Filter out deleted employees from localStorage
-        const firstCoId = eligibleEmployees[0].companyId;
+        // 2. Archive to localStorage trash offline
+        try {
+          const trashRaw = localStorage.getItem(`inci-trash:${firstCoId}`);
+          let trashList = trashRaw ? JSON.parse(trashRaw) : [];
+          const newTrashItems = eligibleEmployees.map(emp => ({
+            ...emp,
+            deletedAt: nowStr
+          }));
+          trashList = [...newTrashItems, ...trashList];
+          localStorage.setItem(`inci-trash:${firstCoId}`, JSON.stringify(trashList));
+        } catch (e) {
+          console.warn("Failed to write offline delete to localStorage trash:", e);
+        }
+
+        // 3. Filter out deleted employees from localStorage
         const cachedRaw = safeGetItem(`inci-cache:employees:${firstCoId}`);
         if (cachedRaw) {
           const cachedList = JSON.parse(cachedRaw);
@@ -1150,6 +1165,23 @@ export default function PrintClient({ employees, templates, companyName, documen
 
       // Online mode
       const result = await deleteEmployeesByIds(ids);
+
+      // Archive to localStorage trash online
+      if (result.deletedEmployees && result.deletedEmployees.length > 0) {
+        try {
+          const trashRaw = localStorage.getItem(`inci-trash:${firstCoId}`);
+          let trashList = trashRaw ? JSON.parse(trashRaw) : [];
+          const newTrashItems = result.deletedEmployees.map(emp => ({
+            ...emp,
+            deletedAt: nowStr
+          }));
+          trashList = [...newTrashItems, ...trashList];
+          localStorage.setItem(`inci-trash:${firstCoId}`, JSON.stringify(trashList));
+        } catch (e) {
+          console.warn("Failed to write online delete to localStorage trash:", e);
+        }
+      }
+
       alert(`${result.count} employé(s) supprimé(s) avec succès.`);
       window.close();
     } catch (err: any) {

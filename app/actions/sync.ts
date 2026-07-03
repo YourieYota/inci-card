@@ -9,7 +9,8 @@ import {
   bulkUpdateEmployeeStatus, 
   updateEmployeeData,
   deleteEmployee,
-  confirmPrint
+  confirmPrint,
+  restoreEmployees
 } from '@/app/actions/employees';
 import { createRole, updateRole, deleteRole } from '@/app/actions/roles';
 import { adminCreateUser, adminUpdateUser, adminDeleteUser } from '@/app/actions/users';
@@ -36,6 +37,10 @@ export async function syncOfflineMutations(mutations: any[]) {
           uniqueField: payload.uniqueField,
           rows: payload.rows,
         });
+        results.push({ id, success: res.success });
+      } 
+      else if (type === 'RESTORE_EMPLOYEES') {
+        const res = await restoreEmployees(payload.employees);
         results.push({ id, success: res.success });
       } 
       else if (type === 'SAVE_EMPLOYEE_PHOTO') {

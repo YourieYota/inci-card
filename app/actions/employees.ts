@@ -689,7 +689,7 @@ export async function deleteEmployeesBulk({
       .filter((val): val is string => val !== null && val !== '');
 
     if (uniqueVals.length === 0) {
-      return { success: true, count: 0, skippedProtectedCount: 0 };
+      return { success: true, count: 0, skippedProtectedCount: 0, deletedEmployees: [] };
     }
 
     // Find employees that match
@@ -702,6 +702,7 @@ export async function deleteEmployeesBulk({
 
     let deleteIds: string[] = [];
     let skippedProtectedCount = 0;
+    let deletedEmployees: any[] = [];
 
     for (const emp of employees) {
       if (shouldProtect && emp.appModified) {
@@ -709,6 +710,7 @@ export async function deleteEmployeesBulk({
         continue;
       }
       deleteIds.push(emp.id);
+      deletedEmployees.push(emp);
     }
 
     if (deleteIds.length > 0) {
@@ -723,6 +725,7 @@ export async function deleteEmployeesBulk({
       success: true,
       count: deleteIds.length,
       skippedProtectedCount,
+      deletedEmployees,
     };
   } catch (error: any) {
     console.warn('Error bulk deleting employees:', error);
@@ -733,7 +736,7 @@ export async function deleteEmployeesBulk({
 export async function deleteEmployeesByIds(employeeIds: string[]) {
   try {
     if (employeeIds.length === 0) {
-      return { success: true, count: 0, skippedProtectedCount: 0 };
+      return { success: true, count: 0, skippedProtectedCount: 0, deletedEmployees: [] };
     }
 
     // Fetch the employees and check their companies' lock state
@@ -761,6 +764,7 @@ export async function deleteEmployeesByIds(employeeIds: string[]) {
 
     let deleteIds: string[] = [];
     let skippedProtectedCount = 0;
+    let deletedEmployees: any[] = [];
 
     for (const emp of employees) {
       const shouldProtect = protectMap.get(emp.companyId) ?? true;
@@ -769,6 +773,9 @@ export async function deleteEmployeesByIds(employeeIds: string[]) {
         continue;
       }
       deleteIds.push(emp.id);
+      
+      const { company, ...empRest } = emp;
+      deletedEmployees.push(empRest);
     }
 
     if (deleteIds.length > 0) {
@@ -783,10 +790,147 @@ export async function deleteEmployeesByIds(employeeIds: string[]) {
       success: true,
       count: deleteIds.length,
       skippedProtectedCount,
+      deletedEmployees,
     };
   } catch (error: any) {
     console.warn('Error deleting employees by IDs:', error);
     throw new Error(error.message || 'Impossible de supprimer les employés sélectionnés');
+  }
+}
+
+export async function purgeEmployees({
+  companyId,
+  uniqueField,
+  rows,
+}: {
+  companyId: string;
+  uniqueField: string;
+  rows: any[];
+}) {
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { isLocked: true, protectAppModified: true },
+    });
+
+    if (!company) {
+      throw new Error("Entreprise introuvable");
+    }
+
+    if (company.isLocked) {
+      throw new Error("L'entreprise est verrouillée. Impossible de purger ses employés.");
+    }
+
+    const shouldProtect = company.protectAppModified ?? true;
+
+    // Extract unique identifier values from rows
+    const uniqueValsInFile = rows
+      .map((row) => {
+        const val = row[uniqueField];
+        return val !== undefined && val !== null ? String(val).trim() : null;
+      })
+      .filter((val): val is string => val !== null && val !== '');
+
+    // Find all employees currently in database for this company
+    const allDbEmployees = await prisma.employee.findMany({
+      where: { companyId },
+    });
+
+    // Find database employees whose uniqueIdentifier is NOT in the file
+    let deleteIds: string[] = [];
+    let skippedProtectedCount = 0;
+    let deletedEmployees: any[] = [];
+
+    for (const emp of allDbEmployees) {
+      const isPresentInFile = uniqueValsInFile.includes(emp.uniqueIdentifier);
+      if (!isPresentInFile) {
+        if (shouldProtect && emp.appModified) {
+          skippedProtectedCount++;
+          continue;
+        }
+        deleteIds.push(emp.id);
+        deletedEmployees.push(emp);
+      }
+    }
+
+    if (deleteIds.length > 0) {
+      await prisma.employee.deleteMany({
+        where: {
+          id: { in: deleteIds },
+        },
+      });
+    }
+
+    return {
+      success: true,
+      count: deleteIds.length,
+      skippedProtectedCount,
+      deletedEmployees,
+    };
+  } catch (error: any) {
+    console.warn('Error purging employees:', error);
+    throw new Error(error.message || 'Impossible d\'effectuer la purge');
+  }
+}
+
+export async function restoreEmployees(employees: any[]) {
+  try {
+    if (employees.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const results = [];
+    for (const emp of employees) {
+      const created = await prisma.employee.upsert({
+        where: {
+          companyId_uniqueIdentifier: {
+            companyId: emp.companyId,
+            uniqueIdentifier: emp.uniqueIdentifier,
+          },
+        },
+        update: {
+          dynamicData: emp.dynamicData,
+          photoUrl: emp.photoUrl,
+          photoHash: emp.photoHash,
+          photoConflict: emp.photoConflict || false,
+          enrollmentNumber: emp.enrollmentNumber,
+          cardNumber: emp.cardNumber,
+          status: emp.status,
+          isLocked: emp.isLocked || false,
+          isBlocked: emp.isBlocked || false,
+          appModified: emp.appModified || false,
+          printCount: emp.printCount || 0,
+          printedAt: emp.printedAt ? new Date(emp.printedAt) : null,
+          enrolledBy: emp.enrolledBy,
+          printedBy: emp.printedBy,
+        },
+        create: {
+          id: emp.id,
+          companyId: emp.companyId,
+          dynamicData: emp.dynamicData,
+          uniqueIdentifier: emp.uniqueIdentifier,
+          photoUrl: emp.photoUrl,
+          photoHash: emp.photoHash,
+          photoConflict: emp.photoConflict || false,
+          enrollmentNumber: emp.enrollmentNumber,
+          cardNumber: emp.cardNumber,
+          status: emp.status,
+          isLocked: emp.isLocked || false,
+          isBlocked: emp.isBlocked || false,
+          appModified: emp.appModified || false,
+          printCount: emp.printCount || 0,
+          printedAt: emp.printedAt ? new Date(emp.printedAt) : null,
+          enrolledBy: emp.enrolledBy,
+          printedBy: emp.printedBy,
+        },
+      });
+      results.push(created);
+    }
+
+    return { success: true, count: results.length };
+  } catch (error: any) {
+    console.warn('Error restoring employees:', error);
+    throw new Error(error.message || 'Impossible de restaurer les employés');
   }
 }
 
