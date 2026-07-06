@@ -72,6 +72,11 @@ export default function EmployeeDetailModal({
     const data = employee.dynamicData as Record<string, any>;
     return (data?._photoFit === 'contain' ? 'contain' : 'cover');
   });
+  const [localOfflineMode, setLocalOfflineMode] = useState<boolean>(!!isOfflineMode);
+
+  useEffect(() => {
+    setLocalOfflineMode(!!isOfflineMode);
+  }, [isOfflineMode]);
 
   useEffect(() => {
     setPhotoUrl(employee.photoUrl);
@@ -243,7 +248,8 @@ export default function EmployeeDetailModal({
     }
   };
 
-  const saveDataOnly = async () => {
+  const saveDataOnly = async (forceOffline?: boolean) => {
+    const activeOffline = forceOffline !== undefined ? forceOffline : localOfflineMode;
     const processedData: Record<string, any> = {};
     Object.entries(formData).forEach(([key, val]) => {
       const trimmedKey = key.trim();
@@ -268,7 +274,7 @@ export default function EmployeeDetailModal({
     // Preserve _photoFit preference in dynamicData
     processedData._photoFit = photoFit;
 
-    if (isOfflineMode) {
+    if (activeOffline) {
       // Prepare updated employee object
       const updatedEmployee = {
         ...employee,
@@ -354,14 +360,33 @@ export default function EmployeeDetailModal({
     }
   };
 
+  const checkIsDbError = (err: any) => {
+    const msg = String(err.message || '').toLowerCase();
+    return msg.includes('prisma') || msg.includes('database') || msg.includes('fetch') || msg.includes('conn') || msg.includes('query') || msg.includes('failed');
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await saveDataOnly();
+      await saveDataOnly(localOfflineMode);
       onRefresh();
       onClose();
     } catch (err: any) {
-      alert(err.message || 'Erreur lors de la mise à jour des informations.');
+      if (checkIsDbError(err) && !localOfflineMode) {
+        console.warn("Database connection issue detected during save. Retrying offline...");
+        setLocalOfflineMode(true);
+        try {
+          await saveDataOnly(true);
+          alert("Connexion base de données perdue. Les modifications ont été enregistrées localement en mode hors-ligne.");
+          onRefresh();
+          onClose();
+          return;
+        } catch (offlineErr: any) {
+          alert("Erreur lors de la sauvegarde hors-ligne : " + offlineErr.message);
+        }
+      } else {
+        alert(err.message || 'Erreur lors de la mise à jour des informations.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -370,11 +395,25 @@ export default function EmployeeDetailModal({
   const handlePrintReceipt = async () => {
     setIsSaving(true);
     try {
-      await saveDataOnly();
+      await saveDataOnly(localOfflineMode);
       onRefresh();
       window.open(`/receipt?id=${employee.id}`, '_blank');
     } catch (err: any) {
-      alert(err.message || 'Erreur lors de l\'enregistrement des modifications avant impression.');
+      if (checkIsDbError(err) && !localOfflineMode) {
+        console.warn("Database connection issue detected during print receipt. Retrying offline...");
+        setLocalOfflineMode(true);
+        try {
+          await saveDataOnly(true);
+          onRefresh();
+          alert("Connexion réseau perdue. Modifications sauvegardées localement. Génération du reçu...");
+          window.open(`/receipt?id=${employee.id}`, '_blank');
+          return;
+        } catch (offlineErr: any) {
+          alert("Erreur de sauvegarde locale : " + offlineErr.message);
+        }
+      } else {
+        alert(err.message || 'Erreur lors de l\'enregistrement des modifications avant impression.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -383,11 +422,25 @@ export default function EmployeeDetailModal({
   const handlePrintCard = async () => {
     setIsSaving(true);
     try {
-      await saveDataOnly();
+      await saveDataOnly(localOfflineMode);
       onRefresh();
       window.open(`/dashboard/employees/print?ids=${encodeURIComponent(employee.id)}`, '_blank');
     } catch (err: any) {
-      alert(err.message || 'Erreur lors de l\'enregistrement des modifications avant impression.');
+      if (checkIsDbError(err) && !localOfflineMode) {
+        console.warn("Database connection issue detected during print card. Retrying offline...");
+        setLocalOfflineMode(true);
+        try {
+          await saveDataOnly(true);
+          onRefresh();
+          alert("Connexion réseau perdue. Modifications sauvegardées localement. Génération de l'aperçu...");
+          window.open(`/dashboard/employees/print?ids=${encodeURIComponent(employee.id)}`, '_blank');
+          return;
+        } catch (offlineErr: any) {
+          alert("Erreur de sauvegarde locale : " + offlineErr.message);
+        }
+      } else {
+        alert(err.message || 'Erreur lors de l\'enregistrement des modifications avant impression.');
+      }
     } finally {
       setIsSaving(false);
     }

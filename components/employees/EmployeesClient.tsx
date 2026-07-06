@@ -61,10 +61,23 @@ export default function EmployeesClient({
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
   const [trashCount, setTrashCount] = useState<number>(0);
   const [showTrashModal, setShowTrashModal] = useState<boolean>(false);
+  const [isOffline, setIsOffline] = useState<boolean>(!!dbError || (typeof navigator !== 'undefined' ? !navigator.onLine : false));
   
   // States
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  // Listen for online/offline browser events
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const updateTrashCount = () => {
     if (!selectedCompanyId) {
@@ -127,6 +140,7 @@ export default function EmployeesClient({
       safeSetItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(stats));
       updateTrashCount();
     } catch (err: any) {
+      setIsOffline(true);
       // Fetch failed, try local cache
       try {
         const cachedEmployees = safeGetItem(`inci-cache:employees:${selectedCompanyId}`);
@@ -479,6 +493,7 @@ export default function EmployeesClient({
           companyId={selectedCompanyId}
           onImportSuccess={handleImportSuccess}
           onCancel={() => setShowImporter(false)}
+          isOfflineMode={isOffline}
         />
       ) : isLoading ? (
         // VIEW: LOADING
@@ -590,7 +605,7 @@ export default function EmployeesClient({
           }}
           isCompanyLocked={activeCompany?.isLocked}
           companyFields={allCompanyFields}
-          isOfflineMode={dbError}
+          isOfflineMode={isOffline}
         />
       )}
 
@@ -620,7 +635,7 @@ export default function EmployeesClient({
           companyName={activeCompany.name}
           onClose={() => setShowTrashModal(false)}
           onRefresh={refreshEmployees}
-          isOfflineMode={dbError}
+          isOfflineMode={isOffline}
         />
       )}
     </div>
