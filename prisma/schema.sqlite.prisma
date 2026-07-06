@@ -1,8 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Schema SQLite — Mode Installation Locale (.exe)
+// Utilisé quand DB_PROVIDER=sqlite
+// Les champs Json sont stockés en String (SQLite ne supporte pas Json natif)
 
 generator client {
   provider      = "prisma-client-js"
@@ -10,14 +8,14 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 // --- FILE DE SYNC (mutations en attente d'envoi au serveur central) ---
 model SyncQueue {
   id          String   @id
   type        String
-  payload     Json
+  payload     String   // JSON stringifié (SQLite = String)
   timestamp   BigInt
   description String
   retryCount  Int      @default(0)
@@ -27,8 +25,8 @@ model SyncQueue {
 
 // --- CURSEUR DE SYNC DESCENDANTE ---
 model SyncCursor {
-  tableName    String   @id
-  lastSyncedAt DateTime @default(now())
+  tableName     String   @id
+  lastSyncedAt  DateTime @default(now())
 }
 
 // --- MODELE ROLES DYNAMIQUES ---
@@ -39,30 +37,24 @@ model CustomRole {
   description String?
   color       String   @default("#6366f1")
   isSystem    Boolean  @default(false)
-  permissions Json     @default("{}")
+  permissions String   @default("{}") // Json → String en SQLite
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   version     Int      @default(0)
 }
 
-// Les types de documents (BADGE, CARTE_PRO, RECU, + types personnalisés)
-// sont stockés comme des chaînes dynamiques dans CardTemplate.type
-
-
-// --- MODELES ---
-
-// Utilisateurs de l'application (Personnel de l'Imprimerie Nationale)
+// Utilisateurs de l'application
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  login         String?  @unique
-  passwordHash  String
-  name          String
-  firstName     String?
-  phone         String?
-  role          String   @default("OPERATEUR")
-  createdAt     DateTime @default(now())
-  version       Int      @default(0)
+  id           String   @id @default(uuid())
+  email        String   @unique
+  login        String?  @unique
+  passwordHash String
+  name         String
+  firstName    String?
+  phone        String?
+  role         String   @default("OPERATEUR")
+  createdAt    DateTime @default(now())
+  version      Int      @default(0)
 }
 
 // Entreprises Clientes
@@ -72,13 +64,12 @@ model Company {
   identifierPrefix   String?
   isLocked           Boolean  @default(false)
   isLaserEnabled     Boolean  @default(false)
-  protectAppModified Boolean  @default(true) // Empêcher l'écrasement des modifs appli par l'import Excel
+  protectAppModified Boolean  @default(true)
   createdAt          DateTime @default(now())
   version            Int      @default(0)
 
-  // Relations
   employees       Employee[]
-  templates       CardTemplate[]     // Une entreprise peut avoir plusieurs modèles
+  templates       CardTemplate[]
   cardFormats     CardFormat[]
   cardCategories  CardCategory[]
   physicalTypes   CardPhysicalType[]
@@ -89,58 +80,56 @@ model Company {
 // Employés des entreprises clientes
 model Employee {
   id               String   @id @default(uuid())
-  
+
   companyId        String
   company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  dynamicData      Json     // Stocke la ligne Excel entière : {"Nom": "X", "Matricule": "Y"}
-  uniqueIdentifier String   // Clé anti-doublon (ex: Matricule) choisie à l'import
-  
-  // La photo est strictement reliée à l'employé
-  photoUrl         String?  // URL de l'image stockée sur le serveur (ex: S3)
-  photoHash        String?  // Empreinte numérique de la photo (SHA-256)
-  photoConflict    Boolean  @default(false) // Conflit de duplication photo suspecte
-  enrollmentNumber String?  // Numéro d'enrôlement unique
-  cardNumber       String?  // Numéro unique de carte (ex: BADGE-0001)
-  
-  status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME, A_VERIFIER, REIMPRESSION
-  isLocked         Boolean  @default(false) // Verrouillé après impression
-  isBlocked        Boolean  @default(false) // Badge bloqué (volé, perdu, etc.)
-  appModified      Boolean  @default(false) // Indique si la fiche a été modifiée dans l'application
-  printCount       Int      @default(0)     // Nombre d'impressions réalisées
-  version          Int      @default(0)     // Incrémenté à chaque UPDATE — résolution de conflits sync
+
+  dynamicData      String   // Json → String en SQLite
+  uniqueIdentifier String
+
+  photoUrl         String?
+  photoHash        String?
+  photoConflict    Boolean  @default(false)
+  enrollmentNumber String?
+  cardNumber       String?
+
+  status           String   @default("A_ENROLER")
+  isLocked         Boolean  @default(false)
+  isBlocked        Boolean  @default(false)
+  appModified      Boolean  @default(false)
+  printCount       Int      @default(0)
+  version          Int      @default(0) // Pour la résolution de conflits
 
   printedAt        DateTime?
   enrolledBy       String?
   printedBy        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @default(now()) @updatedAt
-  
+
   deliveryBatchId  String?
   deliveryBatch    DeliveryBatch? @relation(fields: [deliveryBatchId], references: [id], onDelete: SetNull)
   printJobs        PrintJob[]
-  
-  // Un employé est unique au sein de son entreprise
-  @@unique([companyId, uniqueIdentifier]) 
+
+  @@unique([companyId, uniqueIdentifier])
 }
 
 // Modèles de conception (Studio Drag & Drop)
 model CardTemplate {
   id            String   @id @default(uuid())
-  
+
   companyId     String
   company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  type          String   @default("BADGE") // BADGE, CARTE_PRO, RECU, ou type personnalisé
-  
+
+  type          String   @default("BADGE")
+
   categoryId    String?
   category      CardCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  
-  width         Int      @default(324) // Dimensions par défaut (CR80)
+
+  width         Int      @default(324)
   height        Int      @default(204)
-  backgroundUrl String?  // Image de fond de la carte
-  
-  layoutConfig  Json     // Tableau d'éléments: [{id, type, x, y, width, height, variableExcel}]
+  backgroundUrl String?
+
+  layoutConfig  String   // Json → String en SQLite
   version       Int      @default(0)
 
   @@unique([companyId, type, categoryId])
@@ -149,9 +138,9 @@ model CardTemplate {
 model CardFormat {
   id          String         @id @default(uuid())
   name        String
-  width       Float          @default(85.6) // CR80 standard width (mm)
-  height      Float          @default(53.98) // CR80 standard height (mm)
-  unit        String         @default("mm") // mm, px, in
+  width       Float          @default(85.6)
+  height      Float          @default(53.98)
+  unit        String         @default("mm")
   companyId   String?
   company     Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt   DateTime       @default(now())
@@ -167,14 +156,14 @@ model CardCategory {
   slug             String
   color            String         @default("#6366f1")
   description      String?
-  validityValue    Int?           @default(1)    // Durée de validité de la carte (null = permanente)
-  validityUnit     String?        @default("YEAR") // YEAR, MONTH, DAY (null = permanente)
+  validityValue    Int?           @default(1)
+  validityUnit     String?        @default("YEAR")
   formatId         String
   format           CardFormat     @relation(fields: [formatId], references: [id], onDelete: Restrict)
   companyId        String?
   company          Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   templates        CardTemplate[]
-  documentTypeSlug String?        @default("")   // Le slug du type de document lié (ex: BADGE, CARTE_PRO, etc.)
+  documentTypeSlug String?        @default("")
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -202,7 +191,7 @@ model DeliveryBatch {
   batchNumber     String?  @unique
   companyId       String
   company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  status          String   @default("PREPARE") // PREPARE, EN_TRANSIT, LIVRE
+  status          String   @default("PREPARE")
   employees       Employee[]
   shippedAt       DateTime?
   deliveredAt     DateTime?
@@ -218,7 +207,7 @@ model CardDocumentType {
   name        String
   slug        String
   description String?
-  cardCode    String   @default("") // Code unique d'identification du type (ex: BADGE, CPRO)
+  cardCode    String   @default("")
   companyId   String?
   company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
@@ -228,23 +217,22 @@ model CardDocumentType {
   @@unique([companyId, slug])
 }
 
-// Historique complet de chaque impression
 model PrintJob {
-  id              String   @id @default(uuid())
-  
-  employeeId      String
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
-  cardNumber      String   // Le numéro de carte attribué à cette impression
-  templateType    String   // Type de document utilisé (BADGE, CARTE_PRO, etc.)
-  categoryId      String?  // Catégorie utilisée
-  physicalTypeId  String?  // Type de support utilisé
-  
-  isReprint       Boolean  @default(false) // S'agit-il d'une réimpression ?
-  reprintReason   String?  // Justificatif de réimpression
-  
-  printedBy       String   // Nom de l'opérateur
-  printedAt       DateTime @default(now())
-  
-  createdAt       DateTime @default(now())
+  id             String   @id @default(uuid())
+
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  cardNumber     String
+  templateType   String
+  categoryId     String?
+  physicalTypeId String?
+
+  isReprint      Boolean  @default(false)
+  reprintReason  String?
+
+  printedBy      String
+  printedAt      DateTime @default(now())
+
+  createdAt      DateTime @default(now())
 }

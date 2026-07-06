@@ -4,10 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "cross-env DB_PROVIDER=sqlite DATABASE_URL=file:./data/inci-card.db next dev",
     "build": "next build",
+    "build:local": "cross-env DB_PROVIDER=sqlite DATABASE_URL=file:./data/inci-card.db next build",
     "start": "next start",
+    "start:local": "cross-env DB_PROVIDER=sqlite DATABASE_URL=file:./data/inci-card.db next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:local:migrate": "cross-env DATABASE_URL=file:./data/inci-card.db prisma migrate dev --config prisma.config.sqlite.ts --schema prisma/schema.sqlite.prisma",
+    "db:local:studio": "cross-env DATABASE_URL=file:./data/inci-card.db prisma studio --config prisma.config.sqlite.ts --schema prisma/schema.sqlite.prisma"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -15,6 +20,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcrypt": "^6.0.0",
+    "cross-env": "^7.0.3",
     "jszip": "^3.10.1",
     "lucide-react": "^1.20.0",
     "next": "16.2.9",
