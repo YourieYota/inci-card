@@ -1,19 +1,16 @@
 ; ============================================================
 ; INCI Card — Script Inno Setup
-; Génère un installeur Windows tout-en-un
+; Compiler depuis le dossier racine du projet :
+;   & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" installer\setup.iss
 ;
-; Prérequis avant de compiler :
-;   1. Inno Setup 6 installé (https://jrsoftware.org/isinfo.php)
-;   2. Avoir exécuté installer\build.ps1 (prépare les artefacts)
-;
-; Compiler : iscc.exe installer\setup.iss
+; IMPORTANT : Les chemins relatifs sont résolus depuis le dossier
+; contenant ce fichier .iss, c'est-à-dire installer\
 ; ============================================================
 
 #define AppName       "INCI Card"
 #define AppVersion    "1.0.0"
-#define AppPublisher  "INCI - Imprimerie Nationale"
+#define AppPublisher  "INCI"
 #define AppURL        "http://localhost:3000"
-#define AppExeName    "INCI-Card.exe"
 #define ServiceApp    "INCI-Card-App"
 #define ServiceCanon  "INCI-Card-Canon"
 #define InstallDir    "{autopf}\INCI-Card"
@@ -28,18 +25,18 @@ AppSupportURL={#AppURL}
 AppUpdatesURL={#AppURL}
 DefaultDirName={#InstallDir}
 DefaultGroupName={#AppName}
-OutputDir=installer\dist
+OutputDir=dist
 OutputBaseFilename=INCI-Card-Setup-v{#AppVersion}
-SetupIconFile=installer\assets\icon.ico
-WizardImageFile=installer\assets\banner.bmp
-WizardSmallImageFile=installer\assets\icon_small.bmp
+SetupIconFile=assets\icon.ico
+WizardImageFile=assets\banner.bmp
+WizardSmallImageFile=assets\icon_small.bmp
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
-UninstallDisplayIcon={app}\launcher.exe
+UninstallDisplayIcon={app}\tools\nssm.exe
 MinVersion=10.0.17763
 CloseApplications=yes
 RestartApplications=no
@@ -47,93 +44,81 @@ RestartApplications=no
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
-[Messages]
-french.BeveledLabel=INCI Card {#AppVersion}
-
 [Tasks]
-Name: "desktopicon"; Description: "Créer un raccourci sur le Bureau"; GroupDescription: "Icônes supplémentaires :"; Flags: checked
-Name: "startmenu"; Description: "Créer un raccourci dans le Menu Démarrer"; GroupDescription: "Icônes supplémentaires :"; Flags: checked
-Name: "autostart"; Description: "Démarrer INCI Card automatiquement avec Windows"; GroupDescription: "Démarrage :"; Flags: unchecked
+Name: "desktopicon"; Description: "Créer un raccourci sur le Bureau"; GroupDescription: "Options :"
+Name: "autostart"; Description: "Demarrer INCI Card automatiquement avec Windows"; GroupDescription: "Options :"; Flags: unchecked
 
 ; ============================================================
 ; FICHIERS À INCLURE
+; Chemins relatifs au dossier installer\
 ; ============================================================
 [Files]
-; Node.js portable (dossier node\ préparé par build.ps1)
-Source: "installer\build\node\*"; DestDir: "{app}\node"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Node.js portable
+Source: "build\node\*"; DestDir: "{app}\node"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Application Next.js buildée
-Source: "installer\build\app\.next\*";      DestDir: "{app}\app\.next";       Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "installer\build\app\node_modules\*"; DestDir: "{app}\app\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "installer\build\app\public\*";     DestDir: "{app}\app\public";      Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "installer\build\app\prisma\*";     DestDir: "{app}\app\prisma";      Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "installer\build\app\package.json"; DestDir: "{app}\app";             Flags: ignoreversion
-Source: "installer\build\app\next.config.ts"; DestDir: "{app}\app";           Flags: ignoreversion
-Source: "installer\build\app\prisma.config.sqlite.ts"; DestDir: "{app}\app";  Flags: ignoreversion
+; Application Next.js
+Source: "build\app\.next\*";        DestDir: "{app}\app\.next";        Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "build\app\node_modules\*"; DestDir: "{app}\app\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "build\app\public\*";       DestDir: "{app}\app\public";       Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "build\app\prisma\*";       DestDir: "{app}\app\prisma";       Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "build\app\package.json";   DestDir: "{app}\app";              Flags: ignoreversion
+Source: "build\app\next.config.ts"; DestDir: "{app}\app";              Flags: ignoreversion
 
-; Canon Bridge (exe autonome)
-Source: "installer\build\canon-bridge\*"; DestDir: "{app}\canon-bridge"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Canon Bridge
+Source: "build\canon-bridge\*"; DestDir: "{app}\canon-bridge"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; NSSM (gestionnaire de services Windows)
-Source: "installer\build\nssm\nssm.exe"; DestDir: "{app}\tools"; Flags: ignoreversion
+; NSSM
+Source: "build\nssm\nssm.exe"; DestDir: "{app}\tools"; Flags: ignoreversion
 
 ; Scripts de gestion
-Source: "installer\scripts\install-services.bat";   DestDir: "{app}"; Flags: ignoreversion
-Source: "installer\scripts\uninstall-services.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "installer\scripts\first-run.bat";          DestDir: "{app}"; Flags: ignoreversion
-Source: "installer\scripts\start.bat";              DestDir: "{app}"; Flags: ignoreversion
-Source: "installer\scripts\stop.bat";               DestDir: "{app}"; Flags: ignoreversion
-Source: "installer\assets\launcher.exe";            DestDir: "{app}"; Flags: ignoreversion
+Source: "scripts\install-services.bat";   DestDir: "{app}"; Flags: ignoreversion
+Source: "scripts\uninstall-services.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "scripts\first-run.bat";          DestDir: "{app}"; Flags: ignoreversion
+Source: "scripts\start.bat";              DestDir: "{app}"; Flags: ignoreversion
+Source: "scripts\stop.bat";               DestDir: "{app}"; Flags: ignoreversion
+
+; Lanceur silencieux VBS (remplace launcher.exe)
+Source: "assets\launcher.vbs"; DestDir: "{app}"; Flags: ignoreversion
 
 ; ============================================================
 ; RACCOURCIS
 ; ============================================================
 [Icons]
 ; Bureau
-Name: "{autodesktop}\{#AppName}";         Filename: "{app}\launcher.exe";    WorkingDir: "{app}";        IconFilename: "{app}\launcher.exe"; Tasks: desktopicon
-Name: "{autodesktop}\Canon Bridge";       Filename: "{app}\scripts\start.bat"; WorkingDir: "{app}";      Tasks: desktopicon
-
+Name: "{autodesktop}\{#AppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\tools\nssm.exe"; Tasks: desktopicon
 ; Menu Démarrer
-Name: "{group}\{#AppName}";              Filename: "{app}\launcher.exe";    WorkingDir: "{app}";        IconFilename: "{app}\launcher.exe"; Tasks: startmenu
-Name: "{group}\Arrêter INCI Card";       Filename: "{app}\scripts\stop.bat"; WorkingDir: "{app}";       Tasks: startmenu
-Name: "{group}\Désinstaller {#AppName}"; Filename: "{uninstallexe}";         Tasks: startmenu
-
-; Démarrage automatique Windows
-Name: "{autostartup}\{#AppName}";        Filename: "{app}\launcher.exe";    WorkingDir: "{app}"; Tasks: autostart
+Name: "{group}\{#AppName}";              Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\tools\nssm.exe"
+Name: "{group}\Arrêter INCI Card";       Filename: "{app}\stop.bat";    WorkingDir: "{app}"
+Name: "{group}\Désinstaller {#AppName}"; Filename: "{uninstallexe}"
+; Démarrage automatique
+Name: "{autostartup}\{#AppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher.vbs"""; WorkingDir: "{app}"; Tasks: autostart
 
 ; ============================================================
 ; COMMANDES POST-INSTALLATION
 ; ============================================================
 [Run]
-; 1. Créer le dossier data pour SQLite
-Filename: "{cmd}"; Parameters: "/c mkdir ""{app}\app\data"""; Flags: runhidden
+; 1. Créer le dossier data et logs
+Filename: "{cmd}"; Parameters: "/c mkdir ""{app}\app\data"" 2>nul & mkdir ""{app}\logs"" 2>nul"; Flags: runhidden
 
-; 2. Créer le fichier .env pour le mode local
-Filename: "{cmd}"; Parameters: "/c ""{app}\scripts\first-run.bat"""; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; StatusMsg: "Initialisation de la base de données SQLite...";
+; 2. Créer le .env et initialiser la base SQLite
+Filename: "{cmd}"; Parameters: "/c ""{app}\first-run.bat"""; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; StatusMsg: "Initialisation de la base de données..."
 
-; 3. Installer les services Windows avec NSSM
-Filename: "{cmd}"; Parameters: "/c ""{app}\scripts\install-services.bat"""; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; StatusMsg: "Création des services Windows...";
+; 3. Installer les services Windows
+Filename: "{cmd}"; Parameters: "/c ""{app}\install-services.bat"""; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; StatusMsg: "Création des services Windows..."
 
-; 4. Proposer d'ouvrir l'application
-Filename: "{app}\launcher.exe"; Description: "Ouvrir INCI Card maintenant"; Flags: nowait postinstall skipifsilent
+; 4. Ouvrir l'application
+Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher.vbs"""; Description: "Ouvrir INCI Card maintenant"; Flags: nowait postinstall skipifsilent
 
 ; ============================================================
-; COMMANDES PRÉ-DÉSINSTALLATION
+; DÉSINSTALLATION
 ; ============================================================
 [UninstallRun]
-Filename: "{cmd}"; Parameters: "/c ""{app}\scripts\uninstall-services.bat"""; WorkingDir: "{app}"; Flags: runhidden waituntilterminated
+Filename: "{cmd}"; Parameters: "/c ""{app}\uninstall-services.bat"""; WorkingDir: "{app}"; Flags: runhidden waituntilterminated
 
 ; ============================================================
-; CODE PASCAL — Logique personnalisée
+; CODE PASCAL — Générer le .env avec secret aléatoire
 ; ============================================================
 [Code]
-// Vérifier si une ancienne installation existe et avertir l'utilisateur
-function InitializeSetup(): Boolean;
-begin
-  Result := True;
-end;
-
-// Générer un NEXTAUTH_SECRET aléatoire
 function GenerateSecret(): String;
 var
   i: Integer;
@@ -147,34 +132,30 @@ begin
   Result := secret;
 end;
 
-procedure CreateEnvFile();
+procedure CurStepChanged(CurStep: TSetupStep);
 var
   envContent: TArrayOfString;
   envPath: String;
   secret: String;
-begin
-  envPath := ExpandConstant('{app}\app\.env');
-  secret := GenerateSecret();
-
-  SetArrayLength(envContent, 10);
-  envContent[0] := '# INCI Card — Configuration locale (générée à l''installation)';
-  envContent[1] := 'DB_PROVIDER=sqlite';
-  envContent[2] := 'DATABASE_URL=file:' + ExpandConstant('{app}') + '\app\data\inci-card.db';
-  envContent[3] := 'NEXTAUTH_SECRET=' + secret;
-  envContent[4] := 'NEXTAUTH_URL=http://localhost:3000';
-  envContent[5] := 'PHOTO_SERVER_URL=http://localhost:4000';
-  envContent[6] := 'NEXT_PUBLIC_PHOTO_SERVER_URL=http://localhost:4000';
-  envContent[7] := 'STORAGE_PATH=' + ExpandConstant('{app}') + '\app\local-photos';
-  envContent[8] := '# URL du serveur central pour la synchronisation (optionnel)';
-  envContent[9] := 'CENTRAL_SERVER_URL=';
-
-  SaveStringsToFile(envPath, envContent, False);
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
+  dataPath: String;
 begin
   if CurStep = ssPostInstall then
   begin
-    CreateEnvFile();
+    envPath := ExpandConstant('{app}\app\.env');
+    dataPath := ExpandConstant('{app}\app\data');
+    secret := GenerateSecret();
+
+    SetArrayLength(envContent, 9);
+    envContent[0] := 'DB_PROVIDER=sqlite';
+    envContent[1] := 'DATABASE_URL=file:' + dataPath + '\inci-card.db';
+    envContent[2] := 'NEXTAUTH_SECRET=' + secret;
+    envContent[3] := 'NEXTAUTH_URL=http://localhost:3000';
+    envContent[4] := 'PHOTO_SERVER_URL=http://localhost:4000';
+    envContent[5] := 'NEXT_PUBLIC_PHOTO_SERVER_URL=http://localhost:4000';
+    envContent[6] := 'STORAGE_PATH=' + ExpandConstant('{app}') + '\app\local-photos';
+    envContent[7] := 'NODE_ENV=production';
+    envContent[8] := 'CENTRAL_SERVER_URL=';
+
+    SaveStringsToFile(envPath, envContent, False);
   end;
 end;
