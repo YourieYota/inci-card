@@ -56,13 +56,13 @@ Name: "autostart"; Description: "Demarrer INCI Card automatiquement avec Windows
 ; Node.js portable
 Source: "build\node\*"; DestDir: "{app}\node"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Application Next.js
-Source: "build\app\.next\*";        DestDir: "{app}\app\.next";        Flags: ignoreversion recursesubdirs createallsubdirs
+; Application Next.js — production (le cache dev/ a ete supprime avant compilation)
+Source: "build\app\.next\*"; DestDir: "{app}\app\.next"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "\dev\*"
 Source: "build\app\node_modules\*"; DestDir: "{app}\app\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "build\app\public\*";       DestDir: "{app}\app\public";       Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "build\app\public\*";       DestDir: "{app}\app\public";       Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "\*.md"
 Source: "build\app\prisma\*";       DestDir: "{app}\app\prisma";       Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "build\app\package.json";   DestDir: "{app}\app";              Flags: ignoreversion
-Source: "build\app\next.config.ts"; DestDir: "{app}\app";              Flags: ignoreversion
+Source: "build\app\next.config.ts"; DestDir: "{app}\app";              Flags: ignoreversion skipifsourcedoesntexist
 
 ; Canon Bridge
 Source: "build\canon-bridge\*"; DestDir: "{app}\canon-bridge"; Flags: ignoreversion recursesubdirs createallsubdirs
