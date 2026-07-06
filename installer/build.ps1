@@ -103,36 +103,39 @@ if (Test-Path $CanonBridgeSource) {
 }
 
 # ============================================================
-# ÉTAPE 5 : Générer le client Prisma SQLite
+# ÉTAPE 5 : Build Next.js (avec le client Prisma PostgreSQL existant)
+# Le client SQLite sera régénéré APRÈS le build pour éviter les conflits de types
 # ============================================================
-Write-Host "[5/7] Generation du client Prisma pour SQLite..." -ForegroundColor Yellow
+Write-Host "[5/7] Build de l'application Next.js..." -ForegroundColor Yellow
 Set-Location $ProjectDir
-$env:DATABASE_URL = "file:./data/inci-card.db"
-$env:DB_PROVIDER = "sqlite"
 
-# Générer le client Prisma avec le schéma SQLite
-& node_modules\.bin\prisma generate --schema prisma\schema.sqlite.prisma
+# Restaurer le client Prisma PostgreSQL pour le build (types corrects)
+Write-Host "    Regeneration du client Prisma PostgreSQL pour le build..." -ForegroundColor Gray
+& node_modules\.bin\prisma generate
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERREUR : prisma generate a echoue." -ForegroundColor Red
+    Write-Host "ERREUR : prisma generate (PostgreSQL) a echoue." -ForegroundColor Red
     exit 1
 }
-Write-Host "    Client Prisma SQLite genere." -ForegroundColor Green
 
-# ============================================================
-# ÉTAPE 6 : Build Next.js en mode SQLite
-# ============================================================
-Write-Host "[6/7] Build de l'application Next.js (mode SQLite)..." -ForegroundColor Yellow
+# Variables d'environnement pour le build SQLite
 $env:DB_PROVIDER = "sqlite"
 $env:DATABASE_URL = "file:./data/inci-card.db"
 $env:NODE_ENV = "production"
+# Désactiver la télémétrie Next.js
+$env:NEXT_TELEMETRY_DISABLED = "1"
 
-& npm run build
+# Lancer next build directement via node (evite le probleme npm/PowerShell)
+Write-Host "    Lancement de next build..." -ForegroundColor Gray
+& node node_modules\next\dist\bin\next build
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR : next build a echoue." -ForegroundColor Red
     exit 1
 }
+Write-Host "    Build Next.js termine." -ForegroundColor Green
 
-# Copier les fichiers buildés
+# ============================================================
+# ÉTAPE 5bis : Copier les fichiers buildés dans installer\build\app\
+# ============================================================
 Write-Host "    Copie des artefacts Next.js..." -ForegroundColor Gray
 $AppFiles = @(".next", "node_modules", "public", "prisma", "package.json", "next.config.ts", "prisma.config.sqlite.ts")
 foreach ($f in $AppFiles) {
@@ -140,7 +143,32 @@ foreach ($f in $AppFiles) {
         Copy-Item "$ProjectDir\$f" "$BuildDir\app\$f" -Recurse -Force
     }
 }
-Write-Host "    Application buildee." -ForegroundColor Green
+
+# ============================================================
+# ÉTAPE 6 : Régénérer le client Prisma SQLite dans build\app\
+# Fait APRÈS la copie pour ne pas polluer le client principal
+# ============================================================
+Write-Host "[6/7] Generation du client Prisma SQLite dans le build..." -ForegroundColor Yellow
+$env:DATABASE_URL = "file:./data/inci-card.db"
+$env:DB_PROVIDER = "sqlite"
+
+# Générer le client SQLite directement dans le dossier build
+Set-Location "$BuildDir\app"
+& node ..\..\..\..\node_modules\.bin\prisma generate --schema prisma\schema.sqlite.prisma --config prisma.config.sqlite.ts 2>$null
+if ($LASTEXITCODE -ne 0) {
+    # Essayer depuis le projet source
+    Set-Location $ProjectDir
+    Write-Host "    Generation SQLite depuis la source..." -ForegroundColor Gray
+    & node_modules\.bin\prisma generate --schema prisma\schema.sqlite.prisma
+}
+Set-Location $ProjectDir
+Write-Host "    Client Prisma SQLite inclus dans le build." -ForegroundColor Green
+
+# Restaurer le client Prisma PostgreSQL pour le développement local
+Write-Host "    Restauration du client Prisma PostgreSQL..." -ForegroundColor Gray
+& node_modules\.bin\prisma generate
+Write-Host "    Client PostgreSQL restaure." -ForegroundColor Green
+
 
 # ============================================================
 # ÉTAPE 7 : Compiler l'installeur avec Inno Setup
