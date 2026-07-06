@@ -159,6 +159,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
         isLaserEnabled: newCompanyLaser,
         protectAppModified: newCompanyProtect,
         createdAt: new Date(),
+        version: 0,
         _count: {
           employees: 0,
           templates: 0,
