@@ -11,7 +11,7 @@
  *   *.woff2/ttf       Fonts
  */
 
-const CACHE_NAME = 'inci-static-v3';
+const CACHE_NAME = 'inci-static-v4';
 
 const PRECACHE = [
   '/manifest.json',
@@ -55,8 +55,11 @@ self.addEventListener('fetch', (event) => {
   // 2. Ignorer les schémas non-http (chrome-extension:// etc.)
   if (!request.url.startsWith('http')) return;
 
-  // 3. ⚠️ JAMAIS intercepter les navigations HTML → SSR doit répondre
-  if (request.mode === 'navigate') return;
+  // 3. Stratégie Network-First pour les navigations HTML (pour le mode PWA autonome)
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request));
+    return;
+  }
 
   // 4. ⚠️ JAMAIS intercepter les API routes
   if (url.pathname.startsWith('/api/')) return;
@@ -76,6 +79,27 @@ self.addEventListener('fetch', (event) => {
 
   // Tout le reste : laisser passer sans interception
 });
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (err) {
+    console.warn('[SW] Navigation hors-ligne détectée, récupération du cache pour :', request.url);
+    const cached = await caches.match(request);
+    if (cached) return cached;
+
+    // Fallback à la racine si la page demandée spécifique n'est pas encore en cache
+    const rootCached = await caches.match('/');
+    if (rootCached) return rootCached;
+
+    throw err;
+  }
+}
 
 async function cacheFirst(request) {
   const cached = await caches.match(request);
