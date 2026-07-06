@@ -44,3 +44,9 @@ next-env.d.ts
 .env*
 
 local-photos/
+
+# Installeur — artefacts de build (non commités)
+installer/build/
+installer/dist/
+installer/*.zip
+data/
