@@ -26,8 +26,8 @@ if not exist "%ENV_FILE%" (
     echo NEXT_PUBLIC_PHOTO_SERVER_URL=http://localhost:4000 >> "%ENV_FILE%"
 )
 
-:: Appliquer le schéma SQLite avec prisma db push (plus rapide que migrate pour le premier démarrage)
-echo [INCI Card] Application du schema SQLite...
+:: Appliquer le schéma LibSQL/SQLite avec prisma db push
+echo [INCI Card] Application du schema SQLite (LibSQL)...
 cd /d "%NEXT_DIR%"
 set DB_PROVIDER=sqlite
 set DATABASE_URL=file:%DATA_DIR%\inci-card.db

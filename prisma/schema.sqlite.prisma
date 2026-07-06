@@ -1,5 +1,5 @@
-// Schema SQLite — Mode Installation Locale (.exe)
-// Utilisé quand DB_PROVIDER=sqlite
+// Schema LibSQL/SQLite — Mode Installation Locale (.exe)
+// Utilisé quand DB_PROVIDER=sqlite (Prisma 7 : LibSQL = SQLite via @prisma/adapter-libsql)
 // Les champs Json sont stockés en String (SQLite ne supporte pas Json natif)
 
 generator client {
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "libsql"
 }
 
 // --- FILE DE SYNC (mutations en attente d'envoi au serveur central) ---

@@ -15,7 +15,9 @@
     "db:local:studio": "cross-env DATABASE_URL=file:./data/inci-card.db prisma studio --config prisma.config.sqlite.ts --schema prisma/schema.sqlite.prisma"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.4",
     "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-libsql": "^7.8.0",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",

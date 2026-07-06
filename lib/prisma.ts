@@ -1,80 +1,94 @@
+/**
+ * lib/prisma.ts — Client Prisma dual-mode (PostgreSQL / SQLite via LibSQL)
+ *
+ * PRISMA 7 : Le moteur embarqué a été supprimé — TOUS les providers nécessitent un adaptateur.
+ *
+ * Modes :
+ *   DB_PROVIDER=postgresql (défaut) → adaptateur Neon HTTP (Neon) ou pg (Render/Docker/LAN)
+ *   DB_PROVIDER=sqlite              → adaptateur LibSQL (fichier local .db)
+ *
+ * Le client `prisma` est initialisé de façon LAZY (Proxy) pour éviter les erreurs
+ * lors du build Next.js (phase de collecte des pages statiques).
+ */
+
 import { PrismaClient } from '@prisma/client';
 
-// Mode SQLite (installation locale) : pas d'adaptateur externe nécessaire
-// Mode PostgreSQL (cloud/LAN) : adaptateurs Neon HTTP ou pg
 const DB_PROVIDER = process.env.DB_PROVIDER || 'postgresql';
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
+  prismaClient: PrismaClient | undefined;
 };
 
-const createPrismaClient = async (): Promise<PrismaClient> => {
-  // Mode SQLite — utilisé pour les installations locales (.exe)
+// ============================================================
+// FACTORY — crée le bon adaptateur selon le provider
+// ============================================================
+function createClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL || '';
+
+  // --- SQLite via LibSQL (installations locales .exe) ---
   if (DB_PROVIDER === 'sqlite') {
-    return new PrismaClient();
+    const { createClient: createLibSQLClient } = require('@libsql/client');
+    const { PrismaLibSQL } = require('@prisma/adapter-libsql');
+
+    const url = connectionString || `file:${process.cwd()}/data/inci-card.db`;
+    const libsql = createLibSQLClient({ url });
+    const adapter = new PrismaLibSQL(libsql);
+    return new PrismaClient({ adapter });
   }
 
-  // Mode PostgreSQL — utilisé pour le serveur cloud (Render, Neon) ou LAN
-  const connectionString = process.env.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy';
-
+  // --- PostgreSQL Neon HTTP (cloud Neon) ---
   if (connectionString.includes('neon.tech')) {
-    const { PrismaNeonHttp } = await import('@prisma/adapter-neon');
+    const { PrismaNeonHttp } = require('@prisma/adapter-neon');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const adapter = new PrismaNeonHttp(connectionString, { schema: 'public' } as any);
     return new PrismaClient({ adapter });
   }
 
-  // Render ou PostgreSQL local (Docker / LAN)
-  const pg = await import('pg');
-  const { PrismaPg } = await import('@prisma/adapter-pg');
-  const pool = new pg.default.Pool({ connectionString });
-  const adapter = new PrismaPg(pool);
-  return new PrismaClient({ adapter });
-};
-
-// Singleton — évite les connexions multiples en dev (HMR Next.js)
-let prismaInstance: PrismaClient | undefined;
-
-export const getPrisma = async (): Promise<PrismaClient> => {
-  if (globalForPrisma.prisma) return globalForPrisma.prisma;
-  if (prismaInstance) return prismaInstance;
-
-  prismaInstance = await createPrismaClient();
-
-  if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = prismaInstance;
-  }
-
-  return prismaInstance;
-};
-
-// Export synchrone pour compatibilité avec le code existant
-// (sera remplacé progressivement par getPrisma())
-import { PrismaClient as PrismaClientSync } from '@prisma/client';
-import { PrismaNeonHttp } from '@prisma/adapter-neon';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
-
-const createPrismaClientSync = () => {
-  if (DB_PROVIDER === 'sqlite') {
-    return new PrismaClientSync();
-  }
-
-  const connectionString = process.env.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy';
-
-  if (connectionString.includes('neon.tech')) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const adapter = new PrismaNeonHttp(connectionString, { schema: 'public' } as any);
-    return new PrismaClientSync({ adapter });
-  }
-
+  // --- PostgreSQL via pg (Render, Docker, LAN) ---
+  const pg = require('pg');
+  const { PrismaPg } = require('@prisma/adapter-pg');
   const pool = new pg.Pool({ connectionString });
   const adapter = new PrismaPg(pool);
-  return new PrismaClientSync({ adapter });
-};
+  return new PrismaClient({ adapter });
+}
 
-export const prisma =
-  globalForPrisma.prisma ??
-  createPrismaClientSync();
+// ============================================================
+// SINGLETON LAZY — évite les connexions multiples (HMR Next.js)
+// ============================================================
+function getClient(): PrismaClient {
+  if (globalForPrisma.prismaClient) return globalForPrisma.prismaClient;
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+  const client = createClient();
+
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prismaClient = client;
+  }
+
+  return client;
+}
+
+// ============================================================
+// EXPORT PRINCIPAL — Proxy lazy pour compatibilité code existant
+//
+// Le Proxy intercepte tous les accès (`prisma.user.findMany(...)`)
+// et initialise le vrai client Prisma au premier accès.
+// Cela évite les erreurs de build Next.js (le module est importé
+// mais le client n'est créé qu'au moment d'une vraie requête).
+// ============================================================
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop: string | symbol) {
+    const client = getClient();
+    const value = (client as unknown as Record<string | symbol, unknown>)[prop];
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
+  },
+});
+
+// ============================================================
+// EXPORT ASYNC (pour les cas qui peuvent attendre)
+// ============================================================
+export async function getPrisma(): Promise<PrismaClient> {
+  return getClient();
+}
