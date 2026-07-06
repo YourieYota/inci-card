@@ -11,7 +11,7 @@
  *   *.woff2/ttf       Fonts
  */
 
-const CACHE_NAME = 'inci-static-v4';
+const CACHE_NAME = 'inci-static-v5';
 
 const PRECACHE = [
   '/manifest.json',
@@ -90,14 +90,92 @@ async function networkFirst(request) {
     return response;
   } catch (err) {
     console.warn('[SW] Navigation hors-ligne détectée, récupération du cache pour :', request.url);
-    const cached = await caches.match(request);
+    
+    // Essayer de trouver la page en cache (en ignorant les paramètres de recherche type companyId)
+    const cached = await caches.match(request, { ignoreSearch: true });
     if (cached) return cached;
 
-    // Fallback à la racine si la page demandée spécifique n'est pas encore en cache
-    const rootCached = await caches.match('/');
+    // Fallback à la racine si elle est présente
+    const rootCached = await caches.match('/', { ignoreSearch: true });
     if (rootCached) return rootCached;
 
-    throw err;
+    // Si aucune version en cache n'existe pour cette page, on sert un HTML hors-ligne propre plutôt que de lever une exception
+    return new Response(`
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Imprimerie Nationale — Hors connexion</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f9fafb;
+            color: #1f2937;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+            padding: 20px;
+          }
+          .card {
+            background: white;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            max-width: 400px;
+            border: 1px solid #f3f4f6;
+          }
+          .icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+          }
+          h1 {
+            font-size: 18px;
+            font-weight: 800;
+            margin: 0 0 10px 0;
+            color: #111827;
+          }
+          p {
+            font-size: 13px;
+            color: #6b7280;
+            margin: 0 0 24px 0;
+            line-height: 1.5;
+          }
+          .btn {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+          }
+          .btn:hover {
+            background: #4338ca;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">🔌</div>
+          <h1>Mode hors-ligne indisponible</h1>
+          <p>Pour pouvoir accéder à cette page sans connexion Internet, vous devez d'abord la visiter au moins une fois en étant connecté.</p>
+          <a href="javascript:window.location.reload()" class="btn">Actualiser la page</a>
+        </div>
+      </body>
+      </html>
+    `, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    });
   }
 }
 
