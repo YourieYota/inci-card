@@ -18,7 +18,7 @@
 # ============================================================
 
 param(
-    [string]$NodeVersion = "20.18.1",
+    [string]$NodeVersion = "22.18.0",
     [string]$NssmVersion = "2.24",
     [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\iscc.exe",
     [string]$CanonBridgeSource = "$env:USERPROFILE\Desktop\canon-local-bridge"
