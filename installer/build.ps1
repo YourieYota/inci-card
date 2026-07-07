@@ -154,7 +154,7 @@ $env:DB_PROVIDER = "sqlite"
 
 # Générer le client SQLite directement dans le dossier build
 Set-Location "$BuildDir\app"
-& node ..\..\..\..\node_modules\prisma\build\index.js generate --schema prisma\schema.sqlite.prisma --config prisma.config.sqlite.ts 2>$null
+& node ..\..\..\node_modules\prisma\build\index.js generate --schema prisma\schema.sqlite.prisma --config prisma.config.sqlite.ts 2>$null
 if ($LASTEXITCODE -ne 0) {
     # Essayer depuis le projet source
     Set-Location $ProjectDir
