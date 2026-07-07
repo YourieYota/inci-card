@@ -137,7 +137,7 @@ Write-Host "    Build Next.js termine." -ForegroundColor Green
 # ÉTAPE 5bis : Copier les fichiers buildés dans installer\build\app\
 # ============================================================
 Write-Host "    Copie des artefacts Next.js..." -ForegroundColor Gray
-$AppFiles = @(".next", "node_modules", "public", "prisma", "package.json", "next.config.ts", "prisma.config.sqlite.ts")
+$AppFiles = @(".next", "node_modules", "public", "prisma", "package.json", "next.config.ts", "prisma.config.sqlite.ts", "prisma.config.ts")
 foreach ($f in $AppFiles) {
     if (Test-Path "$ProjectDir\$f") {
         Copy-Item "$ProjectDir\$f" "$BuildDir\app\$f" -Recurse -Force

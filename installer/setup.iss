@@ -62,7 +62,9 @@ Source: "build\app\node_modules\*"; DestDir: "{app}\app\node_modules"; Flags: ig
 Source: "build\app\public\*";       DestDir: "{app}\app\public";       Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "\*.md"
 Source: "build\app\prisma\*";       DestDir: "{app}\app\prisma";       Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "build\app\package.json";   DestDir: "{app}\app";              Flags: ignoreversion
-Source: "build\app\next.config.ts"; DestDir: "{app}\app";              Flags: ignoreversion skipifsourcedoesntexist
+Source: "build\app\next.config.ts";         DestDir: "{app}\app";              Flags: ignoreversion skipifsourcedoesntexist
+Source: "build\app\prisma.config.sqlite.ts"; DestDir: "{app}\app";              Flags: ignoreversion skipifsourcedoesntexist
+Source: "build\app\prisma.config.ts";        DestDir: "{app}\app";              Flags: ignoreversion skipifsourcedoesntexist
 
 ; Canon Bridge
 Source: "build\canon-bridge\*"; DestDir: "{app}\canon-bridge"; Flags: ignoreversion recursesubdirs createallsubdirs
