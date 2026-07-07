@@ -8,11 +8,11 @@ let pool = null;
 
 if (DB_PROVIDER === 'sqlite') {
   const { createClient: createLibSQLClient } = require('@libsql/client');
-  const { PrismaLibSQL } = require('@prisma/adapter-libsql');
+  const { PrismaLibSql } = require('@prisma/adapter-libsql');
   // Utiliser la même URL de DB que pour Next
   const connectionString = process.env.DATABASE_URL || 'file:./data/inci-card.db';
   const libsql = createLibSQLClient({ url: connectionString });
-  const adapter = new PrismaLibSQL(libsql);
+  const adapter = new PrismaLibSql(libsql);
   prisma = new PrismaClient({ adapter });
 } else {
   const { PrismaPg } = require('@prisma/adapter-pg')

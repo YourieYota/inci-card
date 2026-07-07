@@ -28,11 +28,11 @@ function createClient(): PrismaClient {
   // --- SQLite via LibSQL (installations locales .exe) ---
   if (DB_PROVIDER === 'sqlite') {
     const { createClient: createLibSQLClient } = require('@libsql/client');
-    const { PrismaLibSQL } = require('@prisma/adapter-libsql');
+    const { PrismaLibSql } = require('@prisma/adapter-libsql');
 
     const url = connectionString || `file:${process.cwd()}/data/inci-card.db`;
     const libsql = createLibSQLClient({ url });
-    const adapter = new PrismaLibSQL(libsql);
+    const adapter = new PrismaLibSql(libsql);
     return new PrismaClient({ adapter });
   }
 
