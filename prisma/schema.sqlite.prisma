@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "libsql"
+  provider = "sqlite"
 }
 
 // --- FILE DE SYNC (mutations en attente d'envoi au serveur central) ---
