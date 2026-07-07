@@ -814,7 +814,9 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                     >
                       <QRCode
                         value={
-                          getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || emp.enrollmentNumber || emp.uniqueIdentifier
+                          el.field
+                            ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
+                            : (el.content ? resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) : (emp.enrollmentNumber || emp.uniqueIdentifier))
                         }
                         size={150}
                         style={{ height: "auto", maxWidth: "100%", width: "100%" }}

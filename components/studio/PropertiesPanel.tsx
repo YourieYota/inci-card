@@ -839,21 +839,58 @@ export default function PropertiesPanel({
           {selectedElement.type === 'qr' && (
             <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
               <div>
-                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">Lier la valeur au champ</label>
-                <select
-                  value={selectedElement.field || ''}
-                  onChange={(e) => onUpdateElement({ ...selectedElement, field: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
-                >
-                  {suggestedFields.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1">
-                  La valeur contenue dans ce champ Excel sera encodée dans le QR Code.
-                </p>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">Contenu du QR Code</label>
+                <div className="flex gap-2 mb-2">
+                  <button
+                    onClick={() => onUpdateElement({ ...selectedElement, field: suggestedFields[0], content: undefined })}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
+                      selectedElement.field
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-900 dark:text-indigo-400'
+                        : 'border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    Champ Unique
+                  </button>
+                  <button
+                    onClick={() => onUpdateElement({ ...selectedElement, field: undefined, content: '{Nom} - {Prenom}' })}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
+                      !selectedElement.field
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-900 dark:text-indigo-400'
+                        : 'border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    Format Multiple
+                  </button>
+                </div>
+
+                {selectedElement.field ? (
+                  <select
+                    value={selectedElement.field || ''}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, field: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
+                  >
+                    {suggestedFields.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <textarea
+                      value={selectedElement.content || ''}
+                      onChange={(e) => onUpdateElement({ ...selectedElement, content: e.target.value })}
+                      className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold min-h-[80px]"
+                      placeholder="Saisir le format (ex: Nom: {Nom}&#10;Prenom: {Prenom})"
+                    />
+                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 leading-normal px-1">
+                      Astuce : Insérez des champs dynamiques en écrivant :{" "}
+                      <span className="font-bold text-neutral-600 dark:text-neutral-400">
+                        {suggestedFields.map(f => `{${f}}`).join(", ")}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -37,6 +37,7 @@ model Company {
   identifierPrefix String?
   isLocked         Boolean            @default(false)
   isLaserEnabled   Boolean            @default(false)
+  protectAppModified Boolean          @default(true)
   cardCategories   CardCategory[]
   documentTypes    CardDocumentType[]
   cardFormats      CardFormat[]

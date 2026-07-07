@@ -451,8 +451,8 @@ export default function Canvas({
                           }`}
                         >
                           <QrCode className="w-full h-full max-w-[80%] max-h-[80%]" />
-                          <span className="text-[8px] font-semibold text-neutral-500 absolute bottom-1">
-                            {el.field ? `QR: {${el.field}}` : 'QR Code'}
+                          <span className="text-[8px] font-semibold text-neutral-500 absolute bottom-1 max-w-[90%] truncate text-center">
+                            {el.field ? `QR: {${el.field}}` : el.content ? `QR: ${el.content}` : 'QR Code'}
                           </span>
                         </div>
                       )}
@@ -465,8 +465,10 @@ export default function Canvas({
                             borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                             borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
                           }}
-                          className={`w-full h-full flex items-center justify-center overflow-hidden bg-neutral-100/50 dark:bg-neutral-800/30 text-neutral-400 dark:text-neutral-500 ${
-                            el.borderWidth === undefined ? 'border border-neutral-300/50 dark:border-neutral-700/50' : ''
+                          className={`w-full h-full flex items-center justify-center overflow-hidden ${
+                            !el.logoUrl ? 'bg-neutral-100/50 dark:bg-neutral-800/30 text-neutral-400 dark:text-neutral-500' : ''
+                          } ${
+                            el.borderWidth === undefined && !el.logoUrl ? 'border border-neutral-300/50 dark:border-neutral-700/50' : ''
                           }`}
                         >
                           {el.logoUrl ? (
