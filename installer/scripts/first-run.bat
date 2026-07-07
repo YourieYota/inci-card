@@ -35,7 +35,13 @@ set DATABASE_URL=file:%DATA_DIR%\inci-card.db
 "%NODE_EXE%" node_modules\prisma\build\index.js db push --schema prisma\schema.sqlite.prisma --config prisma.config.sqlite.ts --skip-generate 2>"%APP_DIR%logs\first-run.log"
 
 if %errorlevel% equ 0 (
-    echo [INCI Card] Base de donnees initialisee avec succes !
+    echo [INCI Card] Seeding de la base de donnees...
+    "%NODE_EXE%" prisma\seed.js >> "%APP_DIR%logs\first-run.log" 2>&1
+    if !errorlevel! equ 0 (
+        echo [INCI Card] Base de donnees initialisee et seedee avec succes !
+    ) else (
+        echo [INCI Card] Erreur lors du seeding. Voir logs\first-run.log
+    )
 ) else (
     echo [INCI Card] Erreur lors de l'initialisation. Voir logs\first-run.log
 )
