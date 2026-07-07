@@ -111,7 +111,7 @@ Set-Location $ProjectDir
 
 # Restaurer le client Prisma PostgreSQL pour le build (types corrects)
 Write-Host "    Regeneration du client Prisma PostgreSQL pour le build..." -ForegroundColor Gray
-& node_modules\.bin\prisma generate
+& node node_modules\prisma\build\index.js generate
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR : prisma generate (PostgreSQL) a echoue." -ForegroundColor Red
     exit 1
@@ -154,19 +154,19 @@ $env:DB_PROVIDER = "sqlite"
 
 # Générer le client SQLite directement dans le dossier build
 Set-Location "$BuildDir\app"
-& node ..\..\..\..\node_modules\.bin\prisma generate --schema prisma\schema.sqlite.prisma --config prisma.config.sqlite.ts 2>$null
+& node ..\..\..\..\node_modules\prisma\build\index.js generate --schema prisma\schema.sqlite.prisma --config prisma.config.sqlite.ts 2>$null
 if ($LASTEXITCODE -ne 0) {
     # Essayer depuis le projet source
     Set-Location $ProjectDir
     Write-Host "    Generation SQLite depuis la source..." -ForegroundColor Gray
-    & node_modules\.bin\prisma generate --schema prisma\schema.sqlite.prisma
+    & node node_modules\prisma\build\index.js generate --schema prisma\schema.sqlite.prisma
 }
 Set-Location $ProjectDir
 Write-Host "    Client Prisma SQLite inclus dans le build." -ForegroundColor Green
 
 # Restaurer le client Prisma PostgreSQL pour le développement local
 Write-Host "    Restauration du client Prisma PostgreSQL..." -ForegroundColor Gray
-& node_modules\.bin\prisma generate
+& node node_modules\prisma\build\index.js generate
 Write-Host "    Client PostgreSQL restaure." -ForegroundColor Green
 
 
