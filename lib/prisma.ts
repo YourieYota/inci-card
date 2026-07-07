@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaNeonHttp } from '@prisma/adapter-neon';
+import { PrismaNeonHTTP } from '@prisma/adapter-neon';
+import { neon } from '@neondatabase/serverless';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 
@@ -12,8 +13,8 @@ const createPrismaClient = () => {
   
   if (connectionString.includes('neon.tech')) {
     // Use Neon's HTTP adapter which is perfect for Serverless (no connection limits, no WebSockets required)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const adapter = new PrismaNeonHttp(connectionString, { schema: 'public' } as any);
+    const neonConnection = neon(connectionString);
+    const adapter = new PrismaNeonHTTP(neonConnection);
     return new PrismaClient({ adapter });
   }
 

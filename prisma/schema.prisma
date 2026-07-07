@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,7 +6,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// --- MODELE ROLES DYNAMIQUES ---
 model CustomRole {
   id          String   @id @default(uuid())
   name        String   @unique
@@ -25,134 +18,106 @@ model CustomRole {
   updatedAt   DateTime @updatedAt
 }
 
-// Les types de documents (BADGE, CARTE_PRO, RECU, + types personnalisés)
-// sont stockés comme des chaînes dynamiques dans CardTemplate.type
-
-
-// --- MODELES ---
-
-// Utilisateurs de l'application (Personnel de l'Imprimerie Nationale)
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  login         String?  @unique
-  passwordHash  String
-  name          String
-  firstName     String?
-  phone         String?
-  role          String   @default("OPERATEUR")
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  firstName    String?
+  login        String?  @unique
+  phone        String?
+  role         String   @default("OPERATEUR")
 }
 
-// Entreprises Clientes
 model Company {
   id               String             @id @default(uuid())
   name             String             @unique
+  createdAt        DateTime           @default(now())
   identifierPrefix String?
   isLocked         Boolean            @default(false)
   isLaserEnabled   Boolean            @default(false)
-  protectAppModified Boolean          @default(true) // Empêcher l'écrasement des modifs appli par l'import Excel
-  createdAt        DateTime           @default(now())
-  
-  // Relations
-  employees      Employee[]
-  templates      CardTemplate[]     // Une entreprise peut avoir plusieurs modèles
-  cardFormats    CardFormat[]
-  cardCategories CardCategory[]
-  physicalTypes  CardPhysicalType[]
-  documentTypes  CardDocumentType[]
-  deliveryBatches DeliveryBatch[]
+  cardCategories   CardCategory[]
+  documentTypes    CardDocumentType[]
+  cardFormats      CardFormat[]
+  physicalTypes    CardPhysicalType[]
+  templates        CardTemplate[]
+  deliveryBatches  DeliveryBatch[]
+  employees        Employee[]
 }
 
-// Employés des entreprises clientes
 model Employee {
-  id               String   @id @default(uuid())
-  
+  id               String         @id @default(uuid())
   companyId        String
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  dynamicData      Json     // Stocke la ligne Excel entière : {"Nom": "X", "Matricule": "Y"}
-  uniqueIdentifier String   // Clé anti-doublon (ex: Matricule) choisie à l'import
-  
-  // La photo est strictement reliée à l'employé
-  photoUrl         String?  // URL de l'image stockée sur le serveur (ex: S3)
-  photoHash        String?  // Empreinte numérique de la photo (SHA-256)
-  photoConflict    Boolean  @default(false) // Conflit de duplication photo suspecte
-  enrollmentNumber String?  // Numéro d'enrôlement unique
-  cardNumber       String?  // Numéro unique de carte (ex: BADGE-0001)
-  
-  status           String   @default("A_ENROLER") // États : A_ENROLER, PHOTO_VALIDEE, IMPRIME, A_VERIFIER, REIMPRESSION
-  isLocked         Boolean  @default(false) // Verrouillé après impression
-  isBlocked        Boolean  @default(false) // Badge bloqué (volé, perdu, etc.)
-  appModified      Boolean  @default(false) // Indique si la fiche a été modifiée dans l'application
-  printCount       Int      @default(0)     // Nombre d'impressions réalisées
-  
-  printedAt        DateTime? 
+  dynamicData      Json
+  uniqueIdentifier String
+  photoUrl         String?
+  status           String         @default("A_ENROLER")
+  printedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  enrollmentNumber String?
+  photoConflict    Boolean        @default(false)
+  photoHash        String?
+  deliveryBatchId  String?
+  updatedAt        DateTime       @default(now()) @updatedAt
   enrolledBy       String?
   printedBy        String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @default(now()) @updatedAt
-  
-  deliveryBatchId  String?
-  deliveryBatch    DeliveryBatch? @relation(fields: [deliveryBatchId], references: [id], onDelete: SetNull)
+  cardNumber       String?
+  isBlocked        Boolean        @default(false)
+  isLocked         Boolean        @default(false)
+  printCount       Int            @default(0)
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  deliveryBatch    DeliveryBatch? @relation(fields: [deliveryBatchId], references: [id])
   printJobs        PrintJob[]
-  
-  // Un employé est unique au sein de son entreprise
-  @@unique([companyId, uniqueIdentifier]) 
+
+  @@unique([companyId, uniqueIdentifier])
 }
 
-// Modèles de conception (Studio Drag & Drop)
 model CardTemplate {
-  id            String   @id @default(uuid())
-  
+  id            String        @id @default(uuid())
   companyId     String
-  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  type          String   @default("BADGE") // BADGE, CARTE_PRO, RECU, ou type personnalisé
-  
+  width         Int           @default(324)
+  height        Int           @default(204)
+  backgroundUrl String?
+  layoutConfig  Json
   categoryId    String?
-  category      CardCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  
-  width         Int      @default(324) // Dimensions par défaut (CR80)
-  height        Int      @default(204)
-  backgroundUrl String?  // Image de fond de la carte
-  
-  layoutConfig  Json     // Tableau d'éléments: [{id, type, x, y, width, height, variableExcel}]
+  type          String        @default("BADGE")
+  category      CardCategory? @relation(fields: [categoryId], references: [id])
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, type, categoryId])
 }
 
 model CardFormat {
-  id          String         @id @default(uuid())
-  name        String
-  width       Float          @default(85.6) // CR80 standard width (mm)
-  height      Float          @default(53.98) // CR80 standard height (mm)
-  unit        String         @default("mm") // mm, px, in
-  companyId   String?
-  company     Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  categories  CardCategory[]
+  id         String         @id @default(uuid())
+  name       String
+  width      Float          @default(85.6)
+  height     Float          @default(53.98)
+  unit       String         @default("mm")
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  companyId  String?
+  categories CardCategory[]
+  company    Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, name])
 }
 
 model CardCategory {
-  id               String         @id @default(uuid())
-  name             String
-  slug             String
-  color            String         @default("#6366f1")
-  description      String?
-  validityValue    Int?           @default(1)    // Durée de validité de la carte (null = permanente)
-  validityUnit     String?        @default("YEAR") // YEAR, MONTH, DAY (null = permanente)
-  formatId         String
-  format           CardFormat     @relation(fields: [formatId], references: [id], onDelete: Restrict)
-  companyId        String?
-  company          Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  templates        CardTemplate[]
-  documentTypeSlug String?        @default("")   // Le slug du type de document lié (ex: BADGE, CARTE_PRO, etc.)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id            String         @id @default(uuid())
+  name          String
+  slug          String
+  color         String         @default("#6366f1")
+  description   String?
+  formatId      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  companyId     String?
+  validityUnit  String?        @default("YEAR")
+  validityValue Int?           @default(1)
+  company       Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  format        CardFormat     @relation(fields: [formatId], references: [id])
+  templates     CardTemplate[]
 
   @@unique([companyId, name])
   @@unique([companyId, slug])
@@ -163,30 +128,27 @@ model CardPhysicalType {
   name        String
   slug        String
   description String?
-  cardCode    String   @default("")
-  companyId   String?
-  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  companyId   String?
+  cardCode    String   @default("")
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, name])
   @@unique([companyId, slug])
 }
 
 model DeliveryBatch {
-  id              String   @id @default(uuid())
-  batchNumber     String?  @unique
-  companyId       String
-  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  status          String   @default("PREPARE") // PREPARE, EN_TRANSIT, LIVRE
-  employees       Employee[]
-  shippedAt       DateTime?
-  deliveredAt     DateTime?
-  signedProof     String?
-  signedProofName String?
-  signedProofType String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now()) @updatedAt
+  id          String     @id @default(uuid())
+  companyId   String
+  status      String     @default("PREPARE")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @default(now()) @updatedAt
+  batchNumber String?    @unique
+  deliveredAt DateTime?
+  shippedAt   DateTime?
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees   Employee[]
 }
 
 model CardDocumentType {
@@ -194,33 +156,27 @@ model CardDocumentType {
   name        String
   slug        String
   description String?
-  cardCode    String   @default("") // Code unique d'identification du type (ex: BADGE, CPRO)
   companyId   String?
-  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  cardCode    String   @default("")
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, name])
   @@unique([companyId, slug])
 }
 
-// Historique complet de chaque impression
 model PrintJob {
-  id              String   @id @default(uuid())
-  
-  employeeId      String
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
-  cardNumber      String   // Le numéro de carte attribué à cette impression
-  templateType    String   // Type de document utilisé (BADGE, CARTE_PRO, etc.)
-  categoryId      String?  // Catégorie utilisée
-  physicalTypeId  String?  // Type de support utilisé
-  
-  isReprint       Boolean  @default(false) // S'agit-il d'une réimpression ?
-  reprintReason   String?  // Justificatif de réimpression
-  
-  printedBy       String   // Nom de l'opérateur
-  printedAt       DateTime @default(now())
-  
-  createdAt       DateTime @default(now())
+  id             String   @id @default(uuid())
+  employeeId     String
+  cardNumber     String
+  templateType   String
+  categoryId     String?
+  physicalTypeId String?
+  isReprint      Boolean  @default(false)
+  reprintReason  String?
+  printedBy      String
+  printedAt      DateTime @default(now())
+  createdAt      DateTime @default(now())
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }

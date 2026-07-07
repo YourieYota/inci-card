@@ -929,6 +929,7 @@ export default function PrintClient({ employees, templates, companyName, documen
   const [selectedTemplateType, setSelectedTemplateType] = useState<string>('BADGE');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedPhysicalTypeId, setSelectedPhysicalTypeId] = useState<string>('');
+  const [printFormat, setPrintFormat] = useState<'A4' | 'CARD'>('A4');
   const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>('side-by-side');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -1196,6 +1197,32 @@ export default function PrintClient({ employees, templates, companyName, documen
     const selectedCategoryName = categories.find((c) => c.id === selectedCategoryId)?.name;
     const selectedPhysicalTypeName = physicalTypes.find((p) => p.id === selectedPhysicalTypeId)?.name;
 
+    if (printFormat === 'CARD') {
+      if (layoutMode === 'recto-only') {
+        return eligibleEmployees.map((emp, idx) => (
+          <div key={`card-recto-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
+            <CardRender emp={emp} template={template} side="recto" selectedCategoryName={selectedCategoryName} selectedPhysicalTypeName={selectedPhysicalTypeName} validityValue={validityValue} validityUnit={validityUnit} />
+          </div>
+        ));
+      }
+      if (layoutMode === 'verso-only') {
+        return eligibleEmployees.map((emp, idx) => (
+          <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
+            <CardRender emp={emp} template={template} side="verso" selectedCategoryName={selectedCategoryName} selectedPhysicalTypeName={selectedPhysicalTypeName} validityValue={validityValue} validityUnit={validityUnit} />
+          </div>
+        ));
+      }
+      // duplex
+      return eligibleEmployees.flatMap((emp, idx) => [
+        <div key={`card-recto-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
+          <CardRender emp={emp} template={template} side="recto" selectedCategoryName={selectedCategoryName} selectedPhysicalTypeName={selectedPhysicalTypeName} validityValue={validityValue} validityUnit={validityUnit} />
+        </div>,
+        <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
+          <CardRender emp={emp} template={template} side="verso" selectedCategoryName={selectedCategoryName} selectedPhysicalTypeName={selectedPhysicalTypeName} validityValue={validityValue} validityUnit={validityUnit} />
+        </div>
+      ]);
+    }
+
     if (layoutMode === 'side-by-side') {
       const chunks = chunkArray(eligibleEmployees, sideBySideChunkSize);
       return chunks.map((chunk, pageIdx) => (
@@ -1423,20 +1450,41 @@ export default function PrintClient({ employees, templates, companyName, documen
             </div>
           )}
 
+          {/* Print Format */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Format:</span>
+            <select
+              value={printFormat}
+              onChange={(e) => {
+                const val = e.target.value as 'A4' | 'CARD';
+                setPrintFormat(val);
+                if (val === 'CARD' && layoutMode === 'side-by-side') {
+                  setLayoutMode('duplex');
+                }
+              }}
+              className="px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200 outline-none"
+            >
+              <option value="A4">Planche A4</option>
+              <option value="CARD">Imprimante à badges (Ex: CR80)</option>
+            </select>
+          </div>
+
           {/* Layout Mode */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Mise en page:</span>
             <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5">
-              <button
-                onClick={() => setLayoutMode('side-by-side')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
-                  layoutMode === 'side-by-side' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
-                }`}
-                title="Pliage Recto/Verso côte à côte"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Pliage ( Recto+Verso )</span>
-              </button>
+              {printFormat === 'A4' && (
+                <button
+                  onClick={() => setLayoutMode('side-by-side')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                    layoutMode === 'side-by-side' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                  title="Pliage Recto/Verso côte à côte"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Pliage ( Recto+Verso )</span>
+                </button>
+              )}
               <button
                 onClick={() => setLayoutMode('duplex')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
@@ -1445,7 +1493,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                 title="Duplex pages recto puis pages verso"
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>Duplex ( Pages séparées )</span>
+                <span>{printFormat === 'A4' ? 'Duplex ( Pages séparées )' : 'Recto/Verso'}</span>
               </button>
               <button
                 onClick={() => setLayoutMode('recto-only')}
@@ -1556,14 +1604,31 @@ export default function PrintClient({ employees, templates, companyName, documen
           box-sizing: border-box;
           position: relative;
         }
+
+        .print-page-card-preview {
+          background: white;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          width: ${mmWidth}mm;
+          height: ${mmHeight}mm;
+          margin-left: auto;
+          margin-right: auto;
+          box-sizing: border-box;
+          position: relative;
+        }
         
-        .dark .print-page-preview {
+        .dark .print-page-preview, .dark .print-page-card-preview {
           background: #15151a !important;
           border-color: #272730 !important;
           box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         }
         
         @media print {
+          @page {
+            size: ${printFormat === 'CARD' ? `${mmWidth}mm ${mmHeight}mm` : 'A4'};
+            margin: 0;
+          }
           /* Hide all screen components by default */
           body * {
             visibility: hidden;
@@ -1578,7 +1643,7 @@ export default function PrintClient({ employees, templates, companyName, documen
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 210mm !important;
+            width: ${printFormat === 'CARD' ? `${mmWidth}mm` : '210mm'} !important;
             margin: 0 !important;
             padding: 0 !important;
             display: block !important;
@@ -1596,6 +1661,8 @@ export default function PrintClient({ employees, templates, companyName, documen
           body {
             background: white !important;
             color: black !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           .print-page {
             page-break-after: always !important;
@@ -1610,9 +1677,22 @@ export default function PrintClient({ employees, templates, companyName, documen
             box-sizing: border-box !important;
             overflow: hidden !important;
           }
+          .print-page-card {
+            page-break-after: always !important;
+            page-break-inside: avoid !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: ${mmWidth}mm !important;
+            height: ${mmHeight}mm !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+          }
           html, body {
-            width: 210mm !important;
-            height: 297mm !important;
+            width: ${printFormat === 'CARD' ? `${mmWidth}mm` : '210mm'} !important;
+            height: ${printFormat === 'CARD' ? `${mmHeight}mm` : '297mm'} !important;
             overflow: hidden !important;
             margin: 0 !important;
             padding: 0 !important;
