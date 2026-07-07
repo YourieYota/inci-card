@@ -11,7 +11,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // --- FILE DE SYNC (mutations en attente d'envoi au serveur central) ---
