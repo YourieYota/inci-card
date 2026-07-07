@@ -137,7 +137,7 @@ Write-Host "    Build Next.js termine." -ForegroundColor Green
 # ÉTAPE 5bis : Copier les fichiers buildés dans installer\build\app\
 # ============================================================
 Write-Host "    Copie des artefacts Next.js..." -ForegroundColor Gray
-$AppFiles = @(".next", "node_modules", "public", "prisma", "package.json", "next.config.ts", "prisma.config.sqlite.ts", "prisma.config.ts")
+$AppFiles = @(".next", "node_modules", "public", "prisma", "scripts", "package.json", "next.config.ts", "prisma.config.sqlite.ts", "prisma.config.ts")
 foreach ($f in $AppFiles) {
     if (Test-Path "$ProjectDir\$f") {
         Copy-Item "$ProjectDir\$f" "$BuildDir\app\$f" -Recurse -Force
@@ -163,6 +163,25 @@ if ($LASTEXITCODE -ne 0) {
 }
 Set-Location $ProjectDir
 Write-Host "    Client Prisma SQLite inclus dans le build." -ForegroundColor Green
+
+# Patch the generated Prisma client index.js to inject datasource URL
+# (Prisma 7 WASM query compiler needs an explicit URL in the inlineSchema)
+Write-Host "    Patch du client Prisma (injection URL SQLite)..." -ForegroundColor Gray
+$PrismaIndex = "$BuildDir\app\node_modules\.prisma\client\index.js"
+if (Test-Path $PrismaIndex) {
+    $content = Get-Content $PrismaIndex -Raw
+    $search = 'datasource db {\n  provider = \"sqlite\"\n}'
+    $replace = 'datasource db {\n  provider = \"sqlite\"\n  url      = \"file:./data/inci-card.db\"\n}'
+    if ($content.Contains($search)) {
+        $content = $content.Replace($search, $replace)
+        Set-Content $PrismaIndex -Value $content -NoNewline
+        Write-Host "    Client Prisma patche avec URL SQLite." -ForegroundColor Green
+    } else {
+        Write-Host "    ATTENTION: Pattern datasource non trouve dans index.js" -ForegroundColor Red
+    }
+} else {
+    Write-Host "    ATTENTION: index.js Prisma non trouve" -ForegroundColor Red
+}
 
 # Restaurer le client Prisma PostgreSQL pour le développement local
 Write-Host "    Restauration du client Prisma PostgreSQL..." -ForegroundColor Gray

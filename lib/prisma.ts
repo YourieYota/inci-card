@@ -33,7 +33,24 @@ function createClient(): PrismaClient {
     const url = connectionString || `file:${process.cwd()}/data/inci-card.db`;
     const libsql = createLibSQLClient({ url });
     const adapter = new PrismaLibSql(libsql);
-    return new PrismaClient({ adapter });
+
+    // Prisma 7: The WASM query compiler needs a datasource URL in the inlineSchema,
+    // but `prisma generate` for SQLite omits it. Use configOverride to inject it at runtime.
+    return new PrismaClient({
+      adapter,
+      __internal: {
+        configOverride: (config: Record<string, unknown>) => {
+          const schema = config.inlineSchema as string;
+          if (schema && !schema.includes('url')) {
+            config.inlineSchema = schema.replace(
+              /datasource\s+db\s*\{[^}]*provider\s*=\s*"sqlite"[^}]*\}/,
+              `datasource db {\n  provider = "sqlite"\n  url      = "${url}"\n}`
+            );
+          }
+          return config;
+        },
+      },
+    } as ConstructorParameters<typeof PrismaClient>[0]);
   }
 
   // --- PostgreSQL Neon HTTP (cloud Neon) ---
