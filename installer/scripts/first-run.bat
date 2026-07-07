@@ -32,7 +32,7 @@ cd /d "%NEXT_DIR%"
 set DB_PROVIDER=sqlite
 set DATABASE_URL=file:%DATA_DIR%\inci-card.db
 
-"%NODE_EXE%" node_modules\.bin\prisma db push --schema prisma\schema.sqlite.prisma --config prisma.config.sqlite.ts --skip-generate 2>"%APP_DIR%logs\first-run.log"
+"%NODE_EXE%" node_modules\prisma\build\index.js db push --schema prisma\schema.sqlite.prisma --config prisma.config.sqlite.ts --skip-generate 2>"%APP_DIR%logs\first-run.log"
 
 if %errorlevel% equ 0 (
     echo [INCI Card] Base de donnees initialisee avec succes !

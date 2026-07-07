@@ -23,7 +23,7 @@ echo [INCI Card] Installation des services Windows...
 echo [INCI Card] Creation du service INCI-Card-App...
 "%NSSM%" install INCI-Card-App "%NODE_EXE%"
 "%NSSM%" set INCI-Card-App AppDirectory "%NEXT_DIR%"
-"%NSSM%" set INCI-Card-App AppParameters "node_modules\.bin\next start -p 3000"
+"%NSSM%" set INCI-Card-App AppParameters "node_modules\next\dist\bin\next start -p 3000"
 "%NSSM%" set INCI-Card-App DisplayName "INCI Card - Application"
 "%NSSM%" set INCI-Card-App Description "Serveur INCI Card (Next.js) - Port 3000"
 "%NSSM%" set INCI-Card-App Start SERVICE_AUTO_START
