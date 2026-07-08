@@ -806,9 +806,9 @@ export default function PropertiesPanel({
               </div>
 
               {/* Formatting & Alignment */}
-              <div className="flex gap-4 pt-1">
-                <div className="flex-1">
-                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Alignement</label>
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Alignement Horiz.</label>
                   <div className="flex border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden bg-neutral-50 dark:bg-neutral-900">
                     <button
                       onClick={() => onUpdateElement({ ...selectedElement, alignment: 'left' })}
@@ -837,51 +837,110 @@ export default function PropertiesPanel({
                   </div>
                 </div>
 
-                <div className="w-36">
-                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Style</label>
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Alignement Vert.</label>
                   <div className="flex border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden bg-neutral-50 dark:bg-neutral-900">
                     <button
-                      onClick={() =>
-                        onUpdateElement({
-                          ...selectedElement,
-                          fontWeight: selectedElement.fontWeight === 'bold' ? 'normal' : 'bold',
-                        })
-                      }
+                      onClick={() => onUpdateElement({ ...selectedElement, verticalAlignment: 'top' })}
                       className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
-                        selectedElement.fontWeight === 'bold' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
+                        selectedElement.verticalAlignment === 'top' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
                       }`}
-                      title="Gras"
                     >
-                      <Bold className="w-4 h-4" />
+                      <AlignLeft className="w-4 h-4 rotate-90" />
                     </button>
                     <button
-                      onClick={() =>
-                        onUpdateElement({
-                          ...selectedElement,
-                          fontStyle: selectedElement.fontStyle === 'italic' ? 'normal' : 'italic',
-                        })
-                      }
+                      onClick={() => onUpdateElement({ ...selectedElement, verticalAlignment: 'middle' })}
                       className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
-                        selectedElement.fontStyle === 'italic' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
+                        selectedElement.verticalAlignment === 'middle' || !selectedElement.verticalAlignment ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
                       }`}
-                      title="Italique"
                     >
-                      <Italic className="w-4 h-4" />
+                      <AlignCenter className="w-4 h-4 rotate-90" />
                     </button>
                     <button
-                      onClick={() =>
-                        onUpdateElement({
-                          ...selectedElement,
-                          textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase',
-                        })
-                      }
+                      onClick={() => onUpdateElement({ ...selectedElement, verticalAlignment: 'bottom' })}
                       className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
-                        selectedElement.textTransform === 'uppercase' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
+                        selectedElement.verticalAlignment === 'bottom' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
                       }`}
-                      title="Majuscules"
                     >
-                      <Type className="w-4 h-4" />
+                      <AlignRight className="w-4 h-4 rotate-90" />
                     </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Style de texte</label>
+                <div className="flex border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden bg-neutral-50 dark:bg-neutral-900">
+                  <button
+                    onClick={() =>
+                      onUpdateElement({
+                        ...selectedElement,
+                        fontWeight: selectedElement.fontWeight === 'bold' ? 'normal' : 'bold',
+                      })
+                    }
+                    className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
+                      selectedElement.fontWeight === 'bold' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
+                    }`}
+                    title="Gras"
+                  >
+                    <Bold className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      onUpdateElement({
+                        ...selectedElement,
+                        fontStyle: selectedElement.fontStyle === 'italic' ? 'normal' : 'italic',
+                      })
+                    }
+                    className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
+                      selectedElement.fontStyle === 'italic' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
+                    }`}
+                    title="Italique"
+                  >
+                    <Italic className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      onUpdateElement({
+                        ...selectedElement,
+                        textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase',
+                      })
+                    }
+                    className={`flex-1 py-2 flex justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
+                      selectedElement.textTransform === 'uppercase' ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' : 'text-neutral-500'
+                    }`}
+                    title="Majuscules"
+                  >
+                    <Type className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Interligne</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="ex: 1.5"
+                    value={selectedElement.lineHeight !== undefined ? selectedElement.lineHeight : ''}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, lineHeight: e.target.value ? parseFloat(e.target.value) : undefined })}
+                    className="w-full px-2.5 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Espace (px)</label>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      placeholder="ex: 1"
+                      value={selectedElement.letterSpacing !== undefined ? selectedElement.letterSpacing : ''}
+                      onChange={(e) => onUpdateElement({ ...selectedElement, letterSpacing: e.target.value ? parseFloat(e.target.value) : undefined })}
+                      className="w-full px-2.5 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-sm font-semibold"
+                    />
                   </div>
                 </div>
               </div>

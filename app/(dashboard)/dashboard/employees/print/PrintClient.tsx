@@ -748,13 +748,14 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       textTransform: el.textTransform || 'none',
                       textAlign: el.alignment || 'left',
                       display: 'flex',
-                      alignItems: 'center',
+                      alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
                       justifyContent: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
                       overflow: 'hidden',
                       whiteSpace: 'normal',
                       wordBreak: 'normal',
                       overflowWrap: 'break-word',
-                      lineHeight: 'normal',
+                      lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',
+                      letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
                     }}
                   >
                     {el.field
