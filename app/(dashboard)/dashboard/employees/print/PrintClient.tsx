@@ -765,7 +765,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
 
                 {el.type === 'image' && (
                   <div
-                    className="w-full h-full overflow-hidden flex items-center justify-center bg-white"
+                    className={`w-full h-full overflow-hidden flex items-center justify-center ${!emp.photoUrl ? 'bg-white' : ''}`}
                     style={{
                       borderRadius: `${el.borderRadius || 0}px`,
                       borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
@@ -802,7 +802,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
 
                 {el.type === 'qr' && (
                   <div
-                    className="w-full h-full overflow-hidden bg-white flex items-center justify-center"
+                    className="w-full h-full overflow-hidden flex items-center justify-center"
                     style={{
                       borderRadius: `${el.borderRadius || 0}px`,
                       borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
@@ -826,7 +826,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
 
                 {el.type === 'logo' && (
                   <div
-                    className="w-full h-full overflow-hidden flex items-center justify-center bg-neutral-100/30 dark:bg-neutral-800/30"
+                    className="w-full h-full overflow-hidden flex items-center justify-center"
                     style={{
                       borderRadius: `${el.borderRadius || 0}px`,
                       borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
