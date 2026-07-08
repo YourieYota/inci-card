@@ -20,7 +20,7 @@ export interface StudioElement {
   fontFamily?: string;
   fontWeight?: 'normal' | 'bold';
   fontStyle?: 'normal' | 'italic';
-  textTransform?: 'none' | 'uppercase';
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize' | 'first-letter';
   alignment?: 'left' | 'center' | 'right';
   verticalAlignment?: 'top' | 'middle' | 'bottom';
   lineHeight?: number;
@@ -395,7 +395,7 @@ export default function Canvas({
                             fontFamily: el.fontFamily || 'sans-serif',
                             fontWeight: el.fontWeight || 'normal',
                             fontStyle: el.fontStyle || 'normal',
-                            textTransform: el.textTransform || 'none',
+                            textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
                             textAlign: el.alignment || 'left',
                             lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',
                             letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
@@ -403,13 +403,24 @@ export default function Canvas({
                           }}
                           className="w-full h-full flex justify-center p-1 break-normal select-none overflow-hidden"
                         >
-                          {el.field ? (
-                            <span className="bg-neutral-100/30 dark:bg-neutral-800/20 px-1 rounded font-medium border border-neutral-200/30 dark:border-neutral-700/20">
-                              {`{${el.field}}`}
-                            </span>
-                          ) : (
-                            el.content || 'Texte'
-                          )}
+                          {(() => {
+                            let rawText = el.field ? `{${el.field}}` : (el.content || 'Texte');
+                            if (el.textTransform === 'first-letter' && typeof rawText === 'string' && rawText.length > 0) {
+                              if (el.field) {
+                                return (
+                                  <span className="bg-neutral-100/30 dark:bg-neutral-800/20 px-1 rounded font-medium border border-neutral-200/30 dark:border-neutral-700/20">
+                                    {rawText}
+                                  </span>
+                                );
+                              }
+                              return rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase();
+                            }
+                            return el.field ? (
+                              <span className="bg-neutral-100/30 dark:bg-neutral-800/20 px-1 rounded font-medium border border-neutral-200/30 dark:border-neutral-700/20">
+                                {rawText}
+                              </span>
+                            ) : rawText;
+                          })()}
                         </div>
                       )}
 

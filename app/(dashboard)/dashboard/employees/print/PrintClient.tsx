@@ -745,7 +745,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       fontFamily: el.fontFamily || 'sans-serif',
                       fontWeight: el.fontWeight || 'normal',
                       fontStyle: el.fontStyle || 'normal',
-                      textTransform: el.textTransform || 'none',
+                      textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
                       textAlign: el.alignment || 'left',
                       display: 'flex',
                       alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
@@ -758,10 +758,16 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
                     }}
                   >
-                    {el.field
-                      ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
-                      : resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit)
-                    }
+                    {(() => {
+                      let rawText = el.field
+                        ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
+                        : resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit);
+                      
+                      if (el.textTransform === 'first-letter' && typeof rawText === 'string' && rawText.length > 0) {
+                        return rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase();
+                      }
+                      return rawText;
+                    })()}
                   </div>
                 )}
 
