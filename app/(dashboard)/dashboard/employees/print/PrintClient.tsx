@@ -771,6 +771,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
                       borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                       borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                      filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
                     }}
                   >
                     {emp.photoUrl ? (
@@ -809,6 +810,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                       borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
                       padding: '5%',
+                      filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
                     }}
                   >
                     <QRCode
@@ -842,6 +844,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                           width: '100%',
                           height: '100%',
                           objectFit: 'contain',
+                          filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
                         }}
                         alt="Logo"
                       />

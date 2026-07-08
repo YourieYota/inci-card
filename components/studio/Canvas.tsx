@@ -30,6 +30,8 @@ export interface StudioElement {
   borderColor?: string;
   blendMode?: string;
   rotation?: number;
+  brightness?: number;
+  contrast?: number;
   // Intaglio effect parameters
   intaglio?: boolean;
   intaglioResolution?: number;
@@ -418,6 +420,7 @@ export default function Canvas({
                               borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
                               borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                               borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                              filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
                             }}
                           />
                         ) : (
@@ -427,6 +430,7 @@ export default function Canvas({
                               borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
                               borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                               borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                              filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
                             }}
                             className={`w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-2 text-neutral-400 dark:text-neutral-500 overflow-hidden ${
                               el.borderWidth === undefined ? 'border border-neutral-300 dark:border-neutral-700' : ''
@@ -445,6 +449,7 @@ export default function Canvas({
                             borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
                             borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
                             borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                            filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
                           }}
                           className={`w-full h-full bg-white flex flex-col items-center justify-center p-2 text-black overflow-hidden ${
                             el.borderWidth === undefined ? 'border border-neutral-300' : ''
@@ -472,11 +477,11 @@ export default function Canvas({
                           }`}
                         >
                           {el.logoUrl ? (
-                            <img src={el.logoUrl} className="w-full h-full object-contain" alt="Logo" />
+                            <img src={el.logoUrl} className="w-full h-full object-contain" alt="Logo" style={{ filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)` }} />
                           ) : (
-                            <div className="flex flex-col items-center justify-center p-2 text-center select-none">
-                              <ImageIcon className="w-8 h-8 opacity-75 mb-1 text-indigo-500 dark:text-indigo-400" />
-                              <span className="text-[10px] font-semibold tracking-wide uppercase">Logo / Image</span>
+                            <div className="flex flex-col items-center">
+                              <ImageIcon className="w-8 h-8 opacity-50 mb-1" />
+                              <span className="text-[10px] font-medium tracking-wide uppercase">Logo</span>
                             </div>
                           )}
                         </div>

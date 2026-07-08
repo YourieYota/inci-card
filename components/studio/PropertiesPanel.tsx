@@ -371,6 +371,59 @@ export default function PropertiesPanel({
             </div>
           </div>
 
+          {/* Ajustements d'image (Luminosité & Contraste) */}
+          {(selectedElement.type === 'image' || selectedElement.type === 'logo' || selectedElement.type === 'qr') && (
+            <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                  Luminosité ({selectedElement.brightness ?? 100}%)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    step="5"
+                    value={selectedElement.brightness ?? 100}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, brightness: parseInt(e.target.value) })}
+                    className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <button
+                    onClick={() => onUpdateElement({ ...selectedElement, brightness: 100 })}
+                    className="text-[10px] text-neutral-400 hover:text-indigo-500 font-medium px-1"
+                    title="Réinitialiser"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                  Contraste ({selectedElement.contrast ?? 100}%)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="300"
+                    step="5"
+                    value={selectedElement.contrast ?? 100}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, contrast: parseInt(e.target.value) })}
+                    className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <button
+                    onClick={() => onUpdateElement({ ...selectedElement, contrast: 100 })}
+                    className="text-[10px] text-neutral-400 hover:text-indigo-500 font-medium px-1"
+                    title="Réinitialiser"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Border Width & Color for Image/Logo/QR */}
           {(selectedElement.type === 'image' || selectedElement.type === 'logo' || selectedElement.type === 'qr') && (
             <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
