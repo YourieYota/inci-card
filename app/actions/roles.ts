@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { PERMISSION_KEYS } from '@/lib/permissions';
+import { revalidatePath } from 'next/cache';
 
 // --- System roles default permissions -----------------------------------------
 const SYSTEM_ROLES = [
@@ -114,6 +115,7 @@ export async function createRole(data: {
         permissions: data.permissions,
       },
     });
+    revalidatePath('/dashboard', 'layout');
     return { success: true, role: { ...role, permissions: role.permissions as Record<string, boolean>, userCount: 0 } };
   } catch (e: any) {
     throw new Error(e.message || 'Impossible de créer le rôle');
@@ -143,6 +145,7 @@ export async function updateRole(id: string, data: {
       updateData.name = data.name;
     }
     const updated = await prisma.customRole.update({ where: { id }, data: updateData });
+    revalidatePath('/dashboard', 'layout');
     return { success: true, role: { ...updated, permissions: updated.permissions as Record<string, boolean> } };
   } catch (e: any) {
     throw new Error(e.message || 'Impossible de modifier le rôle');
@@ -164,6 +167,7 @@ export async function deleteRole(id: string) {
       data: { role: 'OPERATEUR' },
     });
     await prisma.customRole.delete({ where: { id } });
+    revalidatePath('/dashboard', 'layout');
     return { success: true };
   } catch (e: any) {
     throw new Error(e.message || 'Impossible de supprimer le rôle');

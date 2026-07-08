@@ -752,7 +752,8 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       justifyContent: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
                       overflow: 'hidden',
                       whiteSpace: 'normal',
-                      wordBreak: 'break-all',
+                      wordBreak: 'normal',
+                      overflowWrap: 'break-word',
                       lineHeight: 'normal',
                     }}
                   >

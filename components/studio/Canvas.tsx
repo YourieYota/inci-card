@@ -395,7 +395,7 @@ export default function Canvas({
                             textTransform: el.textTransform || 'none',
                             textAlign: el.alignment || 'left',
                           }}
-                          className="w-full h-full flex items-center justify-center p-1 break-words select-none leading-normal overflow-hidden"
+                          className="w-full h-full flex items-center justify-center p-1 break-normal select-none leading-normal overflow-hidden"
                         >
                           {el.field ? (
                             <span className="bg-neutral-100/30 dark:bg-neutral-800/20 px-1 rounded font-medium border border-neutral-200/30 dark:border-neutral-700/20">

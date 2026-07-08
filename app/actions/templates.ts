@@ -1,4 +1,5 @@
 'use server';
+import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
 
@@ -35,7 +36,7 @@ export async function getCompaniesWithCounts() {
 
 export async function createCompany(name: string, identifierPrefix?: string | null, isLaserEnabled?: boolean, protectAppModified?: boolean) {
   try {
-    return await prisma.company.create({
+    const result = await prisma.company.create({
       data: { 
         name,
         identifierPrefix: identifierPrefix || null,
@@ -43,6 +44,8 @@ export async function createCompany(name: string, identifierPrefix?: string | nu
         protectAppModified: protectAppModified ?? true,
       },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error creating company:', error);
     throw new Error(`Impossible de créer l'entreprise : ${error?.message || error}`);
@@ -57,7 +60,7 @@ export async function updateCompany(
   protectAppModified?: boolean
 ) {
   try {
-    return await prisma.company.update({
+    const result = await prisma.company.update({
       where: { id: companyId },
       data: {
         name,
@@ -66,6 +69,8 @@ export async function updateCompany(
         protectAppModified: protectAppModified ?? true,
       },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error updating company:', error);
     throw new Error(`Impossible de modifier l'entreprise : ${error?.message || error}`);
@@ -115,7 +120,7 @@ export async function saveTemplate({
     });
 
     if (existing) {
-      return await prisma.cardTemplate.update({
+      const result = await prisma.cardTemplate.update({
         where: { id: existing.id },
         data: {
           width,
@@ -124,8 +129,10 @@ export async function saveTemplate({
           layoutConfig,
         },
       });
+    revalidatePath('/dashboard', 'layout');
+    return result;
     } else {
-      return await prisma.cardTemplate.create({
+      const result = await prisma.cardTemplate.create({
         data: {
           companyId,
           type,
@@ -136,6 +143,8 @@ export async function saveTemplate({
           layoutConfig,
         },
       });
+    revalidatePath('/dashboard', 'layout');
+    return result;
     }
   } catch (error) {
     console.warn('Error saving template:', error);
@@ -199,9 +208,11 @@ export async function deleteCompany(companyId: string) {
       throw new Error("Cette entreprise est verrouillée et ne peut pas être supprimée.");
     }
 
-    return await prisma.company.delete({
+    const result = await prisma.company.delete({
       where: { id: companyId },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error deleting company:', error);
     throw new Error(error.message || 'Impossible de supprimer l\'entreprise');
@@ -210,10 +221,12 @@ export async function deleteCompany(companyId: string) {
 
 export async function toggleCompanyLock(companyId: string, isLocked: boolean) {
   try {
-    return await prisma.company.update({
+    const result = await prisma.company.update({
       where: { id: companyId },
       data: { isLocked },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error) {
     console.warn('Error toggling company lock:', error);
     throw new Error('Impossible de modifier le verrouillage de l\'entreprise');

@@ -67,6 +67,7 @@ model Employee {
   isBlocked        Boolean        @default(false)
   isLocked         Boolean        @default(false)
   printCount       Int            @default(0)
+  appModified      Boolean        @default(false)
   company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   deliveryBatch    DeliveryBatch? @relation(fields: [deliveryBatchId], references: [id])
   printJobs        PrintJob[]

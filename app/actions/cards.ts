@@ -1,4 +1,5 @@
 'use server';
+import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
 
@@ -46,7 +47,7 @@ export async function createCardFormat(data: {
   companyId?: string | null;
 }) {
   try {
-    return await prisma.cardFormat.create({
+    const result = await prisma.cardFormat.create({
       data: {
         name: data.name,
         width: data.width,
@@ -55,6 +56,8 @@ export async function createCardFormat(data: {
         companyId: data.companyId || null,
       },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error creating card format:', error);
     if (error.code === 'P2002' || error.code === '23505' || error.message?.includes('unique constraint')) {
@@ -74,9 +77,11 @@ export async function deleteCardFormat(id: string) {
       throw new Error('Ce format est utilisé par une ou plusieurs catégories et ne peut pas être supprimé.');
     }
 
-    return await prisma.cardFormat.delete({
+    const result = await prisma.cardFormat.delete({
       where: { id },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error deleting card format:', error);
     throw new Error(error.message || 'Impossible de supprimer le format de carte.');
@@ -161,9 +166,11 @@ export async function createCardCategory(data: {
 
 export async function deleteCardCategory(id: string) {
   try {
-    return await prisma.cardCategory.delete({
+    const result = await prisma.cardCategory.delete({
       where: { id },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error) {
     console.warn('Error deleting card category:', error);
     throw new Error('Impossible de supprimer la catégorie de carte.');
@@ -201,7 +208,7 @@ export async function createCardPhysicalType(data: {
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    return await prisma.cardPhysicalType.create({
+    const result = await prisma.cardPhysicalType.create({
       data: {
         name: data.name,
         slug,
@@ -210,6 +217,8 @@ export async function createCardPhysicalType(data: {
         companyId: data.companyId || null,
       },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error creating card physical type:', error);
     if (error.code === 'P2002' || error.code === '23505' || error.message?.includes('unique constraint')) {
@@ -221,9 +230,11 @@ export async function createCardPhysicalType(data: {
 
 export async function deleteCardPhysicalType(id: string) {
   try {
-    return await prisma.cardPhysicalType.delete({
+    const result = await prisma.cardPhysicalType.delete({
       where: { id },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error) {
     console.warn('Error deleting card physical type:', error);
     throw new Error('Impossible de supprimer le type de carte.');
@@ -298,7 +309,7 @@ export async function createCardDocumentType(data: {
       throw new Error('Ce nom de type de document est réservé par le système.');
     }
 
-    return await prisma.cardDocumentType.create({
+    const result = await prisma.cardDocumentType.create({
       data: {
         name: data.name,
         slug,
@@ -307,6 +318,8 @@ export async function createCardDocumentType(data: {
         companyId: data.companyId || null,
       },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error creating card document type:', error);
     if (error.code === 'P2002' || error.code === '23505' || error.message?.includes('unique constraint')) {
@@ -338,9 +351,11 @@ export async function deleteCardDocumentType(id: string) {
       throw new Error('Ce type de document est utilisé par un ou plusieurs modèles de carte et ne peut pas être supprimé.');
     }
 
-    return await prisma.cardDocumentType.delete({
+    const result = await prisma.cardDocumentType.delete({
       where: { id },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error deleting card document type:', error);
     throw new Error(error.message || 'Impossible de supprimer le type de document.');

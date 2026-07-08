@@ -1,4 +1,5 @@
 'use server';
+import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
@@ -325,10 +326,12 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
       }
     }
 
-    return await prisma.employee.update({
+    const result = await prisma.employee.update({
       where: { id: employeeId },
       data,
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error) {
     console.warn('Error updating employee status:', error);
     throw new Error('Impossible de mettre à jour le statut de l\'employé');
@@ -495,7 +498,7 @@ export async function updateEmployeeData(employeeId: string, dynamicData: any, a
       }
     }
 
-    return await prisma.employee.update({
+    const result = await prisma.employee.update({
       where: { id: employeeId },
       data: {
         uniqueIdentifier,
@@ -504,6 +507,8 @@ export async function updateEmployeeData(employeeId: string, dynamicData: any, a
         updatedAt: new Date(),
       },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error) {
     console.warn('Error updating employee data:', error);
     throw new Error('Impossible de modifier les informations de l\'employé');
@@ -1159,13 +1164,15 @@ export async function requestReprint(employeeId: string, reason: string, templat
     });
 
     // Unlock and set status to REIMPRESSION
-    return await prisma.employee.update({
+    const result = await prisma.employee.update({
       where: { id: employeeId },
       data: {
         status: 'REIMPRESSION',
         isLocked: false,
       },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error requesting reprint:', error);
     throw new Error(error.message || 'Impossible de demander la réimpression');
@@ -1183,10 +1190,12 @@ export async function blockBadge(employeeId: string) {
       throw new Error('Seuls les administrateurs peuvent bloquer un badge.');
     }
 
-    return await prisma.employee.update({
+    const result = await prisma.employee.update({
       where: { id: employeeId },
       data: { isBlocked: true },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error blocking badge:', error);
     throw new Error(error.message || 'Impossible de bloquer le badge');
@@ -1222,10 +1231,12 @@ export async function unblockBadge(employeeId: string, reason: string) {
       },
     });
 
-    return await prisma.employee.update({
+    const result = await prisma.employee.update({
       where: { id: employeeId },
       data: { isBlocked: false },
     });
+    revalidatePath('/dashboard', 'layout');
+    return result;
   } catch (error: any) {
     console.warn('Error unblocking badge:', error);
     throw new Error(error.message || 'Impossible de débloquer le badge');
