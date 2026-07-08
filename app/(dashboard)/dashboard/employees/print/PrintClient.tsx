@@ -672,6 +672,181 @@ interface CardRenderProps {
 }
 
 function CardRender({ emp, template, side, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit }: CardRenderProps) {
+    const renderElementContent = (el: any) => {
+    return (
+      <>
+        {el.type === 'text' && (
+          <div
+            style={{
+              width: '105%',
+              height: '100%',
+              color: el.color || '#000000',
+              fontSize: `${el.fontSize || 14}${el.fontSizeUnit || 'px'}`,
+              fontFamily: el.fontFamily || 'sans-serif',
+              fontWeight: el.fontWeight || 'normal',
+              fontStyle: el.fontStyle || 'normal',
+              textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
+              textAlign: el.alignment || 'left',
+              display: 'flex',
+              alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
+              justifyContent: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
+              overflow: 'hidden',
+              whiteSpace: 'normal',
+              wordBreak: 'normal',
+              overflowWrap: 'break-word',
+              lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',
+              letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
+            }}
+          >
+            {(() => {
+              let rawText = el.field
+                ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
+                : resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit);
+              
+              if (el.textTransform === 'first-letter' && typeof rawText === 'string' && rawText.length > 0) {
+                return rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase();
+              }
+              return rawText;
+            })()}
+          </div>
+        )}
+
+        {el.type === 'image' && (
+          <div
+            className={`w-full h-full overflow-hidden flex items-center justify-center ${!emp.photoUrl ? 'bg-white' : ''}`}
+            style={{
+              borderRadius: `${el.borderRadius || 0}px`,
+              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+              filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
+            }}
+          >
+            {emp.photoUrl ? (
+              el.intaglio ? (
+                <IntaglioImage
+                  src={emp.photoUrl}
+                  spacing={el.intaglioSpacing}
+                  lineWidth={el.intaglioLineWidth}
+                  waveAmp={el.intaglioWaveAmp}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={emp.photoUrl}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: ((emp.dynamicData as any)?._photoFit === 'contain') ? 'contain' : 'cover',
+                  }}
+                  alt="Photo"
+                />
+              )
+            ) : (
+              <span className="text-[8px] font-bold text-neutral-400">Pas de photo</span>
+            )}
+          </div>
+        )}
+
+        {el.type === 'qr' && (
+          <div
+            className="w-full h-full overflow-hidden flex items-center justify-center"
+            style={{
+              borderRadius: `${el.borderRadius || 0}px`,
+              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+              padding: '5%',
+              filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
+            }}
+          >
+            <QRCode
+              value={
+                el.field
+                  ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
+                  : (el.content ? resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) : (emp.enrollmentNumber || emp.uniqueIdentifier))
+              }
+              size={150}
+              style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+              viewBox="0 0 256 256"
+            />
+          </div>
+        )}
+
+        {el.type === 'logo' && (
+          <div
+            className="w-full h-full overflow-hidden flex items-center justify-center"
+            style={{
+              borderRadius: `${el.borderRadius || 0}px`,
+              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+            }}
+          >
+            {el.logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={el.logoUrl}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
+                }}
+                alt="Logo"
+              />
+            ) : null}
+          </div>
+        )}
+
+        {el.type === 'group' && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: el.flexDirection || 'column',
+              flexWrap: (el.flexWrap === 'wrap' || elements.some(c => c.parentId === el.id && c.forceBreakAfter)) ? 'wrap' : 'nowrap',
+              gap: `${el.rowGap !== undefined ? el.rowGap : (el.gap !== undefined ? el.gap : 4)}px ${el.gap !== undefined ? el.gap : 4}px`,
+              padding: el.padding !== undefined ? `${el.padding}px` : '4px',
+              width: '100%',
+              height: '100%',
+              overflow: 'visible',
+              backgroundColor: el.color || 'transparent',
+              borderRadius: `${el.borderRadius || 0}px`,
+              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+              alignItems: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
+              justifyContent: el.verticalAlignment === 'middle' ? 'center' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'flex-start',
+            }}
+            className="relative"
+          >
+            {elements
+              .filter(child => child.parentId === el.id)
+              .map(child => (
+                <React.Fragment key={child.id}>
+                  <div
+                    style={{
+                      position: 'relative',
+                      width: child.childFlexMode === 'fixed' ? `${child.width}px` : (child.childFlexMode === 'fill' ? '100%' : (el.flexDirection === 'row' ? (child.type === 'text' || child.type === 'group' ? 'auto' : `${child.width}px`) : (child.type === 'text' || child.type === 'group' ? '100%' : `${child.width}px`))),
+                      height: el.flexDirection === 'row' && el.flexWrap !== 'wrap' ? 'auto' : (child.type === 'text' || child.type === 'group' ? 'auto' : `${child.height}px`),
+                      minHeight: child.type === 'text' ? `${child.height}px` : undefined,
+                      flex: child.childFlexMode === 'flex' ? '1 1 0%' : (child.childFlexMode === 'fixed' || child.childFlexMode === 'fill' ? 'none' : ((el.flexDirection === 'row' && (child.type === 'text' || child.type === 'group')) ? '1 1 0%' : '0 0 auto')),
+                    }}
+                  >
+                    {renderElementContent(child)}
+                  </div>
+                  {child.forceBreakAfter && el.flexDirection === 'row' && (
+                    <div style={{ flexBasis: '100%', height: 0, margin: 0, padding: 0, marginBottom: `-${el.rowGap !== undefined ? el.rowGap : (el.gap !== undefined ? el.gap : 4)}px` }} />
+                  )}
+                </React.Fragment>
+              ))}
+          </div>
+        )}
+      </>
+    );
+  };
+
   const width = template.width;
   const height = template.height;
   
@@ -711,7 +886,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
         }}
       >
         <div style={bgStyle} />
-        {elements.map((el) => {
+        {elements.filter(el => !el.parentId).map((el) => {
           const opacity = el.opacity !== undefined ? el.opacity : 1;
           return (
             <div
@@ -735,130 +910,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                   height: '100%',
                 }}
               >
-                {el.type === 'text' && (
-                  <div
-                    style={{
-                      width: '105%',
-                      height: '100%',
-                      color: el.color || '#000000',
-                      fontSize: `${el.fontSize || 14}${el.fontSizeUnit || 'px'}`,
-                      fontFamily: el.fontFamily || 'sans-serif',
-                      fontWeight: el.fontWeight || 'normal',
-                      fontStyle: el.fontStyle || 'normal',
-                      textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
-                      textAlign: el.alignment || 'left',
-                      display: 'flex',
-                      alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
-                      justifyContent: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
-                      overflow: 'hidden',
-                      whiteSpace: 'normal',
-                      wordBreak: 'normal',
-                      overflowWrap: 'break-word',
-                      lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',
-                      letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
-                    }}
-                  >
-                    {(() => {
-                      let rawText = el.field
-                        ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
-                        : resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit);
-                      
-                      if (el.textTransform === 'first-letter' && typeof rawText === 'string' && rawText.length > 0) {
-                        return rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase();
-                      }
-                      return rawText;
-                    })()}
-                  </div>
-                )}
-
-                {el.type === 'image' && (
-                  <div
-                    className={`w-full h-full overflow-hidden flex items-center justify-center ${!emp.photoUrl ? 'bg-white' : ''}`}
-                    style={{
-                      borderRadius: `${el.borderRadius || 0}px`,
-                      borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
-                      borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
-                      borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
-                      filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
-                    }}
-                  >
-                    {emp.photoUrl ? (
-                      el.intaglio ? (
-                        <IntaglioImage
-                          src={emp.photoUrl}
-                          spacing={el.intaglioSpacing}
-                          lineWidth={el.intaglioLineWidth}
-                          waveAmp={el.intaglioWaveAmp}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={emp.photoUrl}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: ((emp.dynamicData as any)?._photoFit === 'contain') ? 'contain' : 'cover',
-                          }}
-                          alt="Photo"
-                        />
-                      )
-                    ) : (
-                      <span className="text-[8px] font-bold text-neutral-400">Pas de photo</span>
-                    )}
-                  </div>
-                )}
-
-                {el.type === 'qr' && (
-                  <div
-                    className="w-full h-full overflow-hidden flex items-center justify-center"
-                    style={{
-                      borderRadius: `${el.borderRadius || 0}px`,
-                      borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
-                      borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
-                      borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
-                      padding: '5%',
-                      filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
-                    }}
-                  >
-                    <QRCode
-                      value={
-                        el.field
-                          ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
-                          : (el.content ? resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) : (emp.enrollmentNumber || emp.uniqueIdentifier))
-                      }
-                      size={150}
-                      style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                      viewBox="0 0 256 256"
-                    />
-                  </div>
-                )}
-
-                {el.type === 'logo' && (
-                  <div
-                    className="w-full h-full overflow-hidden flex items-center justify-center"
-                    style={{
-                      borderRadius: `${el.borderRadius || 0}px`,
-                      borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
-                      borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
-                      borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
-                    }}
-                  >
-                    {el.logoUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={el.logoUrl}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                          filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
-                        }}
-                        alt="Logo"
-                      />
-                    ) : null}
-                  </div>
-                )}
+                {renderElementContent(el)}
               </div>
             </div>
           );

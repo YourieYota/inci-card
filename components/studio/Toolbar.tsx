@@ -5,7 +5,7 @@ import { Type, User, QrCode, FileText, Plus, Image as ImageIcon } from 'lucide-r
 import { StudioElement } from './Canvas';
 
 interface ToolbarProps {
-  onAddElement: (type: 'text' | 'image' | 'qr' | 'logo', customProps?: Partial<StudioElement>) => void;
+  onAddElement: (type: 'text' | 'image' | 'qr' | 'logo' | 'group', customProps?: Partial<StudioElement>) => void;
   onApplyDefaultLayout?: () => void;
   onClearCanvas?: () => void;
   suggestedFields?: string[];
@@ -58,6 +58,24 @@ export default function Toolbar({
             <ImageIcon className="w-4 h-4" />
           </div>
           <span>Logo / Image</span>
+          <Plus className="w-3.5 h-3.5 ml-auto opacity-50" />
+        </button>
+
+        {/* Group / Stack */}
+        <button
+          onClick={() => onAddElement('group')}
+          className="flex items-center gap-3 w-full p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-900/10 hover:bg-indigo-100/50 hover:border-indigo-300 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium text-sm transition-all duration-200"
+        >
+          <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-800/50 text-indigo-600 dark:text-indigo-400">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+              <line x1="4" y1="12" x2="20" y2="12"></line>
+            </svg>
+          </div>
+          <div className="flex flex-col text-left">
+            <span>Groupe Flexible</span>
+            <span className="text-[9px] font-normal opacity-70">Auto-ajustement (Haut/Bas)</span>
+          </div>
           <Plus className="w-3.5 h-3.5 ml-auto opacity-50" />
         </button>
 

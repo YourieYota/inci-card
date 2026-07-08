@@ -20,6 +20,7 @@ interface PropertiesPanelProps {
   suggestedFields?: string[];
   formats: any[];
   onMoveElement?: (direction: 'front' | 'back' | 'up' | 'down') => void;
+  availableGroups?: { id: string; name: string }[];
 }
 
 interface DimensionInputProps {
@@ -105,6 +106,7 @@ export default function PropertiesPanel({
   suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'],
   formats = [],
   onMoveElement,
+  availableGroups = [],
 }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -176,22 +178,40 @@ export default function PropertiesPanel({
       {selectedElement ? (
         // ELEMENT PROPERTIES
         <div className="flex flex-col gap-5">
-          <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-4">
-            <div>
-              <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 uppercase tracking-wide">
-                Propriétés de l&apos;élément
-              </h3>
-              <p className="text-xs text-neutral-400 dark:text-neutral-500">
-                Type : {selectedElement.type === 'text' ? 'Texte' : selectedElement.type === 'image' ? 'Photo' : selectedElement.type === 'logo' ? 'Logo / Image' : 'QR Code'}
-              </p>
+          <div className="flex flex-col gap-3 border-b border-neutral-100 dark:border-neutral-800 pb-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 uppercase tracking-wide">
+                  Propriétés de l&apos;élément
+                </h3>
+                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                  Type : {selectedElement.type === 'text' ? 'Texte' : selectedElement.type === 'image' ? 'Photo' : selectedElement.type === 'logo' ? 'Logo / Image' : selectedElement.type === 'group' ? 'Groupe Flexible' : 'QR Code'}
+                </p>
+              </div>
+              <button
+                onClick={() => onDeleteElement(selectedElement.id)}
+                className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all duration-200 ml-2 shrink-0"
+                title="Supprimer l'élément"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              onClick={() => onDeleteElement(selectedElement.id)}
-              className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all duration-200"
-              title="Supprimer l'élément"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+
+            {availableGroups && availableGroups.length > 0 && selectedElement.type !== 'group' && (
+              <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900/50 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 mt-1">
+                <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide">Dossier / Groupe</span>
+                <select
+                  value={selectedElement.parentId || ''}
+                  onChange={(e) => onUpdateElement({ ...selectedElement, parentId: e.target.value || undefined })}
+                  className="p-1.5 text-xs bg-white border border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 outline-none w-32 cursor-pointer shadow-sm"
+                >
+                  <option value="">(Hors groupe)</option>
+                  {availableGroups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Sizing & Position (x, y, w, h) */}
@@ -212,21 +232,68 @@ export default function PropertiesPanel({
               elementId={selectedElement.id}
               onChange={(val) => onUpdateElement({ ...selectedElement, height: val })}
             />
-            <DimensionInput
-              label="Position X (mm)"
-              value={selectedElement.x}
-              isMm={true}
-              elementId={selectedElement.id}
-              onChange={(val) => onUpdateElement({ ...selectedElement, x: val })}
-            />
-            <DimensionInput
-              label="Position Y (mm)"
-              value={selectedElement.y}
-              isMm={true}
-              elementId={selectedElement.id}
-              onChange={(val) => onUpdateElement({ ...selectedElement, y: val })}
-            />
+            {!selectedElement.parentId && (
+              <>
+                <DimensionInput
+                  label="Position X (mm)"
+                  value={selectedElement.x}
+                  isMm={true}
+                  elementId={selectedElement.id}
+                  onChange={(val) => onUpdateElement({ ...selectedElement, x: val })}
+                />
+                <DimensionInput
+                  label="Position Y (mm)"
+                  value={selectedElement.y}
+                  isMm={true}
+                  elementId={selectedElement.id}
+                  onChange={(val) => onUpdateElement({ ...selectedElement, y: val })}
+                />
+              </>
+            )}
           </div>
+
+          {selectedElement.parentId && (
+            <div>
+              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                Taille dans le groupe
+              </label>
+              <div className="flex rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm">
+                {[
+                  { value: 'fill', label: '100%' },
+                  { value: 'flex', label: 'Partager' },
+                  { value: 'fixed', label: 'Taille fixe' }
+                ].map((mode) => (
+                  <button
+                    key={mode.value}
+                    onClick={() => onUpdateElement({ ...selectedElement, childFlexMode: mode.value as any })}
+                    className={`flex-1 py-1.5 text-[11px] font-semibold flex justify-center items-center ${
+                      (selectedElement.childFlexMode || 'fill') === mode.value
+                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                        : 'bg-white text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900/50 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 mt-2">
+                <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-400 uppercase tracking-wide cursor-pointer flex-1" htmlFor="force-break-toggle">
+                  Saut de ligne après
+                </label>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    id="force-break-toggle"
+                    className="sr-only peer"
+                    checked={!!selectedElement.forceBreakAfter}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, forceBreakAfter: e.target.checked })}
+                  />
+                  <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-neutral-600 peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* Opacity Slider for Elements */}
           <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
@@ -654,6 +721,156 @@ export default function PropertiesPanel({
               </div>
             </div>
           ) }
+
+          {/* Group-specific properties */}
+          {selectedElement.type === 'group' && (
+            <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5" title="Espacement horizontal entre les éléments">
+                    Espace Horiz.
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={selectedElement.gap ?? 4}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, gap: parseInt(e.target.value) })}
+                    className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <div className="text-right text-xs text-neutral-500 mt-1">{selectedElement.gap ?? 4}px</div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5" title="Espacement vertical entre les lignes">
+                    Espace Vert.
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={selectedElement.rowGap !== undefined ? selectedElement.rowGap : (selectedElement.gap ?? 4)}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, rowGap: parseInt(e.target.value) })}
+                    className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <div className="text-right text-xs text-neutral-500 mt-1">{selectedElement.rowGap !== undefined ? selectedElement.rowGap : (selectedElement.gap ?? 4)}px</div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">Marge interne (Padding)</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={selectedElement.padding ?? 4}
+                  onChange={(e) => onUpdateElement({ ...selectedElement, padding: parseInt(e.target.value) })}
+                  className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                />
+                <div className="text-right text-xs text-neutral-500 mt-1">{selectedElement.padding ?? 4}px</div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">Direction du groupe</label>
+                <div className="flex rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm">
+                  {[
+                    { value: 'column', label: 'Vertical (Lignes)' },
+                    { value: 'row', label: 'Horizontal (Colonnes)' }
+                  ].map((dir) => (
+                    <button
+                      key={dir.value}
+                      onClick={() => onUpdateElement({ ...selectedElement, flexDirection: dir.value as any })}
+                      className={`flex-1 py-1.5 text-[11px] font-semibold flex justify-center items-center ${
+                        (selectedElement.flexDirection || 'column') === dir.value
+                          ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                          : 'bg-white text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700'
+                      }`}
+                    >
+                      {dir.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900/50 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-400 uppercase tracking-wide cursor-pointer flex-1" htmlFor="wrap-toggle">
+                  Retour à la ligne (Wrap)
+                  <p className="text-[9px] text-neutral-400 normal-case mt-0.5 font-normal">Permet aux éléments de passer à la ligne suivante.</p>
+                </label>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={selectedElement.flexWrap === 'wrap'}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, flexWrap: e.target.checked ? 'wrap' : 'nowrap' })}
+                  />
+                  <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-neutral-600 peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Alignement Horiz.</label>
+                  <div className="flex rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm">
+                    {['left', 'center', 'right'].map((align) => (
+                      <button
+                        key={align}
+                        onClick={() => onUpdateElement({ ...selectedElement, alignment: align as any })}
+                        className={`flex-1 py-1.5 flex justify-center items-center ${
+                          (selectedElement.alignment || 'left') === align
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                            : 'bg-white text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700'
+                        }`}
+                        title={align === 'left' ? 'Aligner à gauche' : align === 'center' ? 'Centrer' : 'Aligner à droite'}
+                      >
+                        {align === 'left' ? <AlignLeft className="w-3.5 h-3.5" /> : align === 'center' ? <AlignCenter className="w-3.5 h-3.5" /> : <AlignRight className="w-3.5 h-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">Alignement Vert.</label>
+                  <div className="flex rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm">
+                    {['top', 'middle', 'bottom'].map((valign) => (
+                      <button
+                        key={valign}
+                        onClick={() => onUpdateElement({ ...selectedElement, verticalAlignment: valign as any })}
+                        className={`flex-1 py-1.5 flex justify-center items-center ${
+                          (selectedElement.verticalAlignment || 'top') === valign
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                            : 'bg-white text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700'
+                        }`}
+                        title={valign === 'top' ? 'Aligner en haut' : valign === 'middle' ? 'Centrer verticalement' : 'Aligner en bas'}
+                      >
+                        {valign === 'top' ? <span className="text-[10px] font-bold tracking-tight">Haut</span> : valign === 'middle' ? <span className="text-[10px] font-bold tracking-tight">Milieu</span> : <span className="text-[10px] font-bold tracking-tight">Bas</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">Couleur de fond</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={selectedElement.color || '#ffffff'}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, color: e.target.value })}
+                    className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                  />
+                  <button
+                    onClick={() => onUpdateElement({ ...selectedElement, color: undefined })}
+                    className="text-xs text-rose-500 hover:underline"
+                  >
+                    Rendre transparent
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Text-specific properties */}
           {selectedElement.type === 'text' && (

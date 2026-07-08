@@ -1086,15 +1086,19 @@ export default function StudioClient({
   }, [selectedCompanyId, cardType, selectedCategoryId]);
 
   // Element Actions
-  const handleAddElement = (type: 'text' | 'image' | 'qr' | 'logo', customProps?: Partial<StudioElement>) => {
+  const handleAddElement = (type: 'text' | 'image' | 'qr' | 'logo' | 'group', customProps?: Partial<StudioElement>) => {
     const id = `${type}_${Date.now()}`;
+    const primarySelected = elements.find(el => el.id === selectedElementId);
+    const parentId = (primarySelected?.type === 'group' && type !== 'group') ? primarySelected.id : undefined;
+
     const newElement: StudioElement = {
       id,
       type,
+      parentId,
       x: 20,
       y: 20,
-      width: type === 'text' ? 120 : type === 'image' ? 80 : type === 'logo' ? 80 : 60,
-      height: type === 'text' ? 30 : type === 'image' ? 90 : type === 'logo' ? 80 : 60,
+      width: type === 'text' ? 120 : type === 'group' ? 150 : type === 'image' ? 80 : type === 'logo' ? 80 : 60,
+      height: type === 'text' ? 30 : type === 'group' ? 200 : type === 'image' ? 90 : type === 'logo' ? 80 : 60,
       opacity: 1,
       borderRadius: 0,
       ...customProps,
@@ -1110,7 +1114,14 @@ export default function StudioClient({
   };
 
   const handleUpdateElement = (updatedElement: StudioElement) => {
-    const newElements = elements.map((el) => (el.id === updatedElement.id ? updatedElement : el));
+    const oldElement = elements.find(e => e.id === updatedElement.id);
+    let newElements = elements.map((el) => (el.id === updatedElement.id ? updatedElement : el));
+
+    // Si on vient d'ajouter l'élément à un groupe, on le met à la fin pour qu'il apparaisse en dernier
+    if (oldElement && oldElement.parentId !== updatedElement.parentId && updatedElement.parentId) {
+      newElements = newElements.filter(e => e.id !== updatedElement.id);
+      newElements.push(updatedElement);
+    }
     setElements(newElements);
     if (currentSide === 'recto') setRectoElements(newElements);
     else setVersoElements(newElements);
@@ -1578,6 +1589,7 @@ export default function StudioClient({
               suggestedFields={dynamicFields}
               formats={formats}
               onMoveElement={handleMoveElement}
+              availableGroups={elements.filter(e => e.type === 'group').map((e, i) => ({ id: e.id, name: `Groupe ${i + 1}` }))}
             />
           </div>
         </div>

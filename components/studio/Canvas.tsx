@@ -7,7 +7,20 @@ import IntaglioImage from './IntaglioImage';
 
 export interface StudioElement {
   id: string;
-  type: 'text' | 'image' | 'qr' | 'logo';
+  type: 'text' | 'image' | 'qr' | 'logo' | 'group';
+  parentId?: string;
+
+  // Group properties
+  gap?: number; // Used for columnGap and default rowGap
+  rowGap?: number;
+  padding?: number;
+  flexDirection?: 'column' | 'row';
+  flexWrap?: 'nowrap' | 'wrap';
+
+  // Child properties
+  childFlexMode?: 'fill' | 'flex' | 'fixed';
+  forceBreakAfter?: boolean;
+
   x: number;
   y: number;
   width: number;
@@ -238,6 +251,203 @@ export default function Canvas({
     dragStartPositions.current.clear();
   };
 
+  const renderElementContent = (el: StudioElement) => {
+    return (
+      <>
+        {el.type === 'text' && (
+          <div
+            style={{
+              color: el.color || '#000000',
+              fontSize: `${el.fontSize || 14}${el.fontSizeUnit || 'px'}`,
+              fontFamily: el.fontFamily || 'sans-serif',
+              fontWeight: el.fontWeight || 'normal',
+              fontStyle: el.fontStyle || 'normal',
+              textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
+              textAlign: el.alignment || 'left',
+              lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',
+              letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
+              alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
+            }}
+            className="w-full h-full flex justify-center p-1 break-normal select-none overflow-hidden"
+          >
+            {(() => {
+              let rawText = el.field ? `{${el.field}}` : (el.content || 'Texte');
+              if (el.textTransform === 'first-letter' && typeof rawText === 'string' && rawText.length > 0) {
+                if (el.field) {
+                  return (
+                    <span className="bg-neutral-100/30 dark:bg-neutral-800/20 px-1 rounded font-medium border border-neutral-200/30 dark:border-neutral-700/20">
+                      {rawText}
+                    </span>
+                  );
+                }
+                return rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase();
+              }
+              return el.field ? (
+                <span className="bg-neutral-100/30 dark:bg-neutral-800/20 px-1 rounded font-medium border border-neutral-200/30 dark:border-neutral-700/20">
+                  {rawText}
+                </span>
+              ) : rawText;
+            })()}
+          </div>
+        )}
+
+        {el.type === 'image' && (
+          el.intaglio ? (
+            <IntaglioImage
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80"
+              spacing={el.intaglioSpacing}
+              lineWidth={el.intaglioLineWidth}
+              waveAmp={el.intaglioWaveAmp}
+              className="w-full h-full object-cover"
+              style={{
+                borderRadius: `${el.borderRadius || 0}px`,
+                borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+                borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+                borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                borderRadius: `${el.borderRadius || 0}px`,
+                borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+                borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+                borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+                filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
+              }}
+              className={`w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-2 text-neutral-400 dark:text-neutral-500 overflow-hidden ${
+                el.borderWidth === undefined ? 'border border-neutral-300 dark:border-neutral-700' : ''
+              }`}
+            >
+              <User className="w-8 h-8 opacity-75 mb-1" />
+              <span className="text-[10px] font-medium tracking-wide uppercase">Photo Employé</span>
+            </div>
+          )
+        )}
+
+        {el.type === 'qr' && (
+          <div
+            style={{
+              borderRadius: `${el.borderRadius || 0}px`,
+              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+              filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
+            }}
+            className={`w-full h-full bg-white flex flex-col items-center justify-center p-2 text-black overflow-hidden ${
+              el.borderWidth === undefined ? 'border border-neutral-300' : ''
+            }`}
+          >
+            <QrCode className="w-full h-full max-w-[80%] max-h-[80%]" />
+            <span className="text-[8px] font-semibold text-neutral-500 absolute bottom-1 max-w-[90%] truncate text-center">
+              {el.field ? `QR: {${el.field}}` : el.content ? `QR: ${el.content}` : 'QR Code'}
+            </span>
+          </div>
+        )}
+
+        {el.type === 'logo' && (
+          <div
+            style={{
+              borderRadius: `${el.borderRadius || 0}px`,
+              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+            }}
+            className={`w-full h-full flex items-center justify-center overflow-hidden ${
+              !el.logoUrl ? 'bg-neutral-100/50 dark:bg-neutral-800/30 text-neutral-400 dark:text-neutral-500' : ''
+            } ${
+              el.borderWidth === undefined && !el.logoUrl ? 'border border-neutral-300/50 dark:border-neutral-700/50' : ''
+            }`}
+          >
+            {el.logoUrl ? (
+              <img src={el.logoUrl} alt="Logo" className="w-full h-full object-contain pointer-events-none" />
+            ) : (
+              <div className="flex flex-col items-center justify-center p-2">
+                <ImageIcon className="w-8 h-8 opacity-75 mb-1" />
+                <span className="text-[10px] font-medium tracking-wide uppercase text-center">Logo Entreprise</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {el.type === 'group' && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: el.flexDirection || 'column',
+              flexWrap: (el.flexWrap === 'wrap' || elements.some(c => c.parentId === el.id && c.forceBreakAfter)) ? 'wrap' : 'nowrap',
+              gap: `${el.rowGap !== undefined ? el.rowGap : (el.gap !== undefined ? el.gap : 4)}px ${el.gap !== undefined ? el.gap : 4}px`,
+              padding: el.padding !== undefined ? `${el.padding}px` : '4px',
+              width: '100%',
+              height: '100%',
+              overflow: 'visible',
+              backgroundColor: el.color || 'transparent',
+              borderRadius: `${el.borderRadius || 0}px`,
+              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
+              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
+              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+              alignItems: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
+              justifyContent: el.verticalAlignment === 'middle' ? 'center' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'flex-start',
+            }}
+            className={`relative ${
+              el.borderWidth === undefined && !el.color ? 'border border-dashed border-indigo-400/50 dark:border-indigo-600/50 bg-indigo-500/5' : ''
+            }`}
+          >
+            {elements
+              .filter(child => child.parentId === el.id)
+              .map(child => {
+                const isChildSelected = selectedElementIds.includes(child.id);
+                const isChildPrimary = selectedElementId === child.id;
+                
+                return (
+                  <React.Fragment key={child.id}>
+                    <div
+                      onClick={(e) => {
+                      e.stopPropagation();
+                      const isModifierPressed = e.shiftKey || e.ctrlKey || e.metaKey;
+                      let activeIds = [...selectedElementIds];
+                      if (isModifierPressed) {
+                        if (activeIds.includes(child.id)) {
+                          activeIds = activeIds.filter((id) => id !== child.id);
+                          const primaryId = activeIds.length > 0 ? activeIds[activeIds.length - 1] : null;
+                          onSelectElements(activeIds, primaryId);
+                        } else {
+                          activeIds = [...activeIds, child.id];
+                          onSelectElements(activeIds, child.id);
+                        }
+                      } else {
+                        onSelectElements([child.id], child.id);
+                      }
+                    }}
+                    className={`relative pointer-events-auto transition-all ${
+                      isChildSelected
+                        ? isChildPrimary
+                          ? 'ring-2 ring-indigo-500 ring-offset-0 dark:ring-indigo-400 z-50'
+                          : 'ring-2 ring-indigo-400/50 ring-offset-0 dark:ring-indigo-500/50 z-40'
+                        : 'hover:ring-1 hover:ring-indigo-300 dark:hover:ring-indigo-700 z-10'
+                    }`}
+                    style={{
+                      width: child.childFlexMode === 'fixed' ? `${child.width}px` : (child.childFlexMode === 'fill' ? '100%' : (el.flexDirection === 'row' ? (child.type === 'text' || child.type === 'group' ? 'auto' : `${child.width}px`) : (child.type === 'text' || child.type === 'group' ? '100%' : `${child.width}px`))),
+                      height: el.flexDirection === 'row' && el.flexWrap !== 'wrap' ? 'auto' : (child.type === 'text' || child.type === 'group' ? 'auto' : `${child.height}px`),
+                      minHeight: child.type === 'text' ? `${child.height}px` : undefined,
+                      flex: child.childFlexMode === 'flex' ? '1 1 0%' : (child.childFlexMode === 'fixed' || child.childFlexMode === 'fill' ? 'none' : ((el.flexDirection === 'row' && (child.type === 'text' || child.type === 'group')) ? '1 1 0%' : '0 0 auto')),
+                    }}
+                  >
+                    {renderElementContent(child)}
+                  </div>
+                    {child.forceBreakAfter && el.flexDirection === 'row' && (
+                      <div style={{ flexBasis: '100%', height: 0, margin: 0, padding: 0, marginBottom: `-${el.rowGap !== undefined ? el.rowGap : (el.gap !== undefined ? el.gap : 4)}px` }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+          </div>
+        )}
+      </>
+    );
+  };
+
   return (
     <div
       onClick={() => onSelectElements([], null)}
@@ -317,7 +527,8 @@ export default function Canvas({
 
             {/* Elements layer */}
             <div className="absolute inset-0 pointer-events-none">
-              {elements.map((el) => {
+              {elements.filter(el => !el.parentId).map((el) => {
+
                 const isSelected = selectedElementIds.includes(el.id);
                 const isPrimary = el.id === selectedElementId;
                 const elementOpacity = el.opacity !== undefined ? el.opacity : 1;
@@ -386,134 +597,9 @@ export default function Canvas({
                         height: '100%',
                       }}
                     >
-                      {/* Element Type Renderers */}
-                      {el.type === 'text' && (
-                        <div
-                          style={{
-                            color: el.color || '#000000',
-                            fontSize: `${el.fontSize || 14}${el.fontSizeUnit || 'px'}`,
-                            fontFamily: el.fontFamily || 'sans-serif',
-                            fontWeight: el.fontWeight || 'normal',
-                            fontStyle: el.fontStyle || 'normal',
-                            textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
-                            textAlign: el.alignment || 'left',
-                            lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',
-                            letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
-                            alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
-                          }}
-                          className="w-full h-full flex justify-center p-1 break-normal select-none overflow-hidden"
-                        >
-                          {(() => {
-                            let rawText = el.field ? `{${el.field}}` : (el.content || 'Texte');
-                            if (el.textTransform === 'first-letter' && typeof rawText === 'string' && rawText.length > 0) {
-                              if (el.field) {
-                                return (
-                                  <span className="bg-neutral-100/30 dark:bg-neutral-800/20 px-1 rounded font-medium border border-neutral-200/30 dark:border-neutral-700/20">
-                                    {rawText}
-                                  </span>
-                                );
-                              }
-                              return rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase();
-                            }
-                            return el.field ? (
-                              <span className="bg-neutral-100/30 dark:bg-neutral-800/20 px-1 rounded font-medium border border-neutral-200/30 dark:border-neutral-700/20">
-                                {rawText}
-                              </span>
-                            ) : rawText;
-                          })()}
-                        </div>
-                      )}
-
-                      {el.type === 'image' && (
-                        el.intaglio ? (
-                          <IntaglioImage
-                            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80"
-                            spacing={el.intaglioSpacing}
-                            lineWidth={el.intaglioLineWidth}
-                            waveAmp={el.intaglioWaveAmp}
-                            className="w-full h-full object-cover"
-                            style={{
-                              borderRadius: `${el.borderRadius || 0}px`,
-                              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
-                              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
-                              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
-                              filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              borderRadius: `${el.borderRadius || 0}px`,
-                              borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
-                              borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
-                              borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
-                              filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
-                            }}
-                            className={`w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-2 text-neutral-400 dark:text-neutral-500 overflow-hidden ${
-                              el.borderWidth === undefined ? 'border border-neutral-300 dark:border-neutral-700' : ''
-                            }`}
-                          >
-                            <User className="w-8 h-8 opacity-75 mb-1" />
-                            <span className="text-[10px] font-medium tracking-wide uppercase">Photo Employé</span>
-                          </div>
-                        )
-                      )}
-
-                      {el.type === 'qr' && (
-                        <div
-                          style={{
-                            borderRadius: `${el.borderRadius || 0}px`,
-                            borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
-                            borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
-                            borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
-                            filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
-                          }}
-                          className={`w-full h-full bg-white flex flex-col items-center justify-center p-2 text-black overflow-hidden ${
-                            el.borderWidth === undefined ? 'border border-neutral-300' : ''
-                          }`}
-                        >
-                          <QrCode className="w-full h-full max-w-[80%] max-h-[80%]" />
-                          <span className="text-[8px] font-semibold text-neutral-500 absolute bottom-1 max-w-[90%] truncate text-center">
-                            {el.field ? `QR: {${el.field}}` : el.content ? `QR: ${el.content}` : 'QR Code'}
-                          </span>
-                        </div>
-                      )}
-
-                      {el.type === 'logo' && (
-                        <div
-                          style={{
-                            borderRadius: `${el.borderRadius || 0}px`,
-                            borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
-                            borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
-                            borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
-                          }}
-                          className={`w-full h-full flex items-center justify-center overflow-hidden ${
-                            !el.logoUrl ? 'bg-neutral-100/50 dark:bg-neutral-800/30 text-neutral-400 dark:text-neutral-500' : ''
-                          } ${
-                            el.borderWidth === undefined && !el.logoUrl ? 'border border-neutral-300/50 dark:border-neutral-700/50' : ''
-                          }`}
-                        >
-                          {el.logoUrl ? (
-                            <img src={el.logoUrl} className="w-full h-full object-contain" alt="Logo" style={{ filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)` }} />
-                          ) : (
-                            <div className="flex flex-col items-center">
-                              <ImageIcon className="w-8 h-8 opacity-50 mb-1" />
-                              <span className="text-[10px] font-medium tracking-wide uppercase">Logo</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Selection Resize Handles visual indicators */}
-                      {isPrimary && (
-                        <>
-                          <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-indigo-500 border border-white rounded-sm" />
-                          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 border border-white rounded-sm" />
-                          <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-indigo-500 border border-white rounded-sm" />
-                          <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-indigo-500 border border-white rounded-sm" />
-                        </>
-                      )}
-                    </div>
+                                            {/* Element Type Renderers */}
+                      {renderElementContent(el)}
+</div>
                   </Rnd>
                 );
               })}
