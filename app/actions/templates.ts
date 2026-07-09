@@ -25,6 +25,12 @@ export async function getCompaniesWithCounts() {
             templates: true,
           },
         },
+        categories: {
+          select: {
+            slug: true,
+            cardCode: true,
+          }
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -34,7 +40,13 @@ export async function getCompaniesWithCounts() {
   }
 }
 
-export async function createCompany(name: string, identifierPrefix?: string | null, isLaserEnabled?: boolean, protectAppModified?: boolean) {
+export async function createCompany(
+  name: string, 
+  identifierPrefix?: string | null, 
+  isLaserEnabled?: boolean, 
+  protectAppModified?: boolean,
+  defaultCategories?: { globalId: string, cardCode: string }[]
+) {
   try {
     const result = await prisma.company.create({
       data: { 
@@ -44,6 +56,32 @@ export async function createCompany(name: string, identifierPrefix?: string | nu
         protectAppModified: protectAppModified ?? true,
       },
     });
+
+    if (defaultCategories && defaultCategories.length > 0) {
+      const globalCategories = await prisma.cardCategory.findMany({
+        where: { id: { in: defaultCategories.map(c => c.globalId) }, companyId: null }
+      });
+
+      for (const globalCat of globalCategories) {
+        const config = defaultCategories.find(c => c.globalId === globalCat.id);
+        if (config) {
+          await prisma.cardCategory.create({
+            data: {
+              name: globalCat.name,
+              slug: globalCat.slug,
+              color: globalCat.color,
+              description: globalCat.description,
+              validityUnit: globalCat.validityUnit,
+              validityValue: globalCat.validityValue,
+              formatId: globalCat.formatId,
+              cardCode: config.cardCode,
+              companyId: result.id,
+            }
+          });
+        }
+      }
+    }
+
     revalidatePath('/dashboard', 'layout');
     return result;
   } catch (error: any) {
@@ -57,10 +95,11 @@ export async function updateCompany(
   name: string,
   identifierPrefix?: string | null,
   isLaserEnabled?: boolean,
-  protectAppModified?: boolean
+  protectAppModified?: boolean,
+  defaultCategories?: { globalId: string, cardCode: string }[]
 ) {
   try {
-    const result = await prisma.company.update({
+    await prisma.company.update({
       where: { id: companyId },
       data: {
         name,
@@ -69,8 +108,76 @@ export async function updateCompany(
         protectAppModified: protectAppModified ?? true,
       },
     });
+
+    if (defaultCategories && defaultCategories.length > 0) {
+      const globalCategories = await prisma.cardCategory.findMany({
+        where: { id: { in: defaultCategories.map(c => c.globalId) }, companyId: null }
+      });
+
+      for (const globalCat of globalCategories) {
+        const config = defaultCategories.find(c => c.globalId === globalCat.id);
+        if (config) {
+          // Check if company already has a category with this slug
+          const existingCat = await prisma.cardCategory.findUnique({
+            where: {
+              companyId_slug: {
+                companyId,
+                slug: globalCat.slug,
+              }
+            }
+          });
+
+          if (existingCat) {
+            // Update existing category card code
+            await prisma.cardCategory.update({
+              where: { id: existingCat.id },
+              data: { cardCode: config.cardCode }
+            });
+          } else {
+            // Create a local copy
+            const newCat = await prisma.cardCategory.create({
+              data: {
+                name: globalCat.name,
+                slug: globalCat.slug,
+                color: globalCat.color,
+                description: globalCat.description,
+                validityUnit: globalCat.validityUnit,
+                validityValue: globalCat.validityValue,
+                formatId: globalCat.formatId,
+                cardCode: config.cardCode,
+                companyId,
+              }
+            });
+
+            // Update existing templates pointing to globalCat to point to newCat
+            await prisma.cardTemplate.updateMany({
+              where: {
+                companyId,
+                categoryId: globalCat.id,
+              },
+              data: {
+                categoryId: newCat.id,
+              }
+            });
+          }
+        }
+      }
+    }
+
+    const finalResult = await prisma.company.findUnique({
+      where: { id: companyId },
+      include: {
+        _count: {
+          select: { employees: true, templates: true }
+        },
+        categories: {
+          select: { slug: true, cardCode: true }
+        }
+      }
+    });
+
     revalidatePath('/dashboard', 'layout');
-    return result;
+    return finalResult;
   } catch (error: any) {
     console.warn('Error updating company:', error);
     throw new Error(`Impossible de modifier l'entreprise : ${error?.message || error}`);

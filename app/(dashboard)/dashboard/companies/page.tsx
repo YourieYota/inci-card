@@ -1,16 +1,19 @@
 import React from 'react';
 import CompaniesClient from '@/components/companies/CompaniesClient';
 import { getCompaniesWithCounts } from '@/app/actions/templates';
+import { getCardCategories } from '@/app/actions/cards';
 import { AlertTriangle } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CompaniesPage() {
   let companies: Awaited<ReturnType<typeof getCompaniesWithCounts>> = [];
+  let globalCategories: any[] = [];
   let dbError = false;
 
   try {
     companies = await getCompaniesWithCounts();
+    globalCategories = await getCardCategories(null);
   } catch {
     dbError = true;
   }
@@ -22,7 +25,7 @@ export default async function CompaniesPage() {
 
   return (
     <div className="max-w-7xl mx-auto py-2">
-      <CompaniesClient initialCompanies={serializedCompanies} dbError={dbError} />
+      <CompaniesClient initialCompanies={serializedCompanies} dbError={dbError} globalCategories={globalCategories} />
     </div>
   );
 }

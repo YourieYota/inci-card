@@ -134,8 +134,17 @@ export async function getUnassignedPrintedEmployees(companyId: string) {
     return await prisma.employee.findMany({
       where: {
         companyId,
-        status: 'IMPRIME',
+        status: { in: ['IMPRIME', 'REIMPRIME'] },
         deliveryBatchId: null
+      },
+      include: {
+        printJobs: {
+          where: {
+            cardNumber: { not: 'REIMPRESSION_DEMANDEE' },
+            templateType: { not: 'DEBLOCAGE' }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
       },
       orderBy: { printedAt: 'desc' }
     });
@@ -152,6 +161,13 @@ export async function getBatchEmployees(batchId: string) {
       include: {
         company: {
           select: { name: true }
+        },
+        printJobs: {
+          where: {
+            cardNumber: { not: 'REIMPRESSION_DEMANDEE' },
+            templateType: { not: 'DEBLOCAGE' }
+          },
+          orderBy: { createdAt: 'desc' }
         }
       },
       orderBy: { uniqueIdentifier: 'asc' }

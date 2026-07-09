@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Employee, CardTemplate } from '@prisma/client';
 import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle, Lock, Ban, RotateCcw, Trash2 } from 'lucide-react';
-import { confirmPrint, validatePrintEligibility, deleteEmployeesByIds } from '@/app/actions/employees';
+import { useRouter } from 'next/navigation';
+import { confirmPrint, validatePrintEligibility, deleteEmployeesByIds, assignCardNumbersForCategory } from '@/app/actions/employees';
 import { StudioElement } from '@/components/studio/Canvas';
 import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
@@ -19,6 +20,8 @@ interface PrintClientProps {
   physicalTypes: any[];
   dbError?: boolean;
   employeeIds?: string[];
+  initialType?: string;
+  initialCategoryId?: string;
 }
 
 type PrintLayoutMode = 'side-by-side' | 'duplex' | 'recto-only' | 'verso-only';
@@ -416,7 +419,8 @@ const getFieldValue = (
   selectedCategoryName?: string,
   selectedPhysicalTypeName?: string,
   catValidityValue?: number,
-  catValidityUnit?: string
+  catValidityUnit?: string,
+  categoryCardCode?: string
 ) => {
   if (!field) return '';
   if (field === 'Entreprise') return emp.company?.name || '';
@@ -436,7 +440,7 @@ const getFieldValue = (
   }
 
   if (normalizedTarget === 'n° carte' || normalizedTarget === 'numero carte' || normalizedTarget === 'numéro carte' || normalizedTarget === 'cardnumber' || normalizedTarget === 'numero de carte' || normalizedTarget === 'numéro de carte') {
-    return emp.cardNumber || emp.enrollmentNumber || 'En attente...';
+    return emp.cardNumber || (categoryCardCode ? `${categoryCardCode}XXXX` : 'En attente...');
   }
 
   if (normalizedTarget === 'n° d\'enrolement' || normalizedTarget === 'numéro d\'enrôlement' || normalizedTarget === 'enrollmentnumber') {
@@ -590,7 +594,8 @@ const resolvePlaceholders = (
   selectedCategoryName?: string,
   selectedPhysicalTypeName?: string,
   catValidityValue?: number,
-  catValidityUnit?: string
+  catValidityUnit?: string,
+  categoryCardCode?: string
 ): string => {
   if (!text) return '';
   return text.replace(/\{([^}]+)\}/g, (match, fieldName) => {
@@ -600,7 +605,8 @@ const resolvePlaceholders = (
       selectedCategoryName,
       selectedPhysicalTypeName,
       catValidityValue,
-      catValidityUnit
+      catValidityUnit,
+      categoryCardCode
     );
     if (value && value.startsWith('{') && value.endsWith('}')) {
       return '';
@@ -669,9 +675,10 @@ interface CardRenderProps {
   selectedPhysicalTypeName?: string;
   validityValue?: number;
   validityUnit?: string;
+  categoryCardCode?: string;
 }
 
-function CardRender({ emp, template, side, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit }: CardRenderProps) {
+function CardRender({ emp, template, side, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode }: CardRenderProps) {
     const renderElementContent = (el: any) => {
     return (
       <>
@@ -700,8 +707,8 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
           >
             {(() => {
               let rawText = el.field
-                ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
-                : resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit);
+                ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode) || '')
+                : resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode);
               
               if (el.textTransform === 'first-letter' && typeof rawText === 'string' && rawText.length > 0) {
                 return rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase();
@@ -764,8 +771,8 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
             <QRCode
               value={
                 el.field
-                  ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) || '')
-                  : (el.content ? resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit) : (emp.enrollmentNumber || emp.uniqueIdentifier))
+                  ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode) || '')
+                  : (el.content ? resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode) : (emp.enrollmentNumber || emp.uniqueIdentifier))
               }
               size={150}
               style={{ height: "auto", maxWidth: "100%", width: "100%" }}
@@ -920,9 +927,10 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
   );
 }
 
-export default function PrintClient({ employees, templates, companyName, documentTypes, categories, physicalTypes, dbError, employeeIds }: PrintClientProps) {
+export default function PrintClient({ employees, templates, companyName, documentTypes, categories, physicalTypes, dbError, employeeIds, initialType, initialCategoryId }: PrintClientProps) {
   const [localEmployees, setLocalEmployees] = useState<typeof employees>(employees);
   const [localTemplates, setLocalTemplates] = useState<typeof templates>(templates);
+  const router = useRouter();
   const [localCompanyName, setLocalCompanyName] = useState<string>(companyName);
 
   useEffect(() => {
@@ -988,10 +996,20 @@ export default function PrintClient({ employees, templates, companyName, documen
     }
   }, [employees, templates, companyName, dbError, employeeIds]);
 
-  // Always initialize selected template type to 'BADGE' as standard printable format
-  const [selectedTemplateType, setSelectedTemplateType] = useState<string>('BADGE');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  // Always initialize selected template type to initialType or 'BADGE' as standard printable format
+  const [selectedTemplateType, setSelectedTemplateType] = useState<string>(initialType || 'BADGE');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialCategoryId || '');
   const [selectedPhysicalTypeId, setSelectedPhysicalTypeId] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedCategoryId && localEmployees.length > 0) {
+      const ids = localEmployees.map(e => e.id);
+      assignCardNumbersForCategory(ids, selectedCategoryId, selectedTemplateType).then(() => {
+        router.refresh();
+      });
+    }
+  }, [selectedCategoryId, selectedTemplateType]);
+
   const [printFormat, setPrintFormat] = useState<'A4' | 'CARD'>('A4');
   const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>('side-by-side');
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -1307,6 +1325,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                   selectedPhysicalTypeName={selectedPhysicalTypeName}
                   validityValue={validityValue}
                   validityUnit={validityUnit}
+                  categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
                 />
               </div>
               <div className="flex flex-col items-center">
@@ -1319,6 +1338,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                   selectedPhysicalTypeName={selectedPhysicalTypeName}
                   validityValue={validityValue}
                   validityUnit={validityUnit}
+                  categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
                 />
               </div>
             </div>
@@ -1346,6 +1366,7 @@ export default function PrintClient({ employees, templates, companyName, documen
               selectedPhysicalTypeName={selectedPhysicalTypeName}
               validityValue={validityValue}
               validityUnit={validityUnit}
+              categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
             />
           ))}
         </div>
@@ -1369,6 +1390,9 @@ export default function PrintClient({ employees, templates, companyName, documen
               side="verso" 
               selectedCategoryName={selectedCategoryName}
               selectedPhysicalTypeName={selectedPhysicalTypeName}
+              validityValue={validityValue}
+              validityUnit={validityUnit}
+              categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
             />
           ))}
         </div>
@@ -1393,6 +1417,9 @@ export default function PrintClient({ employees, templates, companyName, documen
                 side="recto" 
                 selectedCategoryName={selectedCategoryName}
                 selectedPhysicalTypeName={selectedPhysicalTypeName}
+                validityValue={validityValue}
+                validityUnit={validityUnit}
+                categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
               />
             ))}
           </div>
@@ -1413,6 +1440,9 @@ export default function PrintClient({ employees, templates, companyName, documen
                 side="verso" 
                 selectedCategoryName={selectedCategoryName}
                 selectedPhysicalTypeName={selectedPhysicalTypeName}
+                validityValue={validityValue}
+                validityUnit={validityUnit}
+                categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
               />
             ))}
           </div>

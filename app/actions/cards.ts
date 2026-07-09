@@ -90,7 +90,7 @@ export async function deleteCardFormat(id: string) {
 
 export async function getCardCategories(companyId?: string | null) {
   try {
-    return await prisma.cardCategory.findMany({
+    const categories = await prisma.cardCategory.findMany({
       where: {
         OR: [
           { companyId: companyId || null },
@@ -102,6 +102,16 @@ export async function getCardCategories(companyId?: string | null) {
       },
       orderBy: { name: 'asc' },
     });
+
+    if (!companyId) return categories;
+
+    // Deduplicate: local categories override global ones with the same slug
+    const localSlugs = new Set(
+      categories.filter(c => c.companyId === companyId).map(c => c.slug)
+    );
+    
+    return categories.filter(c => c.companyId === companyId || !localSlugs.has(c.slug));
+
   } catch (error) {
     console.warn('Error fetching card categories:', error);
     throw new Error('Impossible de charger les catégories de cartes');
@@ -117,6 +127,7 @@ export async function createCardCategory(data: {
   validityUnit?: string | null;
   companyId?: string | null;
   documentTypeSlug?: string | null;
+  cardCode?: string | null;
 }) {
   try {
     const slug = data.name
@@ -148,6 +159,7 @@ export async function createCardCategory(data: {
         formatId: data.formatId,
         companyId: data.companyId || null,
         documentTypeSlug: data.documentTypeSlug || null,
+        cardCode: data.cardCode || "",
       },
     });
 
@@ -161,6 +173,61 @@ export async function createCardCategory(data: {
       throw new Error('Impossible de créer la catégorie. Le nom existe déjà pour cette entreprise.');
     }
     throw new Error(`Impossible de créer la catégorie: ${error.message || error}`);
+  }
+}
+
+export async function updateCardCategory(id: string, data: {
+  name: string;
+  color: string;
+  description?: string;
+  formatId: string;
+  validityValue?: number | null;
+  validityUnit?: string | null;
+  documentTypeSlug?: string | null;
+  cardCode?: string | null;
+}) {
+  try {
+    const slug = data.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    const format = await prisma.cardFormat.findUnique({
+      where: { id: data.formatId },
+    });
+    if (!format) throw new Error("Format de carte introuvable");
+
+    const isPermanent = data.validityUnit === 'NONE' || data.validityUnit === null || data.validityValue === null;
+    const validityValue = isPermanent ? null : (data.validityValue !== undefined ? data.validityValue : 1);
+    const validityUnit = isPermanent ? null : (data.validityUnit || 'YEAR');
+
+    const category = await prisma.cardCategory.update({
+      where: { id },
+      data: {
+        name: data.name,
+        slug,
+        color: data.color,
+        description: data.description || null,
+        validityValue,
+        validityUnit,
+        formatId: data.formatId,
+        documentTypeSlug: data.documentTypeSlug || null,
+        cardCode: data.cardCode || "",
+      },
+    });
+
+    return {
+      ...category,
+      format,
+    };
+  } catch (error: any) {
+    console.warn('Error updating card category:', error);
+    if (error.code === 'P2002' || error.code === '23505' || error.message?.includes('unique constraint')) {
+      throw new Error('Impossible de modifier la catégorie. Le nom existe déjà pour cette entreprise.');
+    }
+    throw new Error(`Impossible de modifier la catégorie: ${error.message || error}`);
   }
 }
 
@@ -359,5 +426,19 @@ export async function deleteCardDocumentType(id: string) {
   } catch (error: any) {
     console.warn('Error deleting card document type:', error);
     throw new Error(error.message || 'Impossible de supprimer le type de document.');
+  }
+}
+
+export async function getCompanyTemplates(companyId: string) {
+  try {
+    return await prisma.cardTemplate.findMany({
+      where: { companyId },
+      include: {
+        category: true,
+      }
+    });
+  } catch (error) {
+    console.warn('Error fetching company templates:', error);
+    throw new Error('Impossible de charger les modèles de cartes');
   }
 }

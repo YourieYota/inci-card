@@ -13,14 +13,16 @@ interface CompanyWithCounts extends Company {
     employees: number;
     templates: number;
   };
+  categories?: { slug: string; cardCode: string }[];
 }
 
 interface CompaniesClientProps {
   initialCompanies: CompanyWithCounts[];
   dbError?: boolean;
+  globalCategories?: any[];
 }
 
-export default function CompaniesClient({ initialCompanies, dbError }: CompaniesClientProps) {
+export default function CompaniesClient({ initialCompanies, dbError, globalCategories = [] }: CompaniesClientProps) {
   const [companies, setCompanies] = useState<CompanyWithCounts[]>(initialCompanies);
   const [search, setSearch] = useState<string>('');
   const [mounted, setMounted] = useState<boolean>(false);
@@ -53,6 +55,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
   const [newCompanyPrefix, setNewCompanyPrefix] = useState<string>('');
   const [newCompanyLaser, setNewCompanyLaser] = useState<boolean>(false);
   const [newCompanyProtect, setNewCompanyProtect] = useState<boolean>(true);
+  const [newCompanyCategoryCodes, setNewCompanyCategoryCodes] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -62,6 +65,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
   const [editCompanyPrefix, setEditCompanyPrefix] = useState<string>('');
   const [editCompanyLaser, setEditCompanyLaser] = useState<boolean>(false);
   const [editCompanyProtect, setEditCompanyProtect] = useState<boolean>(true);
+  const [editCompanyCategoryCodes, setEditCompanyCategoryCodes] = useState<Record<string, string>>({});
 
   // Delete State
   const [deletingCompany, setDeletingCompany] = useState<CompanyWithCounts | null>(null);
@@ -180,6 +184,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
       setNewCompanyPrefix('');
       setNewCompanyLaser(false);
       setNewCompanyProtect(true);
+      setNewCompanyCategoryCodes({});
       setShowCreateModal(false);
       setTimeout(() => setSuccessMessage(null), 4000);
       setIsSubmitting(false);
@@ -187,11 +192,16 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
     }
 
     try {
+      const defaultCategories = Object.entries(newCompanyCategoryCodes)
+        .filter(([_, code]) => code.trim() !== '')
+        .map(([id, code]) => ({ globalId: id, cardCode: code.trim() }));
+
       const newCompany = await createCompany(
         newCompanyName.trim(),
         newCompanyPrefix.trim() || null,
         newCompanyLaser,
-        newCompanyProtect
+        newCompanyProtect,
+        defaultCategories
       );
       
       const newCompanyWithCounts: CompanyWithCounts = {
@@ -210,6 +220,7 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
       setNewCompanyPrefix('');
       setNewCompanyLaser(false);
       setNewCompanyProtect(true);
+      setNewCompanyCategoryCodes({});
       setShowCreateModal(false);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -230,23 +241,22 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
 
     setIsSubmitting(true);
     try {
+      const defaultCategories = Object.entries(editCompanyCategoryCodes)
+        .filter(([_, code]) => code.trim() !== '')
+        .map(([id, code]) => ({ globalId: id, cardCode: code.trim() }));
+
       const updated = await updateCompany(
         editingCompany.id,
         editCompanyName.trim(),
         editCompanyPrefix.trim() || null,
         editCompanyLaser,
-        editCompanyProtect
+        editCompanyProtect,
+        defaultCategories
       );
 
       const updatedCompanies = companies.map((c) => {
         if (c.id === editingCompany.id) {
-          return {
-            ...c,
-            name: updated.name,
-            identifierPrefix: updated.identifierPrefix,
-            isLaserEnabled: updated.isLaserEnabled,
-            protectAppModified: updated.protectAppModified,
-          };
+          return updated as CompanyWithCounts;
         }
         return c;
       }).sort((a, b) => a.name.localeCompare(b.name));
@@ -359,6 +369,18 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
                            setEditCompanyPrefix(company.identifierPrefix || '');
                            setEditCompanyLaser(!!company.isLaserEnabled);
                            setEditCompanyProtect(!!company.protectAppModified);
+                           
+                           // Populate existing card codes for edit
+                           const initialCodes: Record<string, string> = {};
+                           if (globalCategories && company.categories) {
+                             globalCategories.forEach(gCat => {
+                               const matchingLocal = company.categories?.find(c => c.slug === gCat.slug);
+                               if (matchingLocal && matchingLocal.cardCode) {
+                                 initialCodes[gCat.id] = matchingLocal.cardCode;
+                               }
+                             });
+                           }
+                           setEditCompanyCategoryCodes(initialCodes);
                         }}
                          className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
                         title="Modifier l'entreprise"
@@ -519,6 +541,33 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
                 </label>
               </div>
 
+              {globalCategories && globalCategories.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
+                    Catégories par défaut
+                  </label>
+                  <p className="text-[10px] text-slate-500 mb-3">
+                    Configurez le code de carte (préfixe) pour chaque catégorie afin de les attribuer automatiquement à cette entreprise.
+                  </p>
+                  <div className="space-y-3 max-h-[150px] overflow-y-auto pr-1">
+                    {globalCategories.map((cat: any) => (
+                      <div key={cat.id} className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 w-1/3 truncate" title={cat.name}>
+                          {cat.name}
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Code (ex: BADGE)"
+                          value={newCompanyCategoryCodes[cat.id] || ''}
+                          onChange={(e) => setNewCompanyCategoryCodes(prev => ({ ...prev, [cat.id]: e.target.value.toUpperCase() }))}
+                          className="flex-1 px-3 py-1.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/25 font-mono uppercase"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-4 mt-2">
                 <button
                   type="button"
@@ -609,6 +658,33 @@ export default function CompaniesClient({ initialCompanies, dbError }: Companies
                   Protéger les fiches modifiées sur l&apos;application des imports Excel
                 </label>
               </div>
+
+              {globalCategories && globalCategories.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
+                    Catégories par défaut
+                  </label>
+                  <p className="text-[10px] text-slate-500 mb-3">
+                    Configurez le code de carte (préfixe) pour chaque catégorie afin de les attribuer automatiquement à cette entreprise.
+                  </p>
+                  <div className="space-y-3 max-h-[150px] overflow-y-auto pr-1">
+                    {globalCategories.map((cat: any) => (
+                      <div key={cat.id} className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 w-1/3 truncate" title={cat.name}>
+                          {cat.name}
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Code (ex: BADGE)"
+                          value={editCompanyCategoryCodes[cat.id] || ''}
+                          onChange={(e) => setEditCompanyCategoryCodes(prev => ({ ...prev, [cat.id]: e.target.value.toUpperCase() }))}
+                          className="flex-1 px-3 py-1.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/25 font-mono uppercase"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-4 mt-2">
                 <button

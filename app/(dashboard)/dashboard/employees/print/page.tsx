@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
 interface PageProps {
   searchParams: Promise<{
     ids?: string;
+    type?: string;
+    categoryId?: string;
   }>;
 }
 
@@ -17,6 +19,8 @@ export default async function PrintPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const idsString = resolvedSearchParams.ids || '';
   const ids = idsString.split(',').filter(Boolean);
+  const initialType = resolvedSearchParams.type || '';
+  const initialCategoryId = resolvedSearchParams.categoryId || '';
 
   if (ids.length === 0) {
     return (
@@ -106,6 +110,8 @@ export default async function PrintPage({ searchParams }: PageProps) {
       physicalTypes={serializedPhysicalTypes}
       dbError={dbError}
       employeeIds={ids}
+      initialType={initialType}
+      initialCategoryId={initialCategoryId}
     />
   );
 }

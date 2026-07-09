@@ -123,12 +123,18 @@ export default function Canvas({
 
     const w = draggedElement.width;
     const h = draggedElement.height;
+    const isDraggedRotated = draggedElement.rotation === 90 || draggedElement.rotation === 270 || draggedElement.rotation === -90 || draggedElement.rotation === -270;
+    const aw = isDraggedRotated ? h : w;
+    const ah = isDraggedRotated ? w : h;
 
-    const rawX = data.x;
-    const rawY = data.y;
+    // With the new Rnd logic, data.x and data.y are ALREADY the apparent top-left!
+    const apparentX = data.x;
+    const apparentY = data.y;
+    const cx = apparentX + aw / 2;
+    const cy = apparentY + ah / 2;
 
-    let snappedX = rawX;
-    let snappedY = rawY;
+    let snappedApparentX = apparentX;
+    let snappedApparentY = apparentY;
     let guideX: number | undefined = undefined;
     let guideY: number | undefined = undefined;
 
@@ -149,95 +155,105 @@ export default function Canvas({
     const activeIds = Array.from(dragStartPositions.current.keys());
     elements.forEach((el) => {
       if (!activeIds.includes(el.id)) {
-        xTargets.push({ value: el.x });
-        xTargets.push({ value: el.x + el.width / 2 });
-        xTargets.push({ value: el.x + el.width });
+        const elRotated = el.rotation === 90 || el.rotation === 270 || el.rotation === -90 || el.rotation === -270;
+        const elAw = elRotated ? el.height : el.width;
+        const elAh = elRotated ? el.width : el.height;
+        const elCx = el.x + el.width / 2;
+        const elCy = el.y + el.height / 2;
+        const elApparentX = elCx - elAw / 2;
+        const elApparentY = elCy - elAh / 2;
 
-        yTargets.push({ value: el.y });
-        yTargets.push({ value: el.y + el.height / 2 });
-        yTargets.push({ value: el.y + el.height });
+        xTargets.push({ value: elApparentX });
+        xTargets.push({ value: elCx });
+        xTargets.push({ value: elApparentX + elAw });
+
+        yTargets.push({ value: elApparentY });
+        yTargets.push({ value: elCy });
+        yTargets.push({ value: elApparentY + elAh });
       }
     });
 
-    // X Axis snap
     let bestDiffX = SNAP_THRESHOLD;
     xTargets.forEach((t) => {
-      // Left edge
-      let diff = Math.abs(rawX - t.value);
+      let diff = Math.abs(apparentX - t.value);
       if (diff < bestDiffX) {
         bestDiffX = diff;
-        snappedX = t.value;
+        snappedApparentX = t.value;
         guideX = t.value;
       }
-      // Center
-      diff = Math.abs(rawX + w / 2 - t.value);
+      diff = Math.abs(cx - t.value);
       if (diff < bestDiffX) {
         bestDiffX = diff;
-        snappedX = t.value - w / 2;
+        snappedApparentX = t.value - aw / 2;
         guideX = t.value;
       }
-      // Right edge
-      diff = Math.abs(rawX + w - t.value);
+      diff = Math.abs(apparentX + aw - t.value);
       if (diff < bestDiffX) {
         bestDiffX = diff;
-        snappedX = t.value - w;
+        snappedApparentX = t.value - aw;
         guideX = t.value;
       }
     });
 
-    // Y Axis snap
     let bestDiffY = SNAP_THRESHOLD;
     yTargets.forEach((t) => {
-      // Top edge
-      let diff = Math.abs(rawY - t.value);
+      let diff = Math.abs(apparentY - t.value);
       if (diff < bestDiffY) {
         bestDiffY = diff;
-        snappedY = t.value;
+        snappedApparentY = t.value;
         guideY = t.value;
       }
-      // Center
-      diff = Math.abs(rawY + h / 2 - t.value);
+      diff = Math.abs(cy - t.value);
       if (diff < bestDiffY) {
         bestDiffY = diff;
-        snappedY = t.value - h / 2;
+        snappedApparentY = t.value - ah / 2;
         guideY = t.value;
       }
-      // Bottom edge
-      diff = Math.abs(rawY + h - t.value);
+      diff = Math.abs(apparentY + ah - t.value);
       if (diff < bestDiffY) {
         bestDiffY = diff;
-        snappedY = t.value - h;
+        snappedApparentY = t.value - ah;
         guideY = t.value;
       }
     });
 
-    // Clamp coordinates within canvas boundaries
-    snappedX = Math.max(0, Math.min(width - w, snappedX));
-    snappedY = Math.max(0, Math.min(height - h, snappedY));
+    snappedApparentX = Math.max(0, Math.min(width - aw, snappedApparentX));
+    snappedApparentY = Math.max(0, Math.min(height - ah, snappedApparentY));
 
-    // Update guidelines coordinates relative to canvas
+    const startCx = startPos.x + w / 2;
+    const startCy = startPos.y + h / 2;
+    const startApparentX = startCx - aw / 2;
+    const startApparentY = startCy - ah / 2;
+
+    const dx = snappedApparentX - startApparentX;
+    const dy = snappedApparentY - startApparentY;
+
     setActiveGuidelines({
       x: guideX !== undefined ? Math.round(guideX) : undefined,
       y: guideY !== undefined ? Math.round(guideY) : undefined,
     });
 
-    // Calculate displacement delta
-    const dx = snappedX - startPos.x;
-    const dy = snappedY - startPos.y;
-
-    // Apply displacement to all selected elements
     const updatedElements = elements.map((el) => {
       const startElPos = dragStartPositions.current.get(el.id);
       if (startElPos) {
+        const isElRotated = el.rotation === 90 || el.rotation === 270 || el.rotation === -90 || el.rotation === -270;
+        const eAw = isElRotated ? el.height : el.width;
+        const eAh = isElRotated ? el.width : el.height;
+        
         let newX = Math.round(startElPos.x + dx);
         let newY = Math.round(startElPos.y + dy);
-        newX = Math.max(0, Math.min(width - el.width, newX));
-        newY = Math.max(0, Math.min(height - el.height, newY));
-        return {
-          ...el,
-          x: newX,
-          y: newY,
-        };
+        
+        // Ensure the element apparent bounds stay inside canvas
+        let elApparentX = (newX + el.width/2) - eAw/2;
+        let elApparentY = (newY + el.height/2) - eAh/2;
+        
+        elApparentX = Math.max(0, Math.min(width - eAw, elApparentX));
+        elApparentY = Math.max(0, Math.min(height - eAh, elApparentY));
+        
+        newX = elApparentX + eAw/2 - el.width/2;
+        newY = elApparentY + eAh/2 - el.height/2;
+
+        return { ...el, x: newX, y: newY };
       }
       return el;
     });
@@ -533,11 +549,19 @@ export default function Canvas({
                 const isPrimary = el.id === selectedElementId;
                 const elementOpacity = el.opacity !== undefined ? el.opacity : 1;
 
+                const isRotated = el.rotation === 90 || el.rotation === 270 || el.rotation === -90 || el.rotation === -270;
+                const rndW = isRotated ? el.height : el.width;
+                const rndH = isRotated ? el.width : el.height;
+                const cx = el.x + el.width / 2;
+                const cy = el.y + el.height / 2;
+                const rndX = cx - rndW / 2;
+                const rndY = cy - rndH / 2;
+
                 return (
                   <Rnd
                     key={el.id}
-                    size={{ width: el.width, height: el.height }}
-                    position={{ x: el.x, y: el.y }}
+                    size={{ width: rndW, height: rndH }}
+                    position={{ x: rndX, y: rndY }}
                     onDragStart={(e) => {
                       handleDragStart(el.id, e);
                     }}
@@ -548,12 +572,21 @@ export default function Canvas({
                       handleDragStop();
                     }}
                     onResizeStop={(e, direction, ref, delta, position) => {
+                      const newRndW = parseInt(ref.style.width);
+                      const newRndH = parseInt(ref.style.height);
+                      const newElW = isRotated ? newRndH : newRndW;
+                      const newElH = isRotated ? newRndW : newRndH;
+                      const newCx = position.x + newRndW / 2;
+                      const newCy = position.y + newRndH / 2;
+                      const newElX = newCx - newElW / 2;
+                      const newElY = newCy - newElH / 2;
+
                       const updated = {
                         ...el,
-                        width: parseInt(ref.style.width),
-                        height: parseInt(ref.style.height),
-                        x: Math.round(position.x),
-                        y: Math.round(position.y),
+                        width: newElW,
+                        height: newElH,
+                        x: Math.round(newElX),
+                        y: Math.round(newElY),
                       };
                       onChangeElements(elements.map(item => item.id === el.id ? updated : item), true);
                     }}
@@ -576,30 +609,42 @@ export default function Canvas({
                         onSelectElements([el.id], el.id);
                       }
                     }}
-                    className={`group pointer-events-auto ${
-                      isSelected
-                        ? isPrimary
-                          ? 'ring-2 ring-indigo-500 ring-offset-0 dark:ring-indigo-400'
-                          : 'ring-2 ring-indigo-400/50 ring-offset-0 dark:ring-indigo-500/50'
-                        : 'hover:ring-1 hover:ring-indigo-300 dark:hover:ring-indigo-700'
-                    } cursor-move flex items-center justify-center`}
+                    className="pointer-events-auto cursor-move flex items-center justify-center"
                     style={{
                       zIndex: isSelected ? 50 : 10,
                       opacity: elementOpacity,
                       mixBlendMode: (el as any).blendMode || 'normal',
                     }}
                   >
-                    <div
-                      className="w-full h-full relative flex items-center justify-center"
-                      style={{
-                        transform: `rotate(${el.rotation || 0}deg)`,
-                        width: '100%',
-                        height: '100%',
-                      }}
+                    <div 
+                      className={`group w-full h-full relative ${
+                        isSelected
+                          ? isPrimary
+                            ? 'ring-2 ring-indigo-500 ring-offset-0 dark:ring-indigo-400'
+                            : 'ring-2 ring-indigo-400/50 ring-offset-0 dark:ring-indigo-500/50'
+                          : 'hover:ring-1 hover:ring-indigo-300 dark:hover:ring-indigo-700'
+                      }`}
                     >
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: '50%',
+                          top: '50%',
+                          width: `${el.width}px`,
+                          height: `${el.height}px`,
+                          marginLeft: `-${el.width / 2}px`,
+                          marginTop: `-${el.height / 2}px`,
+                          transform: `rotate(${el.rotation || 0}deg)`,
+                          transformOrigin: 'center center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
                                             {/* Element Type Renderers */}
-                      {renderElementContent(el)}
-</div>
+                        {renderElementContent(el)}
+                      </div>
+                    </div>
                   </Rnd>
                 );
               })}

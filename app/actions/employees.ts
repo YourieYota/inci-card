@@ -948,34 +948,45 @@ export async function restoreEmployees(employees: any[]) {
  * Génère un numéro de carte unique basé sur le cardCode du type de document.
  * Format: {cardCode}-{séquence} (ex: BADGE-0001)
  */
-async function generateCardNumber(companyId: string, templateType: string): Promise<string> {
-  // 1. Try to find the cardCode from the document type
-  const docType = await prisma.cardDocumentType.findFirst({
-    where: {
-      slug: templateType,
-      OR: [
-        { companyId },
-        { companyId: null }
-      ]
-    },
-  });
-
+async function generateCardNumber(companyId: string, templateType: string, categoryId?: string): Promise<string> {
   let prefix = templateType.toUpperCase();
-  if (docType?.cardCode) {
-    prefix = docType.cardCode;
+
+  // 1. Try to find the cardCode from the category first
+  if (categoryId) {
+    const category = await prisma.cardCategory.findUnique({
+      where: { id: categoryId },
+    });
+    if (category?.cardCode) {
+      prefix = category.cardCode;
+    }
   }
 
-  // 2. Count existing PrintJobs for this company to generate sequential number
-  const count = await prisma.printJob.count({
-    where: {
-      employee: {
-        companyId,
+  // 2. Fallback to Document Type if category has no code
+  if (prefix === templateType.toUpperCase()) {
+    const docType = await prisma.cardDocumentType.findFirst({
+      where: {
+        slug: templateType,
+        OR: [
+          { companyId },
+          { companyId: null }
+        ]
       },
-    },
+    });
+
+    if (docType?.cardCode) {
+      prefix = docType.cardCode;
+    }
+  }
+
+  // 3. Count existing employees for this company that already have a cardNumber starting with this prefix
+  const existingEmployees = await prisma.employee.findMany({
+    where: { companyId, cardNumber: { startsWith: prefix } },
+    select: { cardNumber: true }
   });
+  const count = existingEmployees.length;
 
   const seq = String(count + 1).padStart(4, '0');
-  return `${prefix}-${seq}`;
+  return `${prefix}${seq}`;
 }
 
 /**
@@ -1061,8 +1072,17 @@ export async function confirmPrint(
     const results = [];
 
     for (const emp of eligible) {
-      // Generate unique card number
-      const cardNumber = await generateCardNumber(emp.companyId, templateType);
+      // Use existing card number if available, otherwise generate one
+      let cardNumber = emp.cardNumber;
+      if (!cardNumber) {
+        // Find category from dynamicData if not provided
+        let catId = categoryId;
+        if (!catId && emp.dynamicData) {
+           const d = emp.dynamicData as any;
+           catId = d.categorie_id || d.category_id || d.Category;
+        }
+        cardNumber = await generateCardNumber(emp.companyId, templateType, catId);
+      }
 
       // Determine if this is a reprint
       const isReprint = emp.printCount > 0 || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
@@ -1278,5 +1298,35 @@ export async function getEmployeesPhotos(employeeIds: string[]) {
   } catch (error) {
     console.warn('Error fetching employees photos:', error);
     throw new Error('Impossible de récupérer les photos des employés');
+  }
+}
+
+export async function ensureCardNumbers(employeeIds: string[], defaultTemplateType: string = 'BADGE') {
+  const employees = await prisma.employee.findMany({
+    where: { id: { in: employeeIds }, cardNumber: null },
+  });
+
+  for (const emp of employees) {
+    const d = emp.dynamicData as any;
+    const catId = d?.categorie_id || d?.category_id || d?.Category;
+    const cardNumber = await generateCardNumber(emp.companyId, defaultTemplateType, catId);
+    await prisma.employee.update({
+      where: { id: emp.id },
+      data: { cardNumber }
+    });
+  }
+}
+export async function assignCardNumbersForCategory(employeeIds: string[], categoryId: string, templateType: string = 'BADGE') {
+  const employees = await prisma.employee.findMany({
+    where: { id: { in: employeeIds }, cardNumber: null },
+  });
+  if (employees.length === 0) return;
+
+  for (const emp of employees) {
+    const cardNumber = await generateCardNumber(emp.companyId, templateType, categoryId);
+    await prisma.employee.update({
+      where: { id: emp.id },
+      data: { cardNumber }
+    });
   }
 }

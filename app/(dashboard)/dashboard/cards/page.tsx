@@ -8,6 +8,7 @@ import {
   deleteCardFormat,
   getCardCategories,
   createCardCategory,
+  updateCardCategory,
   deleteCardCategory,
   getCardPhysicalTypes,
   createCardPhysicalType,
@@ -24,6 +25,7 @@ interface CardFormat {
   width: number;
   height: number;
   unit: string;
+  companyId?: string | null;
 }
 
 interface CardCategory {
@@ -37,6 +39,7 @@ interface CardCategory {
   validityValue: number | null;
   validityUnit: string | null;
   documentTypeSlug?: string | null;
+  companyId?: string | null;
 }
 
 interface CardPhysicalType {
@@ -46,6 +49,7 @@ interface CardPhysicalType {
   description: string | null;
   cardCode: string;
   createdAt: Date;
+  companyId?: string | null;
 }
 
 interface CardDocumentType {
@@ -56,6 +60,7 @@ interface CardDocumentType {
   cardCode?: string;
   isSystem: boolean;
   createdAt?: Date;
+  companyId?: string | null;
 }
 
 export default function CardsManagementPage() {
@@ -70,6 +75,7 @@ export default function CardsManagementPage() {
 
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CardCategory | null>(null);
   const [showFormatModal, setShowFormatModal] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showDocTypeModal, setShowDocTypeModal] = useState(false);
@@ -80,6 +86,7 @@ export default function CardsManagementPage() {
   const [categoryDesc, setCategoryDesc] = useState('');
   const [categoryFormatId, setCategoryFormatId] = useState('');
   const [categoryDocTypeSlug, setCategoryDocTypeSlug] = useState('BADGE');
+  const [categoryCardCode, setCategoryCardCode] = useState('');
 
   const [formatName, setFormatName] = useState('');
   const [formatWidth, setFormatWidth] = useState('85.6');
@@ -100,6 +107,7 @@ export default function CardsManagementPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   const colorsPreset = [
     '#6366f1', // Indigo
@@ -170,17 +178,32 @@ export default function CardsManagementPage() {
 
     setIsSubmitting(true);
     try {
-      const newCat = await createCardCategory({
-        name: categoryName.trim(),
-        color: categoryColor,
-        description: categoryDesc.trim() || undefined,
-        formatId: finalFormatId,
-        validityValue: categoryValidityUnit === 'NONE' ? null : (parseInt(categoryValidityValue) || 1),
-        validityUnit: categoryValidityUnit,
-        companyId: selectedCompanyId || undefined,
-        documentTypeSlug: categoryDocTypeSlug || undefined,
-      });
-      setCategories((prev) => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
+      if (editingCategoryId) {
+        const updatedCat = await updateCardCategory(editingCategoryId, {
+          name: categoryName.trim(),
+          color: categoryColor,
+          description: categoryDesc.trim() || undefined,
+          formatId: finalFormatId,
+          validityValue: categoryValidityUnit === 'NONE' ? null : (parseInt(categoryValidityValue) || 1),
+          validityUnit: categoryValidityUnit,
+          documentTypeSlug: categoryDocTypeSlug || undefined,
+          cardCode: categoryCardCode || undefined,
+        });
+        setCategories((prev) => prev.map(c => c.id === editingCategoryId ? updatedCat : c).sort((a, b) => a.name.localeCompare(b.name)));
+      } else {
+        const newCat = await createCardCategory({
+          name: categoryName.trim(),
+          color: categoryColor,
+          description: categoryDesc.trim() || undefined,
+          formatId: finalFormatId,
+          validityValue: categoryValidityUnit === 'NONE' ? null : (parseInt(categoryValidityValue) || 1),
+          validityUnit: categoryValidityUnit,
+          companyId: selectedCompanyId || undefined,
+          documentTypeSlug: categoryDocTypeSlug || undefined,
+          cardCode: categoryCardCode || undefined,
+        });
+        setCategories((prev) => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
+      }
       setShowCategoryModal(false);
       setCategoryName('');
       setCategoryDesc('');
@@ -191,11 +214,28 @@ export default function CardsManagementPage() {
       } else {
         setCategoryDocTypeSlug('BADGE');
       }
+      setCategoryCardCode('');
+      setEditingCategory(null);
+      setEditingCategoryId(null);
     } catch (err: any) {
-      alert(err.message || 'Impossible de créer la catégorie.');
+      alert(err.message || 'Impossible de sauvegarder la catégorie.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const openEditCategoryModal = (cat: CardCategory) => {
+    setEditingCategoryId(cat.id);
+    setEditingCategory(cat);
+    setCategoryName(cat.name);
+    setCategoryColor(cat.color);
+    setCategoryDesc(cat.description || '');
+    setCategoryFormatId(cat.formatId);
+    setCategoryValidityUnit(cat.validityUnit || 'YEAR');
+    setCategoryValidityValue(cat.validityValue?.toString() || '1');
+    setCategoryDocTypeSlug(cat.documentTypeSlug || '');
+    setCategoryCardCode((cat as any).cardCode || '');
+    setShowCategoryModal(true);
   };
 
   const handleCreateFormat = async (e: React.FormEvent) => {
@@ -359,9 +399,16 @@ export default function CardsManagementPage() {
           </button>
           {activeTab === 'categories' ? (
             <button
-              onClick={() => setShowCategoryModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
-            >
+          onClick={() => {
+            setEditingCategoryId(null);
+            setEditingCategory(null);
+            setCategoryName('');
+            setCategoryDesc('');
+            setCategoryCardCode('');
+            setShowCategoryModal(true);
+          }}
+          className="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95"
+        >
               <Plus className="w-4 h-4" />
               <span>Catégorie</span>
             </button>
@@ -486,13 +533,24 @@ export default function CardsManagementPage() {
                     >
                       {cat.name}
                     </span>
-                    <button
-                      onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                      className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-                      title="Supprimer la catégorie"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {(!selectedCompanyId || cat.companyId === selectedCompanyId) && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => openEditCategoryModal(cat)}
+                          className="p-1.5 text-neutral-400 hover:text-indigo-500 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition-colors"
+                          title="Modifier la catégorie"
+                        >
+                          <Sliders className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                          className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                          title="Supprimer la catégorie"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Dimension indicator / CR80 label */}
@@ -579,7 +637,7 @@ export default function CardsManagementPage() {
                         Dimensions fixes recommandées pour badges CR80 standardisé.
                       </p>
                     </div>
-                    {!isCr80 && (
+                    {!isCr80 && (!selectedCompanyId || fmt.companyId === selectedCompanyId) && (
                       <button
                         onClick={() => handleDeleteFormat(fmt.id, fmt.name)}
                         className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
@@ -640,13 +698,15 @@ export default function CardsManagementPage() {
                         {type.slug}
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleDeletePhysicalType(type.id, type.name)}
-                      className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-                      title="Supprimer le type de carte"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {(!selectedCompanyId || type.companyId === selectedCompanyId) && (
+                      <button
+                        onClick={() => handleDeletePhysicalType(type.id, type.name)}
+                        className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                        title="Supprimer le type de carte"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-4 leading-relaxed">
@@ -733,9 +793,9 @@ export default function CardsManagementPage() {
       {showCategoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">Ajouter une catégorie de carte</h3>
+            <h3 className="text-base font-bold text-neutral-800 dark:text-white mb-2">{editingCategoryId ? 'Modifier la catégorie' : 'Créer une catégorie'}</h3>
             <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
-              Définit un groupe de badges partageant le même format physique et repère couleur.
+              {editingCategoryId ? 'Modifiez les paramètres de cette catégorie de badges.' : 'Les catégories définissent les propriétés partagées (format, validité) d\'un groupe de badges.'}
             </p>
 
             <form onSubmit={handleCreateCategory} className="flex flex-col gap-4">
@@ -825,6 +885,20 @@ export default function CardsManagementPage() {
 
               <div>
                 <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
+                  Code de carte (Préfixe) <span className="text-[10px] text-neutral-400 lowercase italic">(optionnel)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: BADGE, EMP, VIS"
+                  value={categoryCardCode}
+                  onChange={(e) => setCategoryCardCode(e.target.value.toUpperCase())}
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
+                />
+                <p className="text-[10px] text-neutral-400 mt-1">Sera utilisé comme préfixe pour la génération du numéro de carte (ex: <strong>{categoryCardCode || 'BADGE'}0001</strong>).</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
                   Durée de validité <span className="text-rose-500">*</span>
                 </label>
                 <div className="flex gap-2">
@@ -866,7 +940,7 @@ export default function CardsManagementPage() {
                   className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:opacity-50"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Ajouter</span>
+                  <span>{editingCategoryId ? 'Enregistrer' : 'Ajouter'}</span>
                 </button>
               </div>
             </form>

@@ -394,6 +394,34 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const printedCards = employees.flatMap(emp => {
+      const jobs = emp.printJobs || [];
+      if (jobs.length === 0) {
+        return [{
+          name: `${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''} ${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''}`.trim() || emp.uniqueIdentifier,
+          uniqueIdentifier: emp.uniqueIdentifier,
+          cardType: 'BADGE',
+          cardNumber: emp.cardNumber || 'Non généré',
+          printedAt: emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : 'N/A',
+        }];
+      }
+      const uniqueTypes = new Set<string>();
+      const uniqueJobs: any[] = [];
+      jobs.forEach((job: any) => {
+        if (!uniqueTypes.has(job.templateType)) {
+          uniqueTypes.add(job.templateType);
+          uniqueJobs.push(job);
+        }
+      });
+      return uniqueJobs.map(job => ({
+        name: `${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''} ${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''}`.trim() || emp.uniqueIdentifier,
+        uniqueIdentifier: emp.uniqueIdentifier,
+        cardType: job.templateType,
+        cardNumber: job.cardNumber || 'Non généré',
+        printedAt: job.printedAt ? new Date(job.printedAt).toLocaleDateString('fr-FR') : (emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : 'N/A'),
+      }));
+    });
+
     const html = `
       <html>
         <head>
@@ -450,8 +478,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
               <div class="details-value">${new Date().toLocaleDateString('fr-FR')}</div>
             </div>
             <div style="text-align: right;">
-              <div class="details-title">Nombre de badges</div>
-              <div class="details-value" style="font-size: 18px; font-weight: 800; color: #4f46e5;">${employees.length}</div>
+              <div class="details-title">Nombre de cartes</div>
+              <div class="details-value" style="font-size: 18px; font-weight: 800; color: #4f46e5;">${printedCards.length}</div>
             </div>
           </div>
           <table>
@@ -459,23 +487,22 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
               <tr>
                 <th style="width: 50px;">#</th>
                 <th>Nom Complet</th>
-                <th>Identifiant Unique (Matricule)</th>
-                <th>Numéro d'enrôlement</th>
+                <th>Matricule</th>
+                <th>Type de carte</th>
+                <th>N° de carte</th>
                 <th>Date d'impression</th>
               </tr>
             </thead>
             <tbody>
-              ${employees.map((emp, idx) => {
-                const data = emp.dynamicData || {};
-                const name = `${data.Prenom || data.prenom || ''} ${data.Nom || data.nom || ''}`.trim() || emp.uniqueIdentifier;
-                const printDate = emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : 'N/A';
+              ${printedCards.map((card, idx) => {
                 return `
                   <tr>
                     <td>${idx + 1}</td>
-                    <td style="font-weight: 600;">${name}</td>
-                    <td style="font-family: monospace;">${emp.uniqueIdentifier}</td>
-                    <td style="font-family: monospace; font-weight: 600;">${emp.enrollmentNumber || 'Non généré'}</td>
-                    <td>${printDate}</td>
+                    <td style="font-weight: 600;">${card.name}</td>
+                    <td style="font-family: monospace;">${card.uniqueIdentifier}</td>
+                    <td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${card.cardType}</span></td>
+                    <td style="font-family: monospace; font-weight: 600;">${card.cardNumber}</td>
+                    <td>${card.printedAt}</td>
                   </tr>
                 `;
               }).join('')}
@@ -1046,51 +1073,92 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
               ) : batchEmployees.length === 0 ? (
                 <div className="text-center py-16 text-neutral-400">Aucun badge trouvé dans ce lot.</div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900 px-4 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl">
-                    <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Liste des badges ({batchEmployees.length})</span>
-                    <button onClick={() => handlePrintSlip(selectedBatchDetails, batchEmployees)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 border border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-xs font-bold rounded-lg shadow-sm">
-                      <Printer className="w-4 h-4 text-indigo-500" />
-                      <span>Imprimer Bon de Livraison</span>
-                    </button>
-                  </div>
-                  <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                      <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                        <tr>
-                          <th className="py-2.5 px-4 w-12">Photo</th>
-                          <th className="py-2.5 px-3">Nom</th>
-                          <th className="py-2.5 px-3">Matricule</th>
-                          <th className="py-2.5 px-3">Enrôlement</th>
-                          <th className="py-2.5 px-3 text-right">Impression</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
-                        {batchEmployees.map(emp => (
-                          <tr key={emp.id} className="text-xs hover:bg-neutral-50/50 dark:hover:bg-neutral-800/10">
-                            <td className="py-2.5 px-4">
-                              <div className="w-8 h-8 rounded bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden">
-                                {emp.photoUrl ? (
-                                  <img 
-                                    src={emp.photoUrl} 
-                                    alt="" 
-                                    className={`w-full h-full ${((emp.dynamicData as any)?._photoFit === 'contain') ? 'object-contain' : 'object-cover'}`} 
-                                  />
-                                ) : (
-                                  <User className="w-3.5 h-3.5 text-neutral-400" />
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>
-                            <td className="py-2.5 px-3 font-mono text-neutral-500">{emp.uniqueIdentifier}</td>
-                            <td className="py-2.5 px-3 font-mono font-bold">{emp.enrollmentNumber || '-'}</td>
-                            <td className="py-2.5 px-3 text-right text-neutral-400">{emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <>
+                  {(() => {
+                    const printedCards = batchEmployees.flatMap(emp => {
+                    const jobs = emp.printJobs || [];
+                    if (jobs.length === 0) {
+                      return [{
+                        key: `${emp.id}_BADGE`,
+                        emp,
+                        cardType: 'BADGE',
+                        cardNumber: emp.cardNumber || '-',
+                        printedAt: emp.printedAt,
+                      }];
+                    }
+                    const uniqueTypes = new Set<string>();
+                    const uniqueJobs: any[] = [];
+                    jobs.forEach((job: any) => {
+                      if (!uniqueTypes.has(job.templateType)) {
+                        uniqueTypes.add(job.templateType);
+                        uniqueJobs.push(job);
+                      }
+                    });
+                    return uniqueJobs.map(job => ({
+                      key: `${emp.id}_${job.templateType}`,
+                      emp,
+                      cardType: job.templateType,
+                      cardNumber: job.cardNumber || '-',
+                      printedAt: job.printedAt || emp.printedAt,
+                    }));
+                  });
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900 px-4 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+                        <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Liste des cartes ({printedCards.length})</span>
+                        <button onClick={() => handlePrintSlip(selectedBatchDetails, batchEmployees)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 border border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-xs font-bold rounded-lg shadow-sm">
+                          <Printer className="w-4 h-4 text-indigo-500" />
+                          <span>Imprimer Bon de Livraison</span>
+                        </button>
+                      </div>
+                      <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-hidden">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                            <tr>
+                              <th className="py-2.5 px-4 w-12">Photo</th>
+                              <th className="py-2.5 px-3">Nom</th>
+                              <th className="py-2.5 px-3">Matricule</th>
+                              <th className="py-2.5 px-3">Type de carte</th>
+                              <th className="py-2.5 px-3">N° de carte</th>
+                              <th className="py-2.5 px-3 text-right">Impression</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
+                            {printedCards.map(({ key, emp, cardType, cardNumber, printedAt }) => (
+                              <tr key={key} className="text-xs hover:bg-neutral-50/50 dark:hover:bg-neutral-800/10">
+                                <td className="py-2.5 px-4">
+                                  <div className="w-8 h-8 rounded bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden">
+                                    {emp.photoUrl ? (
+                                      /* eslint-disable-next-line @next/next/no-img-element */
+                                      <img 
+                                        src={emp.photoUrl} 
+                                        alt="" 
+                                        className={`w-full h-full ${((emp.dynamicData as any)?._photoFit === 'contain') ? 'object-contain' : 'object-cover'}`} 
+                                      />
+                                    ) : (
+                                      <User className="w-3.5 h-3.5 text-neutral-400" />
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>
+                                <td className="py-2.5 px-3 font-mono text-neutral-500">{emp.uniqueIdentifier}</td>
+                                <td className="py-2.5 px-3">
+                                  <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
+                                    {cardType}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono font-bold">{cardNumber}</td>
+                                <td className="py-2.5 px-3 text-right text-neutral-400">{printedAt ? new Date(printedAt).toLocaleDateString('fr-FR') : '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+                </>
               )}
             </div>
             <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800 flex justify-end gap-2">
