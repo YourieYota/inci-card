@@ -706,27 +706,40 @@ export default function EmployeeDetailModal({
 
             {/* PRINT HISTORY SECTION */}
             {printHistory.length > 0 && (
-              <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4">
+              <div className="md:col-span-3 border-t border-neutral-100 dark:border-neutral-800 pt-4">
                 <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 flex items-center gap-1 mb-2">
-                  <Clock className="w-3 h-3" /> Historique d&apos;impression ({printHistory.filter(j => j.templateType !== 'PENDING' && j.templateType !== 'DEBLOCAGE').length})
+                  <Clock className="w-3.5 h-3.5" /> Historique d&apos;impression ({printHistory.filter(j => j.templateType !== 'PENDING' && j.templateType !== 'DEBLOCAGE').length})
                 </span>
-                <div className="max-h-[120px] overflow-y-auto space-y-1.5">
+                <div className="max-h-[160px] overflow-y-auto space-y-2 pr-1">
                   {printHistory.map((job: any) => (
-                    <div key={job.id} className={`flex items-center gap-2 p-2 rounded-lg text-[10px] ${
-                      job.templateType === 'PENDING' ? 'bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-400' :
-                      job.templateType === 'DEBLOCAGE' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' :
-                      job.isReprint ? 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400' :
-                      'bg-neutral-50 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400'
+                    <div key={job.id} className={`flex flex-col gap-1.5 p-3 rounded-xl text-[11px] border ${
+                      job.templateType === 'PENDING' ? 'bg-violet-50/50 dark:bg-violet-950/10 text-violet-700 dark:text-violet-400 border-violet-100/50 dark:border-violet-900/20' :
+                      job.templateType === 'DEBLOCAGE' ? 'bg-emerald-50/50 dark:bg-emerald-950/10 text-emerald-700 dark:text-emerald-400 border-emerald-100/50 dark:border-emerald-900/20' :
+                      job.isReprint ? 'bg-amber-50/30 dark:bg-amber-950/5 text-amber-800 dark:text-amber-300 border-amber-100/40 dark:border-amber-900/10' :
+                      'bg-neutral-50/50 dark:bg-neutral-900/50 text-neutral-600 dark:text-neutral-450 border-neutral-100 dark:border-neutral-800/40'
                     }`}>
-                      {job.isReprint && <RotateCcw className="w-3 h-3 shrink-0" />}
-                      <span className="font-bold">{job.cardNumber}</span>
-                      <span className="opacity-70">—</span>
-                      <span>{new Date(job.printedAt || job.createdAt).toLocaleDateString('fr-FR')}</span>
-                      <span className="opacity-70">par {job.printedBy}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {job.isReprint ? (
+                          <span className="flex items-center gap-1 text-[10px] bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 shadow-sm border border-amber-200/50 dark:border-amber-900/50">
+                            <RotateCcw className="w-3 h-3" /> Réimpression
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[10px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 shadow-sm border border-indigo-100/50 dark:border-indigo-900/50">
+                            Original
+                          </span>
+                        )}
+                        <span className="font-bold text-neutral-800 dark:text-neutral-200 text-xs">{job.cardNumber}</span>
+                        <span className="opacity-40">|</span>
+                        <span className="font-semibold text-neutral-700 dark:text-neutral-300">{job.templateType || 'Carte'}</span>
+                        <span className="opacity-40">|</span>
+                        <span>{new Date(job.printedAt || job.createdAt).toLocaleDateString('fr-FR')} à {new Date(job.printedAt || job.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="opacity-45 ml-auto">par {job.printedBy}</span>
+                      </div>
                       {job.reprintReason && (
-                        <span className="ml-auto italic opacity-80 truncate max-w-[150px]" title={job.reprintReason}>
-                          Motif: {job.reprintReason}
-                        </span>
+                        <div className="mt-1 bg-white/70 dark:bg-neutral-950/50 p-2.5 rounded-lg border border-amber-200/60 dark:border-amber-900/30 flex flex-col gap-1 text-[11px] shadow-sm">
+                          <span className="text-[9px] uppercase font-bold tracking-wider text-amber-700 dark:text-amber-500">Justification fournie :</span>
+                          <span className="text-neutral-700 dark:text-neutral-300 leading-relaxed font-medium">{job.reprintReason}</span>
+                        </div>
                       )}
                     </div>
                   ))}
