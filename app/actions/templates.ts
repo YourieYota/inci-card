@@ -17,7 +17,7 @@ export async function getCompanies() {
 
 export async function getCompaniesWithCounts() {
   try {
-    return await prisma.company.findMany({
+    const result = await prisma.company.findMany({
       include: {
         _count: {
           select: {
@@ -25,7 +25,7 @@ export async function getCompaniesWithCounts() {
             templates: true,
           },
         },
-        categories: {
+        cardCategories: {
           select: {
             slug: true,
             cardCode: true,
@@ -34,6 +34,10 @@ export async function getCompaniesWithCounts() {
       },
       orderBy: { name: 'asc' },
     });
+    return result.map(c => ({
+      ...c,
+      categories: c.cardCategories
+    }));
   } catch (error) {
     console.warn('Error fetching companies with counts:', error);
     throw new Error('Impossible de récupérer les entreprises');
@@ -170,14 +174,17 @@ export async function updateCompany(
         _count: {
           select: { employees: true, templates: true }
         },
-        categories: {
+        cardCategories: {
           select: { slug: true, cardCode: true }
         }
       }
     });
 
     revalidatePath('/dashboard', 'layout');
-    return finalResult;
+    return finalResult ? {
+      ...finalResult,
+      categories: finalResult.cardCategories
+    } : null;
   } catch (error: any) {
     console.warn('Error updating company:', error);
     throw new Error(`Impossible de modifier l'entreprise : ${error?.message || error}`);

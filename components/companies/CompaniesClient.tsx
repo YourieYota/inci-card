@@ -254,6 +254,10 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
         defaultCategories
       );
 
+      if (!updated) {
+        throw new Error("L'entreprise n'a pas été trouvée.");
+      }
+
       const updatedCompanies = companies.map((c) => {
         if (c.id === editingCompany.id) {
           return updated as CompanyWithCounts;
