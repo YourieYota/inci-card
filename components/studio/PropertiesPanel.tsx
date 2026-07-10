@@ -250,6 +250,32 @@ export default function PropertiesPanel({
                 />
               </>
             )}
+            {selectedElement.parentId && (
+              <>
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5" title="Décalage horizontal (X) dans le groupe">
+                    Décalage X (px)
+                  </label>
+                  <input
+                    type="number"
+                    value={(selectedElement as any).offsetX ?? 0}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, offsetX: parseInt(e.target.value) || 0 })}
+                    className="w-full h-8 px-2.5 text-xs border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5" title="Décalage vertical (Y) dans le groupe">
+                    Décalage Y (px)
+                  </label>
+                  <input
+                    type="number"
+                    value={(selectedElement as any).offsetY ?? 0}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, offsetY: parseInt(e.target.value) || 0 })}
+                    className="w-full h-8 px-2.5 text-xs border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {selectedElement.parentId && (

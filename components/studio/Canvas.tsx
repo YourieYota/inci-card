@@ -54,6 +54,8 @@ export interface StudioElement {
   intaglioSpacing?: number;
   intaglioLineWidth?: number;
   intaglioWaveAmp?: number;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 interface CanvasProps {
@@ -453,6 +455,7 @@ export default function Canvas({
                       height: el.flexDirection === 'row' && el.flexWrap !== 'wrap' ? 'auto' : (child.type === 'text' || child.type === 'group' ? 'auto' : `${child.height}px`),
                       minHeight: child.type === 'text' ? `${child.height}px` : undefined,
                       flex: child.childFlexMode === 'flex' ? '1 1 0%' : (child.childFlexMode === 'fixed' || child.childFlexMode === 'fill' ? 'none' : ((el.flexDirection === 'row' && (child.type === 'text' || child.type === 'group')) ? '1 1 0%' : '0 0 auto')),
+                      transform: `translate(${(child as any).offsetX || 0}px, ${(child as any).offsetY || 0}px)`,
                     }}
                   >
                     {renderElementContent(child)}
