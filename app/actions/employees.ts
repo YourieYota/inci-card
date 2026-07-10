@@ -1316,17 +1316,34 @@ export async function ensureCardNumbers(employeeIds: string[], defaultTemplateTy
     });
   }
 }
-export async function assignCardNumbersForCategory(employeeIds: string[], categoryId: string, templateType: string = 'BADGE') {
-  const employees = await prisma.employee.findMany({
-    where: { id: { in: employeeIds }, cardNumber: null },
-  });
-  if (employees.length === 0) return;
-
-  for (const emp of employees) {
-    const cardNumber = await generateCardNumber(emp.companyId, templateType, categoryId);
-    await prisma.employee.update({
-      where: { id: emp.id },
-      data: { cardNumber }
+export async function assignCardNumbersForCategory(employeeIds: string[], categoryId?: string, templateType: string = 'BADGE') {
+  try {
+    const fs = require('fs');
+    fs.appendFileSync('f:/inci-card/server-action.log', `[assignCardNumbersForCategory] called with ${employeeIds.length} ids, catId=${categoryId}, type=${templateType}\n`);
+    
+    const employees = await prisma.employee.findMany({
+      where: { id: { in: employeeIds }, cardNumber: null },
     });
+    
+    fs.appendFileSync('f:/inci-card/server-action.log', `[assignCardNumbersForCategory] Found ${employees.length} employees with null card number\n`);
+    
+    const updatedNumbers: Record<string, string> = {};
+    if (employees.length === 0) return updatedNumbers;
+
+    for (const emp of employees) {
+      const cardNumber = await generateCardNumber(emp.companyId, templateType, categoryId);
+      fs.appendFileSync('f:/inci-card/server-action.log', `[assignCardNumbersForCategory] Generated card number "${cardNumber}" for employee ${emp.id}\n`);
+      await prisma.employee.update({
+        where: { id: emp.id },
+        data: { cardNumber }
+      });
+      updatedNumbers[emp.id] = cardNumber;
+    }
+    
+    return updatedNumbers;
+  } catch (err: any) {
+    const fs = require('fs');
+    fs.appendFileSync('f:/inci-card/server-action.log', `[assignCardNumbersForCategory] ERROR: ${err.message}\n${err.stack}\n`);
+    throw err;
   }
 }

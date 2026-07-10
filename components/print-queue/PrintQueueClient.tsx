@@ -50,8 +50,6 @@ export default function PrintQueueClient({
   const [reprintReason, setReprintReason] = useState<string>('');
   const [reprintTemplateType, setReprintTemplateType] = useState<string>('BADGE');
   const [selectedTemplateType, setSelectedTemplateType] = useState<string>('BADGE');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const [categories, setCategories] = useState<any[]>([]);
   const [documentTypes, setDocumentTypes] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
@@ -76,33 +74,22 @@ export default function PrintQueueClient({
     setCurrentPage(1);
   }, [selectedCompanyId]);
 
-  // Fetch document types and categories when company changes
+  // Fetch document types when company changes
   useEffect(() => {
     if (!selectedCompanyId) {
       setDocumentTypes([]);
-      setCategories([]);
       setSelectedTemplateType('BADGE');
-      setSelectedCategoryId('');
       return;
     }
 
     const fetchData = async () => {
       try {
-        const [types, cats] = await Promise.all([
-          getCardDocumentTypes(selectedCompanyId),
-          getCardCategories(selectedCompanyId)
-        ]);
+        const types = await getCardDocumentTypes(selectedCompanyId);
         setDocumentTypes(types);
-        setCategories(cats);
         if (types.length > 0) {
           setSelectedTemplateType(types[0].slug);
         } else {
           setSelectedTemplateType('BADGE');
-        }
-        if (cats.length > 0) {
-          setSelectedCategoryId(cats[0].id);
-        } else {
-          setSelectedCategoryId('');
         }
       } catch (err) {
         console.error("Failed to fetch card metadata:", err);
@@ -147,25 +134,18 @@ export default function PrintQueueClient({
     return emp.uniqueIdentifier;
   };
 
-  // Helpers for card-specific filtering
-  const getEmpCategoryId = (emp: any) => (emp.dynamicData as any)?.categorie_id || (emp.dynamicData as any)?.category_id || null;
-  const matchesCategory = (emp: any) => !selectedCategoryId || getEmpCategoryId(emp) === selectedCategoryId;
-
   // Categories Filtering
   const readyToPrintList = employees.filter((emp) => {
-    if (!matchesCategory(emp)) return false;
     const isReady = emp.hasPhoto && !emp.isBlocked && (emp.status === 'PHOTO_VALIDEE' || emp.status === 'REIMPRESSION');
     if (!isReady) return false;
     const hasJob = emp.printJobs?.some((j: any) => 
       j.templateType === selectedTemplateType &&
-      (j.categoryId === selectedCategoryId || (!j.categoryId && !selectedCategoryId)) &&
       j.cardNumber !== 'REIMPRESSION_DEMANDEE'
     );
     return !hasJob;
   });
 
   const notReadyList = employees.filter((emp) => {
-    if (!matchesCategory(emp)) return false;
     return emp.status === 'A_ENROLER' || 
       emp.status === 'A_VERIFIER' || 
       !emp.hasPhoto ||
@@ -173,38 +153,30 @@ export default function PrintQueueClient({
   });
 
   const toReprintList = employees.filter((emp) => {
-    if (!matchesCategory(emp)) return false;
     return emp.printJobs?.some((j: any) => 
       j.templateType === selectedTemplateType &&
-      (j.categoryId === selectedCategoryId || (!j.categoryId && !selectedCategoryId)) &&
       j.cardNumber === 'REIMPRESSION_DEMANDEE'
     );
   });
 
   const alreadyPrintedList = employees.filter((emp) => {
-    if (!matchesCategory(emp)) return false;
     return emp.printJobs?.some((j: any) => 
       j.templateType === selectedTemplateType &&
-      (j.categoryId === selectedCategoryId || (!j.categoryId && !selectedCategoryId)) &&
       j.cardNumber !== 'REIMPRESSION_DEMANDEE'
     );
   });
 
   const reprintedList = employees.filter((emp) => {
-    if (!matchesCategory(emp)) return false;
     const printCount = emp.printJobs?.filter((j: any) => 
       j.templateType === selectedTemplateType &&
-      (j.categoryId === selectedCategoryId || (!j.categoryId && !selectedCategoryId)) &&
       j.cardNumber !== 'REIMPRESSION_DEMANDEE'
     ).length || 0;
     return printCount > 1;
   });
 
   const historyList = employees.filter((emp) => {
-    if (!matchesCategory(emp)) return false;
     return emp.printJobs?.some((j: any) => 
-      j.templateType === selectedTemplateType &&
-      (j.categoryId === selectedCategoryId || (!j.categoryId && !selectedCategoryId))
+      j.templateType === selectedTemplateType
     );
   });
 
@@ -243,7 +215,7 @@ export default function PrintQueueClient({
 
   const handlePrintSelected = () => {
     if (selectedIds.length === 0) return;
-    window.open(`/dashboard/employees/print?ids=${encodeURIComponent(selectedIds.join(','))}&type=${selectedTemplateType}&categoryId=${selectedCategoryId}`, '_blank');
+    window.open(`/dashboard/employees/print?ids=${encodeURIComponent(selectedIds.join(','))}&type=${selectedTemplateType}`, '_blank');
   };
 
   const handleMarkPrintedSelected = async () => {
@@ -254,7 +226,7 @@ export default function PrintQueueClient({
 
     setIsSubmitting(true);
     try {
-      await markAsPrinted(selectedIds, selectedTemplateType, selectedCategoryId);
+      await markAsPrinted(selectedIds, selectedTemplateType);
       // Update local state so they move to the correct tab instantly
       setEmployees(prev => prev.map(emp => {
         if (selectedIds.includes(emp.id)) {
@@ -264,7 +236,7 @@ export default function PrintQueueClient({
             employeeId: emp.id,
             cardNumber: emp.cardNumber || 'GENERE',
             templateType: selectedTemplateType,
-            categoryId: selectedCategoryId || null,
+            categoryId: null,
             physicalTypeId: null,
             isReprint,
             reprintReason: null,
@@ -355,22 +327,6 @@ export default function PrintQueueClient({
                   {documentTypes.map((t) => (
                     <option key={t.id} value={t.slug}>
                       {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Category Selector */}
-              <div className="relative w-full sm:w-auto">
-                <select
-                  value={selectedCategoryId}
-                  onChange={(e) => setSelectedCategoryId(e.target.value)}
-                  className="px-4 py-2.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs font-bold text-neutral-700 dark:text-neutral-300 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer appearance-none min-w-[180px] w-full"
-                >
-                  <option value="">Toutes les catégories</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
                     </option>
                   ))}
                 </select>
@@ -712,7 +668,7 @@ export default function PrintQueueClient({
                               {(activeTab === 'ready' || activeTab === 'to-reprint' || activeTab === 'printed' || activeTab === 'reprinted' || activeTab === 'history') && (
                                 <button
                                   type="button"
-                                  onClick={() => window.open(`/dashboard/employees/print?ids=${encodeURIComponent(emp.id)}&type=${selectedTemplateType}&categoryId=${selectedCategoryId}`, '_blank')}
+                                  onClick={() => window.open(`/dashboard/employees/print?ids=${encodeURIComponent(emp.id)}&type=${selectedTemplateType}`, '_blank')}
                                   className="inline-flex items-center justify-center p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-neutral-500 dark:text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                                   title="Imprimer ce badge"
                                 >

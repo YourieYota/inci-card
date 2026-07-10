@@ -935,7 +935,15 @@ export default function PrintClient({ employees, templates, companyName, documen
 
   useEffect(() => {
     if (!dbError) {
-      setLocalEmployees(employees);
+      setLocalEmployees(prev => {
+        return employees.map(emp => {
+          const existing = prev.find(p => p.id === emp.id);
+          return {
+            ...emp,
+            cardNumber: emp.cardNumber || existing?.cardNumber || null
+          };
+        });
+      });
       setLocalTemplates(templates);
       setLocalCompanyName(companyName);
       return;
@@ -1001,14 +1009,58 @@ export default function PrintClient({ employees, templates, companyName, documen
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialCategoryId || '');
   const [selectedPhysicalTypeId, setSelectedPhysicalTypeId] = useState<string>('');
 
+  const [assignedFlag, setAssignedFlag] = useState<string>('');
+
   useEffect(() => {
-    if (selectedCategoryId && localEmployees.length > 0) {
-      const ids = localEmployees.map(e => e.id);
-      assignCardNumbersForCategory(ids, selectedCategoryId, selectedTemplateType).then(() => {
-        router.refresh();
-      });
+    const key = `${selectedCategoryId}_${selectedTemplateType}_${localEmployees.map(e => e.id).join(',')}`;
+    if (assignedFlag === key) return;
+    
+    if (localEmployees.length > 0) {
+      const employeesToAssign = localEmployees.filter(e => !e.cardNumber);
+      console.log("[assignCardNumbers] Check to assign:", employeesToAssign.length, "employees");
+      if (employeesToAssign.length > 0) {
+        const categoryMap: Record<string, string[]> = {};
+        employeesToAssign.forEach(emp => {
+          const empCatId = (emp.dynamicData as any)?.categorie_id || (emp.dynamicData as any)?.category_id || selectedCategoryId || '';
+          if (!categoryMap[empCatId]) {
+            categoryMap[empCatId] = [];
+          }
+          categoryMap[empCatId].push(emp.id);
+        });
+
+        console.log("[assignCardNumbers] categoryMap:", categoryMap);
+
+        const promises = Object.entries(categoryMap).map(([catId, ids]) => 
+          assignCardNumbersForCategory(ids, catId || undefined, selectedTemplateType)
+        );
+
+        if (promises.length > 0) {
+          setAssignedFlag(key);
+          Promise.all(promises).then((results) => {
+            console.log("[assignCardNumbers] Results:", results);
+            const allUpdated: Record<string, string> = {};
+            results.forEach(res => {
+              if (res) {
+                Object.assign(allUpdated, res);
+              }
+            });
+
+            if (Object.keys(allUpdated).length > 0) {
+              setLocalEmployees(prev => prev.map(emp => {
+                if (allUpdated[emp.id]) {
+                  return { ...emp, cardNumber: allUpdated[emp.id] };
+                }
+                return emp;
+              }));
+            }
+            router.refresh();
+          }).catch(err => {
+            console.error("Failed to auto assign card numbers:", err);
+          });
+        }
+      }
     }
-  }, [selectedCategoryId, selectedTemplateType]);
+  }, [localEmployees, selectedCategoryId, selectedTemplateType, assignedFlag]);
 
   const [printFormat, setPrintFormat] = useState<'A4' | 'CARD'>('A4');
   const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>('side-by-side');
@@ -1282,24 +1334,60 @@ export default function PrintClient({ employees, templates, companyName, documen
       if (layoutMode === 'recto-only') {
         return eligibleEmployees.map((emp, idx) => (
           <div key={`card-recto-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
-            <CardRender emp={emp} template={template} side="recto" selectedCategoryName={selectedCategoryName} selectedPhysicalTypeName={selectedPhysicalTypeName} validityValue={validityValue} validityUnit={validityUnit} />
+            <CardRender 
+              emp={emp} 
+              template={template} 
+              side="recto" 
+              selectedCategoryName={selectedCategoryName} 
+              selectedPhysicalTypeName={selectedPhysicalTypeName} 
+              validityValue={validityValue} 
+              validityUnit={validityUnit} 
+              categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+            />
           </div>
         ));
       }
       if (layoutMode === 'verso-only') {
         return eligibleEmployees.map((emp, idx) => (
           <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
-            <CardRender emp={emp} template={template} side="verso" selectedCategoryName={selectedCategoryName} selectedPhysicalTypeName={selectedPhysicalTypeName} validityValue={validityValue} validityUnit={validityUnit} />
+            <CardRender 
+              emp={emp} 
+              template={template} 
+              side="verso" 
+              selectedCategoryName={selectedCategoryName} 
+              selectedPhysicalTypeName={selectedPhysicalTypeName} 
+              validityValue={validityValue} 
+              validityUnit={validityUnit} 
+              categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+            />
           </div>
         ));
       }
       // duplex
       return eligibleEmployees.flatMap((emp, idx) => [
         <div key={`card-recto-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
-          <CardRender emp={emp} template={template} side="recto" selectedCategoryName={selectedCategoryName} selectedPhysicalTypeName={selectedPhysicalTypeName} validityValue={validityValue} validityUnit={validityUnit} />
+          <CardRender 
+            emp={emp} 
+            template={template} 
+            side="recto" 
+            selectedCategoryName={selectedCategoryName} 
+            selectedPhysicalTypeName={selectedPhysicalTypeName} 
+            validityValue={validityValue} 
+            validityUnit={validityUnit} 
+            categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+          />
         </div>,
         <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
-          <CardRender emp={emp} template={template} side="verso" selectedCategoryName={selectedCategoryName} selectedPhysicalTypeName={selectedPhysicalTypeName} validityValue={validityValue} validityUnit={validityUnit} />
+          <CardRender 
+            emp={emp} 
+            template={template} 
+            side="verso" 
+            selectedCategoryName={selectedCategoryName} 
+            selectedPhysicalTypeName={selectedPhysicalTypeName} 
+            validityValue={validityValue} 
+            validityUnit={validityUnit} 
+            categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+          />
         </div>
       ]);
     }

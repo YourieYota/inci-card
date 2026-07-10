@@ -1,0 +1,6 @@
+[assignCardNumbersForCategory] called with 1 ids, catId=undefined, type=BADGE
+[assignCardNumbersForCategory] Found 1 employees with null card number
+[assignCardNumbersForCategory] Generated card number "BADGE0003" for employee 1bc33cca-c7af-4099-9748-94cf5e947f8f
+[assignCardNumbersForCategory] called with 1 ids, catId=undefined, type=BADGE
+[assignCardNumbersForCategory] Found 1 employees with null card number
+[assignCardNumbersForCategory] Generated card number "BADGE0004" for employee 4c1ab6ed-1191-41da-a24b-aa48cbb74875
