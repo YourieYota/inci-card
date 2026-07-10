@@ -978,14 +978,39 @@ async function generateCardNumber(companyId: string, templateType: string, categ
     }
   }
 
-  // 3. Count existing employees for this company that already have a cardNumber starting with this prefix
-  const existingEmployees = await prisma.employee.findMany({
+  // 3. Find all card numbers starting with this prefix in both Employee and PrintJob tables
+  const employeeCardNumbers = await prisma.employee.findMany({
     where: { companyId, cardNumber: { startsWith: prefix } },
     select: { cardNumber: true }
   });
-  const count = existingEmployees.length;
 
-  const seq = String(count + 1).padStart(4, '0');
+  const printJobCardNumbers = await prisma.printJob.findMany({
+    where: { 
+      employee: { companyId }, 
+      cardNumber: { startsWith: prefix, not: 'REIMPRESSION_DEMANDEE' } 
+    },
+    select: { cardNumber: true }
+  });
+
+  const allNumbers = new Set<string>();
+  employeeCardNumbers.forEach(e => {
+    if (e.cardNumber) allNumbers.add(e.cardNumber);
+  });
+  printJobCardNumbers.forEach(p => {
+    if (p.cardNumber) allNumbers.add(p.cardNumber);
+  });
+
+  let maxSeq = 0;
+  allNumbers.forEach(num => {
+    const seqStr = num.slice(prefix.length);
+    const seqVal = parseInt(seqStr, 10);
+    if (!isNaN(seqVal) && seqVal > maxSeq) {
+      maxSeq = seqVal;
+    }
+  });
+
+  const nextSeq = maxSeq + 1;
+  const seq = String(nextSeq).padStart(4, '0');
   return `${prefix}${seq}`;
 }
 
@@ -1089,8 +1114,15 @@ export async function confirmPrint(
     const results = [];
 
     for (const emp of eligible) {
-      // Use existing card number if available, otherwise generate one
-      let cardNumber = emp.cardNumber;
+      // Determine if this is a reprint
+      const hasJob = emp.printJobs?.some((j: any) => 
+        j.templateType === templateType && 
+        j.cardNumber !== 'REIMPRESSION_DEMANDEE'
+      );
+      const isReprint = hasJob || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
+
+      // Use existing card number if available and not a reprint, otherwise generate one
+      let cardNumber = isReprint ? null : emp.cardNumber;
       if (!cardNumber) {
         // Find category from dynamicData if not provided
         let catId = categoryId;
@@ -1100,13 +1132,6 @@ export async function confirmPrint(
         }
         cardNumber = await generateCardNumber(emp.companyId, templateType, catId);
       }
-
-      // Determine if this is a reprint
-      const hasJob = emp.printJobs?.some((j: any) => 
-        j.templateType === templateType && 
-        j.cardNumber !== 'REIMPRESSION_DEMANDEE'
-      );
-      const isReprint = hasJob || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
 
       // Get reprint reason from the last reprint request if applicable
       let reprintReason: string | null = null;
