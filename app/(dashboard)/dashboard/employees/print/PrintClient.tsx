@@ -1087,12 +1087,12 @@ export default function PrintClient({ employees, templates, companyName, documen
   const [ineligibleEmployees, setIneligibleEmployees] = useState<{ employee: any; reasons: string[] }[]>([]);
   const [eligibilityChecked, setEligibilityChecked] = useState<boolean>(false);
 
-  // Check eligibility on mount
+  // Check eligibility on mount and when template type changes
   useEffect(() => {
     const checkEligibility = async () => {
       try {
         const ids = localEmployees.map((e) => e.id);
-        const result = await validatePrintEligibility(ids);
+        const result = await validatePrintEligibility(ids, selectedTemplateType);
         setEligibleEmployees(localEmployees.filter((e) =>
           result.eligible.some((el: any) => el.id === e.id)
         ));
@@ -1105,7 +1105,7 @@ export default function PrintClient({ employees, templates, companyName, documen
       setEligibilityChecked(true);
     };
     checkEligibility();
-  }, [localEmployees]);
+  }, [localEmployees, selectedTemplateType]);
 
   // Compute validity for expiration date based on selected category
   const selectedCategory = categories.find((c: any) => c.id === selectedCategoryId);

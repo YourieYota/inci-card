@@ -993,12 +993,13 @@ async function generateCardNumber(companyId: string, templateType: string, categ
  * Vérifie l'éligibilité à l'impression pour une liste d'employés.
  * Retourne les employés éligibles et les raisons d'inéligibilité.
  */
-export async function validatePrintEligibility(employeeIds: string[]) {
+export async function validatePrintEligibility(employeeIds: string[], templateType?: string) {
   try {
     const employees = await prisma.employee.findMany({
       where: { id: { in: employeeIds } },
       include: {
         company: { select: { name: true } },
+        printJobs: true,
       },
     });
 
@@ -1013,18 +1014,34 @@ export async function validatePrintEligibility(employeeIds: string[]) {
         reasons.push('Photo manquante');
       }
 
-      // 2. Status must be PHOTO_VALIDEE or REIMPRESSION
-      if (emp.status !== 'PHOTO_VALIDEE' && emp.status !== 'REIMPRESSION') {
-        if (emp.status === 'A_ENROLER') {
-          reasons.push('Fiche non validée (en attente d\'enrôlement)');
-        } else if (emp.status === 'A_VERIFIER') {
-          reasons.push('Fiche en attente de vérification (conflit photo)');
-        } else if (emp.status === 'IMPRIME' && emp.isLocked) {
-          reasons.push('Badge déjà imprimé et verrouillé (demandez une réimpression)');
+      // 2. Status & Lock check per templateType
+      if (templateType) {
+        const hasJob = emp.printJobs?.some((j: any) => 
+          j.templateType === templateType && 
+          j.cardNumber !== 'REIMPRESSION_DEMANDEE'
+        );
+        const hasReprintRequest = emp.printJobs?.some((j: any) => 
+          j.templateType === templateType && 
+          j.cardNumber === 'REIMPRESSION_DEMANDEE'
+        );
+
+        if (hasJob && !hasReprintRequest) {
+          reasons.push(`Le document de type ${templateType} a déjà été imprimé (demandez une réimpression).`);
+        }
+      } else {
+        if (emp.isLocked) {
+          reasons.push('Fiche verrouillée');
         }
       }
 
-      // 3. Badge must not be blocked
+      // 3. Status must not be blocked (A_ENROLER, A_VERIFIER)
+      if (emp.status === 'A_ENROLER') {
+        reasons.push('Fiche non validée (en attente d\'enrôlement)');
+      } else if (emp.status === 'A_VERIFIER') {
+        reasons.push('Fiche en attente de vérification (conflit photo)');
+      }
+
+      // 4. Badge must not be blocked
       if (emp.isBlocked) {
         reasons.push('Badge bloqué');
       }
@@ -1057,8 +1074,8 @@ export async function confirmPrint(
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
 
-    // Validate eligibility first
-    const { eligible, ineligible } = await validatePrintEligibility(employeeIds);
+    // Validate eligibility for the specific templateType
+    const { eligible, ineligible } = await validatePrintEligibility(employeeIds, templateType);
 
     if (eligible.length === 0) {
       const reasons = ineligible.map(i => {
@@ -1085,7 +1102,11 @@ export async function confirmPrint(
       }
 
       // Determine if this is a reprint
-      const isReprint = emp.printCount > 0 || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
+      const hasJob = emp.printJobs?.some((j: any) => 
+        j.templateType === templateType && 
+        j.cardNumber !== 'REIMPRESSION_DEMANDEE'
+      );
+      const isReprint = hasJob || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
 
       // Get reprint reason from the last reprint request if applicable
       let reprintReason: string | null = null;
@@ -1099,6 +1120,13 @@ export async function confirmPrint(
           orderBy: { createdAt: 'desc' },
         });
         reprintReason = lastJob?.reprintReason || null;
+        
+        // Delete the reprint request placeholder job
+        if (lastJob) {
+          await prisma.printJob.delete({
+            where: { id: lastJob.id }
+          });
+        }
       }
 
       // Create PrintJob record
@@ -1117,13 +1145,32 @@ export async function confirmPrint(
 
       const newStatus = isReprint ? 'REIMPRIME' : 'IMPRIME';
 
-      // Update employee: lock, update cardNumber, increment printCount
+      // Determine if ALL company templates are now printed for this employee
+      const companyTemplates = await prisma.cardTemplate.findMany({
+        where: { companyId: emp.companyId },
+        select: { type: true }
+      });
+      const requiredTypes = Array.from(new Set(companyTemplates.map(t => t.type)));
+
+      const printedJobs = await prisma.printJob.findMany({
+        where: { 
+          employeeId: emp.id, 
+          cardNumber: { not: 'REIMPRESSION_DEMANDEE' } 
+        },
+        select: { templateType: true }
+      });
+      const printedTypes = new Set(printedJobs.map(j => j.templateType));
+      printedTypes.add(templateType); // include the current templateType we just printed
+
+      const allPrinted = requiredTypes.every(t => printedTypes.has(t));
+
+      // Update employee: lock only if allPrinted is true, update cardNumber, increment printCount
       const updated = await prisma.employee.update({
         where: { id: emp.id },
         data: {
           cardNumber,
           status: newStatus,
-          isLocked: true,
+          isLocked: allPrinted,
           printCount: { increment: 1 },
           printedAt: new Date(),
           printedBy: operatorName,
