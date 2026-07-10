@@ -378,7 +378,7 @@ export default function ReceiptClient({ employee, template, dbError, employeeId 
                     {el.type === 'text' && (
                       <div
                         style={{
-                          width: '105%',
+                          width: '100%',
                           height: '100%',
                           color: el.color || '#000000',
                           fontSize: `${el.fontSize || 14}${el.fontSizeUnit || 'px'}`,

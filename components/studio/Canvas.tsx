@@ -273,6 +273,8 @@ export default function Canvas({
         {el.type === 'text' && (
           <div
             style={{
+              width: '100%',
+              height: '100%',
               color: el.color || '#000000',
               fontSize: `${el.fontSize || 14}${el.fontSizeUnit || 'px'}`,
               fontFamily: el.fontFamily || 'sans-serif',
@@ -280,11 +282,13 @@ export default function Canvas({
               fontStyle: el.fontStyle || 'normal',
               textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
               textAlign: el.alignment || 'left',
+              display: 'flex',
+              alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
+              justifyContent: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
               lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',
               letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
-              alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
             }}
-            className="w-full h-full flex justify-center p-1 break-normal select-none overflow-hidden"
+            className="break-normal select-none overflow-hidden"
           >
             {(() => {
               let rawText = el.field ? `{${el.field}}` : (el.content || 'Texte');
@@ -349,9 +353,10 @@ export default function Canvas({
               borderWidth: el.borderWidth !== undefined ? `${el.borderWidth}px` : undefined,
               borderColor: el.borderWidth !== undefined && el.borderWidth > 0 ? el.borderColor || '#000000' : undefined,
               borderStyle: el.borderWidth !== undefined && el.borderWidth > 0 ? 'solid' : undefined,
+              padding: '5%',
               filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
             }}
-            className={`w-full h-full bg-white flex flex-col items-center justify-center p-2 text-black overflow-hidden ${
+            className={`w-full h-full bg-white flex flex-col items-center justify-center text-black overflow-hidden ${
               el.borderWidth === undefined ? 'border border-neutral-300' : ''
             }`}
           >
