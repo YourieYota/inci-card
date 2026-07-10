@@ -1011,27 +1011,42 @@ export default function PrintClient({ employees, templates, companyName, documen
 
   const [assignedFlag, setAssignedFlag] = useState<string>('');
 
+  // Auto-select first category if selectedCategoryId is empty or not in the filtered categories
+  useEffect(() => {
+    const filtered = categories.filter((c: any) => !c.documentTypeSlug || c.documentTypeSlug === selectedTemplateType);
+    if (filtered.length > 0) {
+      const isValid = filtered.some(c => c.id === selectedCategoryId);
+      if (!isValid) {
+        setSelectedCategoryId(filtered[0].id);
+      }
+    } else {
+      setSelectedCategoryId('');
+    }
+  }, [selectedTemplateType, categories, selectedCategoryId]);
+
   useEffect(() => {
     const key = `${selectedCategoryId}_${selectedTemplateType}_${localEmployees.map(e => e.id).join(',')}`;
     if (assignedFlag === key) return;
     
     if (localEmployees.length > 0) {
-      const employeesToAssign = localEmployees.filter(e => !e.cardNumber);
+      const employeesToAssign = localEmployees.filter(e => !e.cardNumber || e.cardNumber.startsWith('BADGE'));
       console.log("[assignCardNumbers] Check to assign:", employeesToAssign.length, "employees");
       if (employeesToAssign.length > 0) {
         const categoryMap: Record<string, string[]> = {};
         employeesToAssign.forEach(emp => {
           const empCatId = (emp.dynamicData as any)?.categorie_id || (emp.dynamicData as any)?.category_id || selectedCategoryId || '';
-          if (!categoryMap[empCatId]) {
-            categoryMap[empCatId] = [];
+          if (empCatId) {
+            if (!categoryMap[empCatId]) {
+              categoryMap[empCatId] = [];
+            }
+            categoryMap[empCatId].push(emp.id);
           }
-          categoryMap[empCatId].push(emp.id);
         });
 
         console.log("[assignCardNumbers] categoryMap:", categoryMap);
 
         const promises = Object.entries(categoryMap).map(([catId, ids]) => 
-          assignCardNumbersForCategory(ids, catId || undefined, selectedTemplateType)
+          assignCardNumbersForCategory(ids, catId, selectedTemplateType)
         );
 
         if (promises.length > 0) {
@@ -1597,7 +1612,6 @@ export default function PrintClient({ employees, templates, companyName, documen
                 onChange={(e) => setSelectedCategoryId(e.target.value)}
                 className="px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200 outline-none"
               >
-                <option value="">Toutes les catégories</option>
                 {categories
                   .filter((c: any) => !c.documentTypeSlug || c.documentTypeSlug === selectedTemplateType)
                   .map((c: any) => {

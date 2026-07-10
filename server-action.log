@@ -4,3 +4,16 @@
 [assignCardNumbersForCategory] called with 1 ids, catId=undefined, type=BADGE
 [assignCardNumbersForCategory] Found 1 employees with null card number
 [assignCardNumbersForCategory] Generated card number "BADGE0004" for employee 4c1ab6ed-1191-41da-a24b-aa48cbb74875
+[assignCardNumbersForCategory] called with 1 ids, catId=4c56e7bd-3492-430b-837d-3bd50fae0810, type=BADGE
+[assignCardNumbersForCategory] Found 1 employees with null card number
+[assignCardNumbersForCategory] Generated card number "2252026INCI0002" for employee 4c1ab6ed-1191-41da-a24b-aa48cbb74875
+[assignCardNumbersForCategory] called with 1 ids, catId=17a8f2e1-11c8-4434-84a5-2400009dc4c1, type=BADGE
+[assignCardNumbersForCategory] Found 0 employees with null card number
+[assignCardNumbersForCategory] called with 1 ids, catId=4c56e7bd-3492-430b-837d-3bd50fae0810, type=BADGE
+[assignCardNumbersForCategory] Found 1 employees with null card number
+[assignCardNumbersForCategory] Generated card number "2252026INCI0003" for employee aa9f9f7e-ee44-40f1-89fe-e8b6d63686cd
+[assignCardNumbersForCategory] called with 1 ids, catId=4c56e7bd-3492-430b-837d-3bd50fae0810, type=BADGE
+[assignCardNumbersForCategory] Found 0 employees with null card number
+[assignCardNumbersForCategory] called with 1 ids, catId=4c56e7bd-3492-430b-837d-3bd50fae0810, type=BADGE
+[assignCardNumbersForCategory] Found 1 employees with null card number
+[assignCardNumbersForCategory] Generated card number "2252026INCI0004" for employee 0c057289-193c-41dc-a247-15dc957cb823

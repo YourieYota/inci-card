@@ -1322,7 +1322,13 @@ export async function assignCardNumbersForCategory(employeeIds: string[], catego
     fs.appendFileSync('f:/inci-card/server-action.log', `[assignCardNumbersForCategory] called with ${employeeIds.length} ids, catId=${categoryId}, type=${templateType}\n`);
     
     const employees = await prisma.employee.findMany({
-      where: { id: { in: employeeIds }, cardNumber: null },
+      where: {
+        id: { in: employeeIds },
+        OR: [
+          { cardNumber: null },
+          { cardNumber: { startsWith: 'BADGE' } }
+        ]
+      },
     });
     
     fs.appendFileSync('f:/inci-card/server-action.log', `[assignCardNumbersForCategory] Found ${employees.length} employees with null card number\n`);
