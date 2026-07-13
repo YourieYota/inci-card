@@ -142,7 +142,7 @@ const getFieldValue = (emp: SerializedEmployee, field?: string) => {
     }
   }
 
-  return `{${field}}`;
+  return '';
 };
 
 const resolvePlaceholders = (text: string | undefined | null, emp: SerializedEmployee): string => {

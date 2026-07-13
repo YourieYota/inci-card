@@ -585,7 +585,7 @@ const getFieldValue = (
     }
   }
 
-  return `{${field}}`;
+  return '';
 };
 
 const resolvePlaceholders = (

@@ -1114,15 +1114,8 @@ export async function confirmPrint(
     const results = [];
 
     for (const emp of eligible) {
-      // Determine if this is a reprint
-      const hasJob = emp.printJobs?.some((j: any) => 
-        j.templateType === templateType && 
-        j.cardNumber !== 'REIMPRESSION_DEMANDEE'
-      );
-      const isReprint = hasJob || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
-
-      // Use existing card number if available and not a reprint, otherwise generate one
-      let cardNumber = isReprint ? null : emp.cardNumber;
+      // Use existing card number if available, otherwise generate one
+      let cardNumber = emp.cardNumber;
       if (!cardNumber) {
         // Find category from dynamicData if not provided
         let catId = categoryId;
@@ -1132,6 +1125,13 @@ export async function confirmPrint(
         }
         cardNumber = await generateCardNumber(emp.companyId, templateType, catId);
       }
+
+      // Determine if this is a reprint
+      const hasJob = emp.printJobs?.some((j: any) => 
+        j.templateType === templateType && 
+        j.cardNumber !== 'REIMPRESSION_DEMANDEE'
+      );
+      const isReprint = hasJob || emp.status === 'REIMPRESSION' || emp.status === 'REIMPRIME';
 
       // Get reprint reason from the last reprint request if applicable
       let reprintReason: string | null = null;
@@ -1230,7 +1230,7 @@ export async function requestReprint(employeeId: string, reason: string, templat
 
     const emp = await prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { status: true, isLocked: true, isBlocked: true },
+      select: { status: true, isLocked: true, isBlocked: true, companyId: true, dynamicData: true },
     });
 
     if (!emp) throw new Error('Employé introuvable');
@@ -1238,6 +1238,14 @@ export async function requestReprint(employeeId: string, reason: string, templat
     if (emp.status !== 'IMPRIME' && emp.status !== 'REIMPRIME' && !emp.isLocked) {
       throw new Error('La réimpression ne peut être demandée que pour un badge déjà imprimé ou réimprimé.');
     }
+
+    // Generate a new card number immediately so it displays correctly on the print page preview!
+    let catId = undefined;
+    if (emp.dynamicData) {
+       const d = emp.dynamicData as any;
+       catId = d.categorie_id || d.category_id || d.Category;
+    }
+    const newCardNumber = await generateCardNumber(emp.companyId, templateType, catId);
 
     // Create a PrintJob entry with the reprint reason (will be used during confirmPrint)
     const session = await getSafeSession();
@@ -1255,12 +1263,13 @@ export async function requestReprint(employeeId: string, reason: string, templat
       },
     });
 
-    // Unlock and set status to REIMPRESSION
+    // Unlock, set status to REIMPRESSION, and set new cardNumber
     const result = await prisma.employee.update({
       where: { id: employeeId },
       data: {
         status: 'REIMPRESSION',
         isLocked: false,
+        cardNumber: newCardNumber,
       },
     });
     revalidatePath('/dashboard', 'layout');
