@@ -669,7 +669,10 @@ export default function EmployeeDetailModal({
                       <button
                         key={st}
                         type="button"
-                        disabled={st === 'IMPRIME' || st === 'REIMPRESSION'}
+                        disabled={
+                          (st === 'IMPRIME' && !employeeCardNumber) || 
+                          (st === 'REIMPRESSION' && !printHistory.some(j => j.cardNumber === 'REIMPRESSION_DEMANDEE'))
+                        }
                         onClick={() => {
                           setStatus(st);
                         }}
