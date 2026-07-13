@@ -395,16 +395,20 @@ export default function EmployeeDetailModal({
   const handlePrintReceipt = async () => {
     setIsSaving(true);
     try {
-      await saveDataOnly(localOfflineMode);
-      onRefresh();
+      if (!isEmployeeLocked) {
+        await saveDataOnly(localOfflineMode);
+        onRefresh();
+      }
       window.open(`/receipt?id=${employee.id}`, '_blank');
     } catch (err: any) {
       if (checkIsDbError(err) && !localOfflineMode) {
         console.warn("Database connection issue detected during print receipt. Retrying offline...");
         setLocalOfflineMode(true);
         try {
-          await saveDataOnly(true);
-          onRefresh();
+          if (!isEmployeeLocked) {
+            await saveDataOnly(true);
+            onRefresh();
+          }
           alert("Connexion réseau perdue. Modifications sauvegardées localement. Génération du reçu...");
           window.open(`/receipt?id=${employee.id}`, '_blank');
           return;
@@ -422,16 +426,20 @@ export default function EmployeeDetailModal({
   const handlePrintCard = async () => {
     setIsSaving(true);
     try {
-      await saveDataOnly(localOfflineMode);
-      onRefresh();
+      if (!isEmployeeLocked) {
+        await saveDataOnly(localOfflineMode);
+        onRefresh();
+      }
       window.open(`/dashboard/employees/print?ids=${encodeURIComponent(employee.id)}`, '_blank');
     } catch (err: any) {
       if (checkIsDbError(err) && !localOfflineMode) {
         console.warn("Database connection issue detected during print card. Retrying offline...");
         setLocalOfflineMode(true);
         try {
-          await saveDataOnly(true);
-          onRefresh();
+          if (!isEmployeeLocked) {
+            await saveDataOnly(true);
+            onRefresh();
+          }
           alert("Connexion réseau perdue. Modifications sauvegardées localement. Génération de l'aperçu...");
           window.open(`/dashboard/employees/print?ids=${encodeURIComponent(employee.id)}`, '_blank');
           return;
@@ -583,7 +591,8 @@ export default function EmployeeDetailModal({
                 <button
                   type="button"
                   onClick={() => document.getElementById('local-photo-upload')?.click()}
-                  className="flex items-center justify-center gap-2 py-2 px-4 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl text-xs font-semibold transition"
+                  disabled={isEmployeeLocked}
+                  className="flex items-center justify-center gap-2 py-2 px-4 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Charger localement</span>
@@ -591,11 +600,14 @@ export default function EmployeeDetailModal({
 
                 <button
                   type="button"
+                  disabled={isEmployeeLocked}
                   onClick={async () => {
                     setIsSaving(true);
                     try {
-                      await saveDataOnly();
-                      onRefresh();
+                      if (!isEmployeeLocked) {
+                        await saveDataOnly();
+                        onRefresh();
+                      }
                       
                       // Construct an updated employee object to pass to onTriggerWebcam
                       const processedData: Record<string, any> = {};
@@ -630,7 +642,7 @@ export default function EmployeeDetailModal({
                       setIsSaving(false);
                     }
                   }}
-                  className="flex items-center justify-center gap-2 py-2 px-4 border border-indigo-100 dark:border-indigo-900 bg-indigo-50/20 dark:bg-indigo-950/20 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 rounded-xl text-xs font-semibold transition"
+                  className="flex items-center justify-center gap-2 py-2 px-4 border border-indigo-100 dark:border-indigo-900 bg-indigo-50/20 dark:bg-indigo-950/20 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 rounded-xl text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Camera className="w-3.5 h-3.5" />
                   <span>Prendre via Webcam</span>
