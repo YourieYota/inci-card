@@ -948,21 +948,35 @@ export async function restoreEmployees(employees: any[]) {
  * Génère un numéro de carte unique basé sur le cardCode du type de document.
  * Format: {cardCode}-{séquence} (ex: BADGE-0001)
  */
-async function generateCardNumber(companyId: string, templateType: string, categoryId?: string): Promise<string> {
-  let prefix = templateType.toUpperCase();
+async function generateCardNumber(companyId: string, templateType: string, categoryId?: string, overridePrefix?: string): Promise<string> {
+  let prefix = overridePrefix || templateType.toUpperCase();
 
   // 1. Try to find the cardCode from the category first
-  if (categoryId) {
-    const category = await prisma.cardCategory.findUnique({
-      where: { id: categoryId },
-    });
+  if (!overridePrefix && categoryId) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
+    let category = null;
+    if (isUuid) {
+      category = await prisma.cardCategory.findUnique({
+        where: { id: categoryId },
+      });
+    } else {
+      category = await prisma.cardCategory.findFirst({
+        where: {
+          companyId,
+          OR: [
+            { name: { equals: categoryId, mode: 'insensitive' } },
+            { cardCode: { equals: categoryId, mode: 'insensitive' } }
+          ]
+        }
+      });
+    }
     if (category?.cardCode) {
       prefix = category.cardCode;
     }
   }
 
   // 2. Fallback to Document Type if category has no code
-  if (prefix === templateType.toUpperCase()) {
+  if (prefix === templateType.toUpperCase() && !overridePrefix) {
     const docType = await prisma.cardDocumentType.findFirst({
       where: {
         slug: templateType,
@@ -1230,7 +1244,7 @@ export async function requestReprint(employeeId: string, reason: string, templat
 
     const emp = await prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { status: true, isLocked: true, isBlocked: true, companyId: true, dynamicData: true },
+      select: { status: true, isLocked: true, isBlocked: true, companyId: true, dynamicData: true, cardNumber: true },
     });
 
     if (!emp) throw new Error('Employé introuvable');
@@ -1243,9 +1257,26 @@ export async function requestReprint(employeeId: string, reason: string, templat
     let catId = undefined;
     if (emp.dynamicData) {
        const d = emp.dynamicData as any;
-       catId = d.categorie_id || d.category_id || d.Category;
+       // Find any key that matches category/catégorie (case-insensitive, ignoring accents)
+       const catKey = Object.keys(d).find(k => {
+         const norm = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+         return norm === 'categorie' || norm === 'category';
+       });
+       if (catKey) {
+         catId = d[catKey];
+       }
     }
-    const newCardNumber = await generateCardNumber(emp.companyId, templateType, catId);
+
+    // Extract existing prefix from current cardNumber to ensure we respect it!
+    let overridePrefix: string | undefined = undefined;
+    if (emp.cardNumber) {
+      const match = emp.cardNumber.match(/^([A-Za-z_]+)\d+$/);
+      if (match) {
+        overridePrefix = match[1];
+      }
+    }
+
+    const newCardNumber = await generateCardNumber(emp.companyId, templateType, catId, overridePrefix);
 
     // Create a PrintJob entry with the reprint reason (will be used during confirmPrint)
     const session = await getSafeSession();

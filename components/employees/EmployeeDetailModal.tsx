@@ -669,6 +669,7 @@ export default function EmployeeDetailModal({
                       <button
                         key={st}
                         type="button"
+                        disabled={st === 'IMPRIME' || st === 'REIMPRESSION'}
                         onClick={() => {
                           setStatus(st);
                         }}
