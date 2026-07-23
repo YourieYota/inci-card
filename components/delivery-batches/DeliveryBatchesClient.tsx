@@ -1222,24 +1222,6 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
-                        Type de carte du lot
-                      </label>
-                      <select
-                        value={selectedCardType}
-                        onChange={(e) => {
-                          setSelectedCardType(e.target.value);
-                          setWizardPage(1);
-                        }}
-                        className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-xl text-sm outline-none"
-                      >
-                        <option value="">Tous les types</option>
-                        {cardTypes.map(t => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
-                    </div>
 
                     <div>
                       <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
