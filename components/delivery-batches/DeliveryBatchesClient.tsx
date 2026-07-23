@@ -1335,7 +1335,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto py-5">
+            <div className="flex-1 overflow-y-auto py-5 max-w-full overflow-x-hidden">
               {loadingBatchEmployees ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
@@ -1479,7 +1479,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                           </div>
                         </div>
 
-                        <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-x-auto">
+                        <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-x-auto max-w-full w-full">
                           <table className="w-full text-left border-collapse min-w-max whitespace-nowrap">
                             <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                               <tr>
