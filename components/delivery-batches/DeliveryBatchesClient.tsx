@@ -402,8 +402,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
         if (typeof valA === 'string') {
           return sortDirection === 'asc'
-            ? valA.localeCompare(valB, 'fr', { sensitivity: 'base' })
-            : valB.localeCompare(valA, 'fr', { sensitivity: 'base' });
+            ? valA.localeCompare(valB, 'fr', { numeric: true, sensitivity: 'base' })
+            : valB.localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
         } else {
           return sortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
         }
@@ -601,8 +601,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
         if (typeof valA === 'string') {
           return detailsSortDirection === 'asc'
-            ? valA.localeCompare(valB, 'fr', { sensitivity: 'base' })
-            : valB.localeCompare(valA, 'fr', { sensitivity: 'base' });
+            ? valA.localeCompare(valB, 'fr', { numeric: true, sensitivity: 'base' })
+            : valB.localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
         } else {
           return detailsSortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
         }
@@ -1418,8 +1418,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
                         if (typeof valA === 'string') {
                           return detailsSortDirection === 'asc'
-                            ? valA.localeCompare(valB, 'fr', { sensitivity: 'base' })
-                            : valB.localeCompare(valA, 'fr', { sensitivity: 'base' });
+                            ? valA.localeCompare(valB, 'fr', { numeric: true, sensitivity: 'base' })
+                            : valB.localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
                         } else {
                           return detailsSortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
                         }
