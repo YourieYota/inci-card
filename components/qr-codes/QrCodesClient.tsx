@@ -32,19 +32,35 @@ interface MatchResult {
 
 const SUPPORTED_EXTS = ['.png', '.jpg', '.jpeg', '.bmp'];
 
-function fileToDataUrl(file: Blob, mimeType: string): Promise<string> {
+/**
+ * Load any image blob (BMP, JPG, PNG…) into a canvas and export as
+ * compressed PNG — max 400px on the longest side.
+ * This keeps the base64 payload small regardless of the source format.
+ */
+function compressImageBlob(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const objectUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX = 400;
+      let { naturalWidth: w, naturalHeight: h } = img;
+      if (w > MAX || h > MAX) {
+        const scale = MAX / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('Canvas not supported')); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Image load error')); };
+    img.src = objectUrl;
   });
-}
-
-function getMimeType(ext: string): string {
-  if (ext === '.bmp') return 'image/bmp';
-  if (ext === '.png') return 'image/png';
-  return 'image/jpeg';
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -74,6 +90,7 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [saveProgress, setSaveProgress] = useState(0);
 
   // ── Preview modal
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -134,7 +151,7 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
 
         const fieldValue = dotIdx >= 0 ? fname.slice(0, dotIdx) : fname;
         const blob = await zipEntry.async('blob');
-        const imageDataUrl = await fileToDataUrl(blob, getMimeType(ext));
+        const imageDataUrl = await compressImageBlob(blob);
 
         // Find matching employee
         const normalize = (s: string) => ignoreSpaces ? s.replace(/\s+/g, '') : s;
@@ -182,10 +199,14 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
     if (!toSave.length) return;
     setIsSaving(true);
     setSaveError('');
+    setSaveProgress(0);
     try {
-      await saveExternalQrCodesBatch(
-        toSave.map(r => ({ employeeId: r.employee!.id, qrBase64: r.imageDataUrl }))
-      );
+      // Save one by one to stay within server action payload limits
+      for (let i = 0; i < toSave.length; i++) {
+        const r = toSave[i];
+        await saveExternalQrCodesBatch([{ employeeId: r.employee!.id, qrBase64: r.imageDataUrl }]);
+        setSaveProgress(i + 1);
+      }
       setSaveSuccess(true);
       // Refresh employee QR status
       const updated = await getEmployeesQrStatus(companyId);
@@ -546,7 +567,9 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                Importer {matched > 0 ? `${matched} QR code${matched !== 1 ? 's' : ''}` : ''}
+                {isSaving
+                  ? `Sauvegarde ${saveProgress}/${matched}…`
+                  : `Importer ${matched > 0 ? `${matched} QR code${matched !== 1 ? 's' : ''}` : ''}`}
               </button>
             </div>
           </div>
