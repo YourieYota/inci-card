@@ -16,17 +16,6 @@ export async function getDeliveryBatches(companyId?: string) {
         },
         _count: {
           select: { employees: true }
-        },
-        employees: {
-          select: {
-            printJobs: {
-              select: { templateType: true },
-              where: {
-                cardNumber: { not: 'REIMPRESSION_DEMANDEE' },
-                templateType: { not: 'DEBLOCAGE' }
-              }
-            }
-          }
         }
       },
       orderBy: { createdAt: 'desc' }

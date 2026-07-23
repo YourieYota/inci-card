@@ -42,6 +42,7 @@ import {
 interface DeliveryBatchesClientProps {
   initialCompanies: any[];
   initialBatches: any[];
+  initialCardCategories: { id: string; name: string; slug: string; companyId: string | null }[];
   dbError?: boolean;
 }
 
@@ -60,9 +61,10 @@ interface AnalyzedFields {
   type: GroupingOption[];
 }
 
-export default function DeliveryBatchesClient({ initialCompanies, initialBatches, dbError }: DeliveryBatchesClientProps) {
+export default function DeliveryBatchesClient({ initialCompanies, initialBatches, initialCardCategories, dbError }: DeliveryBatchesClientProps) {
   const [batches, setBatches] = useState<any[]>(initialBatches);
   const [companies] = useState<any[]>(initialCompanies);
+  const [cardCategories] = useState(initialCardCategories);
   const [search, setSearch] = useState('');
   const [filterCompanyId, setFilterCompanyId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -834,34 +836,22 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   }, [batches]);
 
-  // Compute unique card types per batch from their employees' printJobs
-  const batchCardTypesMap = useMemo(() => {
-    const map = new Map<string, string[]>();
-    batches.forEach(b => {
-      const types = new Set<string>();
-      (b.employees || []).forEach((emp: any) => {
-        (emp.printJobs || []).forEach((job: any) => {
-          if (job.templateType) types.add(job.templateType);
-        });
-      });
-      map.set(b.id, Array.from(types).sort());
-    });
-    return map;
-  }, [batches]);
-
-  // All card types present across all batches (for filter pills)
-  const allCardTypes = useMemo(() => {
-    const types = new Set<string>();
-    batchCardTypesMap.forEach(v => v.forEach(t => types.add(t)));
-    return Array.from(types).sort();
-  }, [batchCardTypesMap]);
+  // Card categories filtered by selected company (or all if no company selected)
+  const filteredCardCategories = useMemo(() => {
+    if (filterCompanyId) {
+      return cardCategories.filter(c => c.companyId === filterCompanyId || c.companyId === null);
+    }
+    return cardCategories;
+  }, [cardCategories, filterCompanyId]);
 
   const filteredBatches = batches.filter(b => {
     if (filterCompanyId && b.companyId !== filterCompanyId) return false;
     if (filterStatus && b.status !== filterStatus) return false;
     if (filterCardType) {
-      const types = batchCardTypesMap.get(b.id) || [];
-      if (!types.includes(filterCardType)) return false;
+      // filterCardType is a category slug; check if the batch company has this category
+      const batchCompanyId = b.companyId;
+      const hasCategory = cardCategories.some(c => c.slug === filterCardType && (c.companyId === batchCompanyId || c.companyId === null));
+      if (!hasCategory) return false;
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -942,7 +932,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
               </div>
 
               {/* Card type select */}
-              {allCardTypes.length > 0 && (
+              {filteredCardCategories.length > 0 && (
                 <div className="relative">
                   <Printer className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none" />
                   <select
@@ -953,8 +943,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                     }`}
                   >
                     <option value="">Tous les types de carte</option>
-                    {allCardTypes.map(t => (
-                      <option key={t} value={t}>{t}</option>
+                    {filteredCardCategories.map(c => (
+                      <option key={c.id} value={c.slug}>{c.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1032,16 +1022,19 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       <Building2 className="w-4 h-4 text-indigo-500 flex-shrink-0" />
                       <span>{batch.company?.name || 'Entreprise inconnue'}</span>
                     </div>
-                    {/* Card types badges */}
-                    {(batchCardTypesMap.get(batch.id) || []).length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {(batchCardTypesMap.get(batch.id) || []).map(t => (
-                          <span key={t} className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/30">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    {/* Card category badges for this batch's company */}
+                    {(() => {
+                      const cats = cardCategories.filter(c => c.companyId === batch.companyId || c.companyId === null);
+                      return cats.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {cats.map(c => (
+                            <span key={c.id} className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/30">
+                              {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
                     <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4 flex items-center gap-1.5 font-medium">
                       <Clock className="w-3.5 h-3.5" />
                       Créé le {new Date(batch.createdAt).toLocaleDateString('fr-FR')}

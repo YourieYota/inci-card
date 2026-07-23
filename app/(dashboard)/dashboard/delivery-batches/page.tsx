@@ -2,21 +2,25 @@ import React from 'react';
 import DeliveryBatchesClient from '@/components/delivery-batches/DeliveryBatchesClient';
 import { getCompanies } from '@/app/actions/templates';
 import { getDeliveryBatches } from '@/app/actions/batches';
+import { getCardCategories } from '@/app/actions/cards';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DeliveryBatchesPage() {
   let companies: any[] = [];
   let batches: any[] = [];
+  let cardCategories: any[] = [];
   let dbError = false;
 
   try {
-    const [companiesData, batchesData] = await Promise.all([
+    const [companiesData, batchesData, cardCategoriesData] = await Promise.all([
       getCompanies(),
-      getDeliveryBatches()
+      getDeliveryBatches(),
+      getCardCategories()
     ]);
     companies = companiesData;
     batches = batchesData;
+    cardCategories = cardCategoriesData;
   } catch (error) {
     console.error('Error fetching delivery batches data:', error);
     dbError = true;
@@ -37,11 +41,19 @@ export default async function DeliveryBatchesPage() {
     deliveredAt: b.deliveredAt instanceof Date ? b.deliveredAt.toISOString() : b.deliveredAt,
   }));
 
+  const serializedCardCategories = cardCategories.map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    companyId: c.companyId ?? null,
+  }));
+
   return (
     <div className="max-w-7xl mx-auto py-2">
       <DeliveryBatchesClient 
         initialCompanies={serializedCompanies} 
         initialBatches={serializedBatches} 
+        initialCardCategories={serializedCardCategories}
         dbError={dbError} 
       />
     </div>
