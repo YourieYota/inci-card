@@ -4,6 +4,7 @@ import React from 'react';
 import { Rnd } from 'react-rnd';
 import { QrCode, User, Image as ImageIcon } from 'lucide-react';
 import IntaglioImage from './IntaglioImage';
+import BlendedImage from './BlendedImage';
 
 export interface StudioElement {
   id: string;
@@ -388,7 +389,7 @@ export default function Canvas({
             }`}
           >
             {el.logoUrl ? (
-              <img src={el.logoUrl} alt="Logo" className="w-full h-full object-contain pointer-events-none" />
+              <BlendedImage src={el.logoUrl} blendMode={el.blendMode} className="w-full h-full object-contain pointer-events-none" alt="Logo" />
             ) : (
               <div className="flex flex-col items-center justify-center p-2">
                 <ImageIcon className="w-8 h-8 opacity-75 mb-1" />

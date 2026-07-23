@@ -8,6 +8,7 @@ import { confirmPrint, validatePrintEligibility, deleteEmployeesByIds, assignCar
 import { StudioElement } from '@/components/studio/Canvas';
 import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
+import BlendedImage from '@/components/studio/BlendedImage';
 
 import { safeGetItem, safeSetItem } from '@/lib/storage';
 
@@ -738,9 +739,9 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                   className="w-full h-full object-cover"
                 />
               ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
+                <BlendedImage
                   src={emp.photoUrl}
+                  blendMode={el.blendMode}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -800,9 +801,9 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
             }}
           >
             {el.logoUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <BlendedImage
                 src={el.logoUrl}
+                blendMode={el.blendMode}
                 style={{
                   width: '100%',
                   height: '100%',
