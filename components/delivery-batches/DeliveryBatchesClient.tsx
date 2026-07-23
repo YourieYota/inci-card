@@ -42,7 +42,7 @@ import {
 interface DeliveryBatchesClientProps {
   initialCompanies: any[];
   initialBatches: any[];
-  initialCardCategories: { id: string; name: string; slug: string; companyId: string | null }[];
+  initialCardDocumentTypes: { id: string; name: string; slug: string; companyId: string | null }[];
   dbError?: boolean;
 }
 
@@ -61,10 +61,10 @@ interface AnalyzedFields {
   type: GroupingOption[];
 }
 
-export default function DeliveryBatchesClient({ initialCompanies, initialBatches, initialCardCategories, dbError }: DeliveryBatchesClientProps) {
+export default function DeliveryBatchesClient({ initialCompanies, initialBatches, initialCardDocumentTypes, dbError }: DeliveryBatchesClientProps) {
   const [batches, setBatches] = useState<any[]>(initialBatches);
   const [companies] = useState<any[]>(initialCompanies);
-  const [cardCategories] = useState(initialCardCategories);
+  const [cardDocumentTypes] = useState(initialCardDocumentTypes);
   const [search, setSearch] = useState('');
   const [filterCompanyId, setFilterCompanyId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -836,22 +836,21 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   }, [batches]);
 
-  // Card categories filtered by selected company (or all if no company selected)
-  const filteredCardCategories = useMemo(() => {
+  // Card document types filtered by selected company (or all if no company selected)
+  const filteredCardDocumentTypes = useMemo(() => {
     if (filterCompanyId) {
-      return cardCategories.filter(c => c.companyId === filterCompanyId || c.companyId === null);
+      return cardDocumentTypes.filter(c => c.companyId === filterCompanyId || c.companyId === null);
     }
-    return cardCategories;
-  }, [cardCategories, filterCompanyId]);
+    return cardDocumentTypes;
+  }, [cardDocumentTypes, filterCompanyId]);
 
   const filteredBatches = batches.filter(b => {
     if (filterCompanyId && b.companyId !== filterCompanyId) return false;
     if (filterStatus && b.status !== filterStatus) return false;
     if (filterCardType) {
-      // filterCardType is a category slug; check if the batch company has this category
       const batchCompanyId = b.companyId;
-      const hasCategory = cardCategories.some(c => c.slug === filterCardType && (c.companyId === batchCompanyId || c.companyId === null));
-      if (!hasCategory) return false;
+      const hasType = cardDocumentTypes.some(c => c.slug === filterCardType && (c.companyId === batchCompanyId || c.companyId === null));
+      if (!hasType) return false;
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -931,8 +930,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 </select>
               </div>
 
-              {/* Card type select */}
-              {filteredCardCategories.length > 0 && (
+              {/* Card document type select */}
+              {filteredCardDocumentTypes.length > 0 && (
                 <div className="relative">
                   <Printer className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none" />
                   <select
@@ -943,7 +942,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                     }`}
                   >
                     <option value="">Tous les types de carte</option>
-                    {filteredCardCategories.map(c => (
+                    {filteredCardDocumentTypes.map(c => (
                       <option key={c.id} value={c.slug}>{c.name}</option>
                     ))}
                   </select>
@@ -1022,12 +1021,12 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       <Building2 className="w-4 h-4 text-indigo-500 flex-shrink-0" />
                       <span>{batch.company?.name || 'Entreprise inconnue'}</span>
                     </div>
-                    {/* Card category badges for this batch's company */}
+                    {/* Card document type badges for this batch's company */}
                     {(() => {
-                      const cats = cardCategories.filter(c => c.companyId === batch.companyId || c.companyId === null);
-                      return cats.length > 0 ? (
+                      const types = cardDocumentTypes.filter(c => c.companyId === batch.companyId || c.companyId === null);
+                      return types.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 mb-3">
-                          {cats.map(c => (
+                          {types.map(c => (
                             <span key={c.id} className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/30">
                               {c.name}
                             </span>
