@@ -962,24 +962,22 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 ))}
               </div>
 
-              {/* Card type pills */}
+              {/* Card type select */}
               {allCardTypes.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Type :</span>
-                  {allCardTypes.map(t => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setFilterCardType(filterCardType === t ? '' : t)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
-                        filterCardType === t
-                          ? 'bg-violet-600 text-white border-violet-600'
-                          : 'bg-white dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 hover:border-violet-300'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                <div className="relative">
+                  <Printer className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none" />
+                  <select
+                    value={filterCardType}
+                    onChange={e => setFilterCardType(e.target.value)}
+                    className={`pl-8 pr-8 py-2 border rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-violet-500/25 bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 transition appearance-none cursor-pointer ${
+                      filterCardType ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300' : 'border-neutral-200'
+                    }`}
+                  >
+                    <option value="">Tous les types de carte</option>
+                    {allCardTypes.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 
