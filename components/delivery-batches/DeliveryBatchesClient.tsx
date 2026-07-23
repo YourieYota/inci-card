@@ -79,6 +79,32 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   // Selection State (IDs of employees to be included in the batch)
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Record<string, boolean>>({});
 
+  // Sorting State for Editor Table
+  const [sortField, setSortField] = useState<'name' | 'identifier' | 'printedAt'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Sorting State for Batch Details Table
+  const [detailsSortField, setDetailsSortField] = useState<string>('name');
+  const [detailsSortDirection, setDetailsSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: 'name' | 'identifier' | 'printedAt') => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleDetailsSort = (field: string) => {
+    if (detailsSortField === field) {
+      setDetailsSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setDetailsSortField(field);
+      setDetailsSortDirection('asc');
+    }
+  };
+
   // Card Type filter for editor & details
   const [selectedCardType, setSelectedCardType] = useState('');
   const [detailsCardType, setDetailsCardType] = useState('');
@@ -353,8 +379,30 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       }
     }
 
-    return result;
-  }, [availableEmployees, manualSearch, selectedGrouping, selectedFieldKey, filterValues, startDate, endDate, selectedCompanyId, selectedCardType]);
+    // Sort available employees
+    let sorted = [...result];
+    sorted.sort((a, b) => {
+      let valA = '';
+      let valB = '';
+      if (sortField === 'name') {
+        valA = getEmployeeName(a).toLowerCase();
+        valB = getEmployeeName(b).toLowerCase();
+      } else if (sortField === 'identifier') {
+        valA = a.uniqueIdentifier.toLowerCase();
+        valB = b.uniqueIdentifier.toLowerCase();
+      } else if (sortField === 'printedAt') {
+        const timeA = a.printedAt ? new Date(a.printedAt).getTime() : 0;
+        const timeB = b.printedAt ? new Date(b.printedAt).getTime() : 0;
+        return sortDirection === 'asc' ? timeA - timeB : timeB - timeA;
+      }
+      
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [availableEmployees, manualSearch, selectedGrouping, selectedFieldKey, filterValues, startDate, endDate, selectedCompanyId, selectedCardType, sortField, sortDirection]);
 
   const handleToggleSelectAllFiltered = () => {
     if (filteredEmployees.length === 0) return;
@@ -489,6 +537,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           enrollmentNumber: emp.enrollmentNumber || '-',
           printedAt: emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : 'N/A',
           dynamicData: emp.dynamicData || {},
+          emp,
         }];
       }
       const uniqueTypes = new Set<string>();
@@ -507,12 +556,47 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
         enrollmentNumber: emp.enrollmentNumber || '-',
         printedAt: job.printedAt ? new Date(job.printedAt).toLocaleDateString('fr-FR') : (emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : 'N/A'),
         dynamicData: emp.dynamicData || {},
+        emp,
       }));
     });
 
     if (filterCardType) {
       printedCards = printedCards.filter(c => c.cardType === filterCardType);
     }
+
+    // Sort printed cards
+    printedCards.sort((a, b) => {
+      let valA = '';
+      let valB = '';
+
+      if (detailsSortField === 'name') {
+        valA = a.name.toLowerCase();
+        valB = b.name.toLowerCase();
+      } else if (detailsSortField === 'identifier') {
+        valA = a.uniqueIdentifier.toLowerCase();
+        valB = b.uniqueIdentifier.toLowerCase();
+      } else if (detailsSortField === 'cardType') {
+        valA = a.cardType.toLowerCase();
+        valB = b.cardType.toLowerCase();
+      } else if (detailsSortField === 'cardNumber') {
+        valA = a.cardNumber.toLowerCase();
+        valB = b.cardNumber.toLowerCase();
+      } else if (detailsSortField === 'enrollmentNumber') {
+        valA = a.enrollmentNumber.toLowerCase();
+        valB = b.enrollmentNumber.toLowerCase();
+      } else if (detailsSortField === 'printedAt') {
+        const dateA = a.emp?.printedAt ? new Date(a.emp.printedAt).getTime() : 0;
+        const dateB = b.emp?.printedAt ? new Date(b.emp.printedAt).getTime() : 0;
+        return detailsSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      } else {
+        valA = String((a.dynamicData as any)?.[detailsSortField] || '').toLowerCase();
+        valB = String((b.dynamicData as any)?.[detailsSortField] || '').toLowerCase();
+      }
+
+      if (valA < valB) return detailsSortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return detailsSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
 
     const html = `
       <html>
@@ -1148,9 +1232,33 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                               {filteredEmployees.length > 0 && filteredEmployees.every(emp => selectedEmployeeIds[emp.id]) ? <CheckSquare className="w-4 h-4 text-indigo-500" /> : <Square className="w-4 h-4" />}
                             </button>
                           </th>
-                          <th className="py-3 px-3">Employé</th>
-                          <th className="py-3 px-3">Identifiant</th>
-                          <th className="py-3 px-3 text-right">Impression</th>
+                          <th 
+                            className="py-3 px-3 cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200"
+                            onClick={() => handleSort('name')}
+                          >
+                            <span className="flex items-center gap-1">
+                              Employé
+                              {sortField === 'name' && (sortDirection === 'asc' ? '▲' : '▼')}
+                            </span>
+                          </th>
+                          <th 
+                            className="py-3 px-3 cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200"
+                            onClick={() => handleSort('identifier')}
+                          >
+                            <span className="flex items-center gap-1">
+                              Identifiant
+                              {sortField === 'identifier' && (sortDirection === 'asc' ? '▲' : '▼')}
+                            </span>
+                          </th>
+                          <th 
+                            className="py-3 px-3 text-right cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200"
+                            onClick={() => handleSort('printedAt')}
+                          >
+                            <span className="flex items-center justify-end gap-1">
+                              Impression
+                              {sortField === 'printedAt' && (sortDirection === 'asc' ? '▲' : '▼')}
+                            </span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
@@ -1329,14 +1437,42 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                           <table className="w-full text-left border-collapse min-w-max">
                             <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                               <tr>
-                                <th className="py-2.5 px-4 w-12">Photo</th>
-                                {pdfFields.name && <th className="py-2.5 px-3">Nom</th>}
-                                {pdfFields.identifier && <th className="py-2.5 px-3">Matricule</th>}
-                                {pdfFields.cardType && <th className="py-2.5 px-3">Type de carte</th>}
-                                {pdfFields.cardNumber && <th className="py-2.5 px-3">N° de carte</th>}
-                                {pdfFields.enrollmentNumber && <th className="py-2.5 px-3">N° d'enrôlement</th>}
-                                {pdfFields.printedAt && <th className="py-2.5 px-3 text-right">Impression</th>}
-                                {dynamicKeys.map(k => pdfFields[k] && <th key={k} className="py-2.5 px-3">{k}</th>)}
+                                <th className="py-2.5 px-4 w-12 select-none">Photo</th>
+                                {pdfFields.name && (
+                                  <th className="py-2.5 px-3 cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200" onClick={() => handleDetailsSort('name')}>
+                                    <span className="flex items-center gap-1">Nom {detailsSortField === 'name' && (detailsSortDirection === 'asc' ? '▲' : '▼')}</span>
+                                  </th>
+                                )}
+                                {pdfFields.identifier && (
+                                  <th className="py-2.5 px-3 cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200" onClick={() => handleDetailsSort('identifier')}>
+                                    <span className="flex items-center gap-1">Matricule {detailsSortField === 'identifier' && (detailsSortDirection === 'asc' ? '▲' : '▼')}</span>
+                                  </th>
+                                )}
+                                {pdfFields.cardType && (
+                                  <th className="py-2.5 px-3 cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200" onClick={() => handleDetailsSort('cardType')}>
+                                    <span className="flex items-center gap-1">Type de carte {detailsSortField === 'cardType' && (detailsSortDirection === 'asc' ? '▲' : '▼')}</span>
+                                  </th>
+                                )}
+                                {pdfFields.cardNumber && (
+                                  <th className="py-2.5 px-3 cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200" onClick={() => handleDetailsSort('cardNumber')}>
+                                    <span className="flex items-center gap-1">N° de carte {detailsSortField === 'cardNumber' && (detailsSortDirection === 'asc' ? '▲' : '▼')}</span>
+                                  </th>
+                                )}
+                                {pdfFields.enrollmentNumber && (
+                                  <th className="py-2.5 px-3 cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200" onClick={() => handleDetailsSort('enrollmentNumber')}>
+                                    <span className="flex items-center gap-1">N° d'enrôlement {detailsSortField === 'enrollmentNumber' && (detailsSortDirection === 'asc' ? '▲' : '▼')}</span>
+                                  </th>
+                                )}
+                                {pdfFields.printedAt && (
+                                  <th className="py-2.5 px-3 text-right cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200" onClick={() => handleDetailsSort('printedAt')}>
+                                    <span className="flex items-center justify-end gap-1">Impression {detailsSortField === 'printedAt' && (detailsSortDirection === 'asc' ? '▲' : '▼')}</span>
+                                  </th>
+                                )}
+                                {dynamicKeys.map(k => pdfFields[k] && (
+                                  <th key={k} className="py-2.5 px-3 cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-200" onClick={() => handleDetailsSort(k)}>
+                                    <span className="flex items-center gap-1">{k} {detailsSortField === k && (detailsSortDirection === 'asc' ? '▲' : '▼')}</span>
+                                  </th>
+                                ))}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
