@@ -309,6 +309,17 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     return emp.uniqueIdentifier;
   };
 
+  // Sort key: Nom first, then Prenom — ensures alphabetical sort is by family name
+  const getEmployeeSortKey = (emp: any): string => {
+    const data = emp.dynamicData as Record<string, any>;
+    if (data && typeof data === 'object') {
+      const n = data.Nom || data.nom || '';
+      const p = data.Prenom || data.prenom || '';
+      return `${n} ${p}`.trim() || emp.uniqueIdentifier;
+    }
+    return emp.uniqueIdentifier;
+  };
+
   const cardTypes = useMemo(() => {
     const types = new Set<string>();
     availableEmployees.forEach(emp => {
@@ -400,8 +411,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
         let valB: any = '';
 
         if (sortField === 'name') {
-          valA = getEmployeeName(a);
-          valB = getEmployeeName(b);
+          valA = getEmployeeSortKey(a);
+          valB = getEmployeeSortKey(b);
         } else if (sortField === 'identifier') {
           valA = a.uniqueIdentifier || '';
           valB = b.uniqueIdentifier || '';
@@ -553,6 +564,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       if (jobs.length === 0) {
         return [{
           name: `${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''} ${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''}`.trim() || emp.uniqueIdentifier,
+          sortKey: `${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''} ${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''}`.trim() || emp.uniqueIdentifier,
           uniqueIdentifier: emp.uniqueIdentifier,
           cardType: 'BADGE',
           cardNumber: emp.cardNumber || 'Non généré',
@@ -571,6 +583,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       });
       return uniqueJobs.map(job => ({
         name: `${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''} ${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''}`.trim() || emp.uniqueIdentifier,
+        sortKey: `${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''} ${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''}`.trim() || emp.uniqueIdentifier,
         uniqueIdentifier: emp.uniqueIdentifier,
         cardType: job.templateType,
         cardNumber: job.cardNumber || emp.cardNumber || 'Non généré',
@@ -590,8 +603,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
         let valB: any = '';
 
         if (detailsSortField === 'name') {
-          valA = a.name || '';
-          valB = b.name || '';
+          // Sort by family name (Nom) first using the sort key stored on the item
+          valA = a.sortKey || a.name || '';
+          valB = b.sortKey || b.name || '';
         } else if (detailsSortField === 'identifier') {
           valA = a.uniqueIdentifier || '';
           valB = b.uniqueIdentifier || '';
@@ -1370,6 +1384,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                           key: `${emp.id}_BADGE`,
                           emp,
                           name: getEmployeeName(emp),
+                          sortKey: getEmployeeSortKey(emp),
                           uniqueIdentifier: emp.uniqueIdentifier,
                           enrollmentNumber: emp.enrollmentNumber || '-',
                           cardType: 'BADGE',
@@ -1389,6 +1404,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         key: `${emp.id}_${job.templateType}`,
                         emp,
                         name: getEmployeeName(emp),
+                        sortKey: getEmployeeSortKey(emp),
                         uniqueIdentifier: emp.uniqueIdentifier,
                         enrollmentNumber: emp.enrollmentNumber || '-',
                         cardType: job.templateType,
@@ -1407,8 +1423,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         let valB: any = '';
 
                         if (detailsSortField === 'name') {
-                          valA = a.name || '';
-                          valB = b.name || '';
+                          // Sort by family name (Nom) first
+                          valA = a.sortKey || a.name || '';
+                          valB = b.sortKey || b.name || '';
                         } else if (detailsSortField === 'identifier') {
                           valA = a.uniqueIdentifier || '';
                           valB = b.uniqueIdentifier || '';
