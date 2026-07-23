@@ -101,6 +101,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     enrollmentNumber: true,
     printedAt: true,
   });
+  const [pdfFieldsOrder, setPdfFieldsOrder] = useState<string[]>(['name', 'identifier', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt']);
 
   // Load from localStorage on client side
   useEffect(() => {
@@ -108,6 +109,10 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       const saved = localStorage.getItem('inci-cache:delivery-batch-pdf-fields');
       if (saved) {
         setPdfFields(JSON.parse(saved));
+      }
+      const savedOrder = localStorage.getItem('inci-cache:delivery-batch-pdf-fields-order');
+      if (savedOrder) {
+        setPdfFieldsOrder(JSON.parse(savedOrder));
       }
     } catch (e) {
       console.warn("Failed to load pdf fields:", e);
@@ -117,8 +122,16 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   const handlePdfFieldChange = (field: string, checked: boolean) => {
     const updated = { ...pdfFields, [field]: checked };
     setPdfFields(updated);
+
+    // Track selection order
+    const newOrder = checked
+      ? [...pdfFieldsOrder.filter(f => f !== field), field]  // add to end if not already present
+      : pdfFieldsOrder.filter(f => f !== field);             // remove if unchecked
+    setPdfFieldsOrder(newOrder);
+
     try {
       localStorage.setItem('inci-cache:delivery-batch-pdf-fields', JSON.stringify(updated));
+      localStorage.setItem('inci-cache:delivery-batch-pdf-fields-order', JSON.stringify(newOrder));
     } catch (e) {
       console.warn("Failed to save pdf fields:", e);
     }
@@ -1553,62 +1566,32 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                             <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                               <tr>
                                 <th className="py-2.5 px-4 w-12">Photo</th>
-                                {pdfFields.name && (
-                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('name')}>
-                                    <div className="flex items-center gap-1 select-none">
-                                      <span>Nom</span>
-                                      {detailsSortField === 'name' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
-                                    </div>
-                                  </th>
-                                )}
-                                {pdfFields.identifier && (
-                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('identifier')}>
-                                    <div className="flex items-center gap-1 select-none">
-                                      <span>Matricule</span>
-                                      {detailsSortField === 'identifier' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
-                                    </div>
-                                  </th>
-                                )}
-                                {pdfFields.cardType && (
-                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('cardType')}>
-                                    <div className="flex items-center gap-1 select-none">
-                                      <span>Type de carte</span>
-                                      {detailsSortField === 'cardType' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
-                                    </div>
-                                  </th>
-                                )}
-                                {pdfFields.cardNumber && (
-                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('cardNumber')}>
-                                    <div className="flex items-center gap-1 select-none">
-                                      <span>N° de carte</span>
-                                      {detailsSortField === 'cardNumber' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
-                                    </div>
-                                  </th>
-                                )}
-                                {pdfFields.enrollmentNumber && (
-                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('enrollmentNumber')}>
-                                    <div className="flex items-center gap-1 select-none">
-                                      <span>N° d'enrôlement</span>
-                                      {detailsSortField === 'enrollmentNumber' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
-                                    </div>
-                                  </th>
-                                )}
-                                {pdfFields.printedAt && (
-                                  <th className="py-2.5 px-3 text-right cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('printedAt')}>
-                                    <div className="flex items-center justify-end gap-1 select-none">
-                                      <span>Impression</span>
-                                      {detailsSortField === 'printedAt' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
-                                    </div>
-                                  </th>
-                                )}
-                                {dynamicKeys.map(k => pdfFields[k] && (
-                                  <th key={k} className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort(k)}>
-                                    <div className="flex items-center gap-1 select-none">
-                                      <span>{k}</span>
-                                      {detailsSortField === k ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
-                                    </div>
-                                  </th>
-                                ))}
+                                {pdfFieldsOrder.filter(f => pdfFields[f]).map(f => {
+                                  const labelMap: Record<string, string> = {
+                                    name: 'Nom',
+                                    identifier: 'Matricule',
+                                    cardType: 'Type de carte',
+                                    cardNumber: 'N° de carte',
+                                    enrollmentNumber: "N° d'enrôlement",
+                                    printedAt: 'Impression',
+                                  };
+                                  const label = labelMap[f] || f;
+                                  const isRight = f === 'printedAt';
+                                  return (
+                                    <th
+                                      key={f}
+                                      className={`py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition${isRight ? ' text-right' : ''}`}
+                                      onClick={() => handleDetailsSort(f)}
+                                    >
+                                      <div className={`flex items-center gap-1 select-none${isRight ? ' justify-end' : ''}`}>
+                                        <span>{label}</span>
+                                        {detailsSortField === f
+                                          ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />)
+                                          : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
+                                      </div>
+                                    </th>
+                                  );
+                                })}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
@@ -1618,29 +1601,30 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                     <div className="w-8 h-8 rounded bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden">
                                       {emp.photoUrl ? (
                                         /* eslint-disable-next-line @next/next/no-img-element */
-                                        <img 
-                                          src={emp.photoUrl} 
-                                          alt="" 
-                                          className={`w-full h-full ${((emp.dynamicData as any)?._photoFit === 'contain') ? 'object-contain' : 'object-cover'}`} 
+                                        <img
+                                          src={emp.photoUrl}
+                                          alt=""
+                                          className={`w-full h-full ${((emp.dynamicData as any)?._photoFit === 'contain') ? 'object-contain' : 'object-cover'}`}
                                         />
                                       ) : (
                                         <User className="w-3.5 h-3.5 text-neutral-400" />
                                       )}
                                     </div>
                                   </td>
-                                  {pdfFields.name && <td className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>}
-                                  {pdfFields.identifier && <td className="py-2.5 px-3 font-mono text-neutral-500">{emp.uniqueIdentifier}</td>}
-                                  {pdfFields.cardType && (
-                                    <td className="py-2.5 px-3">
-                                      <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
-                                        {cardType}
-                                      </span>
-                                    </td>
-                                  )}
-                                  {pdfFields.cardNumber && <td className="py-2.5 px-3 font-mono font-bold">{cardNumber}</td>}
-                                  {pdfFields.enrollmentNumber && <td className="py-2.5 px-3 font-mono">{emp.enrollmentNumber || '-'}</td>}
-                                  {pdfFields.printedAt && <td className="py-2.5 px-3 text-right text-neutral-400">{printedAt ? new Date(printedAt).toLocaleDateString('fr-FR') : '-'}</td>}
-                                  {dynamicKeys.map(k => pdfFields[k] && <td key={k} className="py-2.5 px-3 text-neutral-600 dark:text-neutral-400">{(emp.dynamicData as any)?.[k] || '-'}</td>)}
+                                  {pdfFieldsOrder.filter(f => pdfFields[f]).map(f => {
+                                    if (f === 'name') return <td key={f} className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>;
+                                    if (f === 'identifier') return <td key={f} className="py-2.5 px-3 font-mono text-neutral-500">{emp.uniqueIdentifier}</td>;
+                                    if (f === 'cardType') return (
+                                      <td key={f} className="py-2.5 px-3">
+                                        <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">{cardType}</span>
+                                      </td>
+                                    );
+                                    if (f === 'cardNumber') return <td key={f} className="py-2.5 px-3 font-mono font-bold">{cardNumber}</td>;
+                                    if (f === 'enrollmentNumber') return <td key={f} className="py-2.5 px-3 font-mono">{emp.enrollmentNumber || '-'}</td>;
+                                    if (f === 'printedAt') return <td key={f} className="py-2.5 px-3 text-right text-neutral-400">{printedAt ? new Date(printedAt).toLocaleDateString('fr-FR') : '-'}</td>;
+                                    // dynamic Excel key
+                                    return <td key={f} className="py-2.5 px-3 text-neutral-600 dark:text-neutral-400">{(emp.dynamicData as any)?.[f] || '-'}</td>;
+                                  })}
                                 </tr>
                               ))}
                             </tbody>
