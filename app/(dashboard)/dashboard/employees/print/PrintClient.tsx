@@ -849,6 +849,8 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       minHeight: child.type === 'text' ? `${child.height}px` : undefined,
                       flex: child.childFlexMode === 'flex' ? '1 1 0%' : (child.childFlexMode === 'fixed' || child.childFlexMode === 'fill' ? 'none' : ((el.flexDirection === 'row' && (child.type === 'text' || child.type === 'group')) ? '1 1 0%' : '0 0 auto')),
                       transform: `translate(${(child as any).offsetX || 0}px, ${(child as any).offsetY || 0}px)`,
+                      opacity: child.opacity !== undefined ? child.opacity : 1,
+                      mixBlendMode: (child as any).blendMode || 'normal',
                     }}
                   >
                     {renderElementContent(child)}
@@ -900,9 +902,28 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
           position: 'absolute',
           top: 0,
           left: 0,
+          isolation: 'isolate',
         }}
       >
-        <div style={bgStyle} />
+        {bgStyle.backgroundImage ? (
+          <img 
+            src={(bgStyle.backgroundImage as string).replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '')} 
+            style={{ 
+              position: 'absolute', 
+              inset: 0, 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'cover', 
+              objectPosition: 'center',
+              opacity: bgStyle.opacity, 
+              pointerEvents: 'none', 
+              zIndex: 0 
+            }} 
+            alt="background" 
+          />
+        ) : (
+          <div style={bgStyle} />
+        )}
         {elements.filter(el => !el.parentId).map((el) => {
           const opacity = el.opacity !== undefined ? el.opacity : 1;
           return (
@@ -1866,6 +1887,10 @@ export default function PrintClient({ employees, templates, companyName, documen
           body {
             background: white !important;
             color: black !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }

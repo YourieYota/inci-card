@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Company } from '@prisma/client';
-import { Save, Plus, ArrowLeft, Loader2, CheckCircle, AlertCircle, RefreshCw, ZoomIn } from 'lucide-react';
+import { Save, Plus, ArrowLeft, Loader2, CheckCircle, AlertCircle, RefreshCw, ZoomIn, Copy } from 'lucide-react';
 import Link from 'next/link';
 import Canvas, { StudioElement } from './Canvas';
 import Toolbar from './Toolbar';
@@ -514,6 +514,13 @@ export default function StudioClient({
   const [showCreateCompanyModal, setShowCreateCompanyModal] = useState<boolean>(false);
   const [newCompanyName, setNewCompanyName] = useState<string>('');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  
+  // Transfer state
+  const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
+  const [transferTargetCompany, setTransferTargetCompany] = useState<string>('');
+  const [transferTargetType, setTransferTargetType] = useState<string>('');
+  const [transferTargetCategory, setTransferTargetCategory] = useState<string>('');
+  const [isTransferring, setIsTransferring] = useState<boolean>(false);
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -748,23 +755,44 @@ export default function StudioClient({
         return;
       }
 
+      // Helper to get all children recursively
+      const getFamilyIds = (parentIds: string[]) => {
+        let allIds = [...parentIds];
+        let newFound = true;
+        while(newFound) {
+          newFound = false;
+          for (const el of elements) {
+            if (el.parentId && allIds.includes(el.parentId) && !allIds.includes(el.id)) {
+              allIds.push(el.id);
+              newFound = true;
+            }
+          }
+        }
+        return allIds;
+      };
+
       // Ctrl + C: Copy all selected elements
       if (isCtrl && e.key.toLowerCase() === 'c') {
-        const elsToCopy = elements.filter((item) => selectedElementIds.includes(item.id));
+        const familyIds = getFamilyIds(selectedElementIds);
+        const elsToCopy = elements.filter((item) => familyIds.includes(item.id));
         if (elsToCopy.length > 0) {
           e.preventDefault();
           setCopiedElements(elsToCopy);
+          safeSetItem('inci-studio:clipboard', JSON.stringify(elsToCopy));
         }
         return;
       }
 
       // Ctrl + X: Cut all selected elements
       if (isCtrl && e.key.toLowerCase() === 'x') {
-        const elsToCopy = elements.filter((item) => selectedElementIds.includes(item.id));
+        const familyIds = getFamilyIds(selectedElementIds);
+        const elsToCopy = elements.filter((item) => familyIds.includes(item.id));
         if (elsToCopy.length > 0) {
           e.preventDefault();
           setCopiedElements(elsToCopy);
-          const newElements = elements.filter((item) => !selectedElementIds.includes(item.id));
+          safeSetItem('inci-studio:clipboard', JSON.stringify(elsToCopy));
+          
+          const newElements = elements.filter((item) => !familyIds.includes(item.id));
           setElements(newElements);
           setSelectedElementIds([]);
           setSelectedElementId(null);
@@ -777,27 +805,51 @@ export default function StudioClient({
 
       // Ctrl + V: Paste elements
       if (isCtrl && e.key.toLowerCase() === 'v') {
-        if (copiedElements.length > 0) {
+        let clip: StudioElement[] = [];
+        const cachedStr = safeGetItem('inci-studio:clipboard');
+        if (cachedStr) {
+          try { clip = JSON.parse(cachedStr); } catch(e){}
+        } else if (copiedElements.length > 0) {
+          clip = copiedElements;
+        }
+
+        if (clip.length > 0) {
           e.preventDefault();
           const time = Date.now();
           const pasted: StudioElement[] = [];
           const newIds: string[] = [];
+          const topLevelIds: string[] = [];
           
-          copiedElements.forEach((el, index) => {
+          const idMap: Record<string, string> = {};
+          
+          // Generate mapping first
+          clip.forEach((el, index) => {
             const newId = `${el.type}_${time}_${index}`;
+            idMap[el.id] = newId;
+            newIds.push(newId);
+          });
+          
+          clip.forEach((el) => {
+            const newId = idMap[el.id];
+            const isTopLevel = !el.parentId;
+            
             pasted.push({
               ...el,
               id: newId,
-              x: Math.min(canvasWidth - el.width, el.x + 10),
-              y: Math.min(canvasHeight - el.height, el.y + 10),
+              parentId: el.parentId && idMap[el.parentId] ? idMap[el.parentId] : undefined,
+              x: isTopLevel ? Math.min(canvasWidth - el.width, el.x + 10) : el.x,
+              y: isTopLevel ? Math.min(canvasHeight - el.height, el.y + 10) : el.y,
             });
-            newIds.push(newId);
+            
+            if (isTopLevel) {
+              topLevelIds.push(newId);
+            }
           });
           
           const newElements = [...elements, ...pasted];
           setElements(newElements);
-          setSelectedElementIds(newIds);
-          setSelectedElementId(newIds[newIds.length - 1] || null);
+          setSelectedElementIds(topLevelIds);
+          setSelectedElementId(topLevelIds[topLevelIds.length - 1] || null);
           if (currentSide === 'recto') setRectoElements(newElements);
           else setVersoElements(newElements);
           pushHistoryState(newElements);
@@ -1268,6 +1320,55 @@ export default function StudioClient({
     }
   };
 
+  // Transfer Template Action
+  const handleTransfer = async () => {
+    if (!transferTargetCompany || !transferTargetType) {
+      setNotification({ type: 'error', message: 'Veuillez sélectionner l\'entreprise et le type cible.' });
+      return;
+    }
+
+    setIsTransferring(true);
+    try {
+      const finalRectoElements = currentSide === 'recto' ? elements : rectoElements;
+      const finalVersoElements = currentSide === 'verso' ? elements : versoElements;
+      const finalRectoBg = currentSide === 'recto' ? canvasBackground : rectoBackground;
+      const finalVersoBg = currentSide === 'verso' ? canvasBackground : versoBackground;
+      const finalRectoOpacity = currentSide === 'recto' ? canvasBackgroundOpacity : rectoBackgroundOpacity;
+      const finalVersoOpacity = currentSide === 'verso' ? canvasBackgroundOpacity : versoBackgroundOpacity;
+
+      const templateData = {
+        companyId: transferTargetCompany,
+        type: transferTargetType,
+        categoryId: transferTargetCategory || null,
+        width: canvasWidth,
+        height: canvasHeight,
+        backgroundUrl: finalRectoBg || undefined,
+        layoutConfig: {
+          recto: {
+            elements: finalRectoElements,
+            backgroundUrl: finalRectoBg,
+            backgroundOpacity: finalRectoOpacity,
+          },
+          verso: {
+            elements: finalVersoElements,
+            backgroundUrl: finalVersoBg,
+            backgroundOpacity: finalVersoOpacity,
+          },
+          borderRadius: canvasBorderRadius,
+          physicalTypeId: selectedPhysicalTypeId || null,
+        } as any,
+      };
+
+      await saveTemplate(templateData);
+      setNotification({ type: 'success', message: 'Configuration transférée avec succès.' });
+      setShowTransferModal(false);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Erreur lors du transfert.' });
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   // Create Company Action
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1477,6 +1578,22 @@ export default function StudioClient({
             </div>
           )}
 
+          {/* Transfer Button */}
+          <button
+            onClick={() => {
+              setTransferTargetCompany(selectedCompanyId);
+              setTransferTargetType(cardType);
+              setTransferTargetCategory(selectedCategoryId);
+              setShowTransferModal(true);
+            }}
+            disabled={!selectedCompanyId || isLoading}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 transition shadow-sm disabled:opacity-50"
+            title="Transférer la configuration actuelle vers un autre type ou une autre entreprise"
+          >
+            <Copy className="w-4 h-4" />
+            <span className="hidden sm:inline">Transférer</span>
+          </button>
+
           {/* Save Button */}
           <button
             onClick={handleSave}
@@ -1636,6 +1753,105 @@ export default function StudioClient({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* TRANSFER CONFIG MODAL */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-neutral-100 dark:border-neutral-800 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                <Copy className="w-5 h-5 text-indigo-500" />
+                Transférer la configuration
+              </h3>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-5">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Copiez le modèle de carte actuel vers une autre entreprise, un autre type de document ou une autre catégorie.
+              </p>
+              
+              <div>
+                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  Entreprise Cible
+                </label>
+                <select
+                  value={transferTargetCompany}
+                  onChange={(e) => setTransferTargetCompany(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:ring-2 focus:ring-indigo-500/30 outline-none transition"
+                >
+                  <option value="">Sélectionnez l&apos;entreprise</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  Type de Carte Cible
+                </label>
+                <select
+                  value={transferTargetType}
+                  onChange={(e) => setTransferTargetType(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:ring-2 focus:ring-indigo-500/30 outline-none transition"
+                >
+                  {documentTypes.map((dt) => (
+                    <option key={dt.id} value={dt.slug}>
+                      {dt.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  Catégorie Cible (Optionnel)
+                </label>
+                <select
+                  value={transferTargetCategory}
+                  onChange={(e) => setTransferTargetCategory(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:ring-2 focus:ring-indigo-500/30 outline-none transition"
+                >
+                  <option value="">(Générique / Par défaut)</option>
+                  {categories
+                    .filter((cat) => !cat.documentTypeSlug || cat.documentTypeSlug === transferTargetType)
+                    .map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-100 dark:border-neutral-800 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowTransferModal(false)}
+                className="px-5 py-2.5 text-sm font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={isTransferring || !transferTargetCompany || !transferTargetType}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm"
+              >
+                {isTransferring ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                Transférer
+              </button>
+            </div>
           </div>
         </div>
       )}
