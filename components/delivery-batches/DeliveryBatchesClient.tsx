@@ -575,8 +575,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       const jobs = emp.printJobs || [];
       if (jobs.length === 0) {
         return [{
-          name: `${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''} ${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''}`.trim() || emp.uniqueIdentifier,
-          sortKey: `${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''} ${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''}`.trim() || emp.uniqueIdentifier,
+          name: getEmployeeName(emp),
+          sortKey: getEmployeeSortKey(emp),
           uniqueIdentifier: emp.uniqueIdentifier,
           cardType: 'BADGE',
           cardNumber: emp.cardNumber || 'Non généré',
@@ -594,8 +594,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
         }
       });
       return uniqueJobs.map(job => ({
-        name: `${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''} ${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''}`.trim() || emp.uniqueIdentifier,
-        sortKey: `${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''} ${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''}`.trim() || emp.uniqueIdentifier,
+        name: getEmployeeName(emp),
+        sortKey: getEmployeeSortKey(emp),
         uniqueIdentifier: emp.uniqueIdentifier,
         cardType: job.templateType,
         cardNumber: job.cardNumber || emp.cardNumber || 'Non généré',
