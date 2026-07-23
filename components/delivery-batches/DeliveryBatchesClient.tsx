@@ -102,6 +102,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
   // PDF column visibility preferences
   const [pdfFields, setPdfFields] = useState<Record<string, boolean>>({
+    index: true,
     name: true,
     identifier: true,
     cardType: true,
@@ -109,7 +110,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     enrollmentNumber: true,
     printedAt: true,
   });
-  const [pdfFieldsOrder, setPdfFieldsOrder] = useState<string[]>(['name', 'identifier', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt']);
+  const [pdfFieldsOrder, setPdfFieldsOrder] = useState<string[]>(['index', 'name', 'identifier', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt']);
 
   // Load from localStorage on client side
   useEffect(() => {
@@ -728,7 +729,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           <table>
             <thead>
               <tr>
-                <th style="width: 50px;">#</th>
+                ${pdfFields.index ? '<th style="width: 50px;">#</th>' : ''}
                 ${pdfFields.name ? '<th>Nom Complet</th>' : ''}
                 ${pdfFields.identifier ? '<th>Matricule</th>' : ''}
                 ${pdfFields.cardType ? '<th>Type de carte</th>' : ''}
@@ -742,7 +743,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
               ${printedCards.map((card, idx) => {
                 return `
                   <tr>
-                    <td>${idx + 1}</td>
+                    ${pdfFields.index ? `<td>${idx + 1}</td>` : ''}
                     ${pdfFields.name ? `<td style="font-weight: 600;">${card.name}</td>` : ''}
                     ${pdfFields.identifier ? `<td style="font-family: monospace;">${card.uniqueIdentifier}</td>` : ''}
                     ${pdfFields.cardType ? `<td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${card.cardType}</span></td>` : ''}
@@ -1740,6 +1741,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                 <th className="py-2.5 px-4 w-12">Photo</th>
                                 {pdfFieldsOrder.filter(f => pdfFields[f]).map(f => {
                                   const labelMap: Record<string, string> = {
+                                    index: '#',
                                     name: 'Nom',
                                     identifier: 'Matricule',
                                     cardType: 'Type de carte',
@@ -1767,7 +1769,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
-                              {printedCards.map(({ key, emp, cardType, cardNumber, printedAt }) => (
+                              {printedCards.map(({ key, emp, cardType, cardNumber, printedAt }, idx) => (
                                 <tr key={key} className="text-xs hover:bg-neutral-50/50 dark:hover:bg-neutral-800/10">
                                   <td className="py-2.5 px-4">
                                     <div className="w-8 h-8 rounded bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden">
@@ -1784,6 +1786,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                     </div>
                                   </td>
                                   {pdfFieldsOrder.filter(f => pdfFields[f]).map(f => {
+                                    if (f === 'index') return <td key={f} className="py-2.5 px-3 font-semibold text-neutral-500">{idx + 1}</td>;
                                     if (f === 'name') return <td key={f} className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>;
                                     if (f === 'identifier') return <td key={f} className="py-2.5 px-3 font-mono text-neutral-500">{emp.uniqueIdentifier}</td>;
                                     if (f === 'cardType') return (
