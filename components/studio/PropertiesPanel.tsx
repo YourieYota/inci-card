@@ -1197,6 +1197,41 @@ export default function PropertiesPanel({
           {/* QR Code specific properties */}
           {selectedElement.type === 'qr' && (
             <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+
+              {/* Source toggle: Standard vs External */}
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">Source du QR Code</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onUpdateElement({ ...selectedElement, qrSource: 'standard' })}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
+                      !selectedElement.qrSource || selectedElement.qrSource === 'standard'
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-900 dark:text-indigo-400'
+                        : 'border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    Standard
+                  </button>
+                  <button
+                    onClick={() => onUpdateElement({ ...selectedElement, qrSource: 'external', field: undefined, content: undefined })}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
+                      selectedElement.qrSource === 'external'
+                        ? 'bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/30 dark:border-violet-900 dark:text-violet-400'
+                        : 'border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    Externe
+                  </button>
+                </div>
+                {selectedElement.qrSource === 'external' && (
+                  <p className="mt-2 text-[10px] text-violet-500 dark:text-violet-400 leading-normal px-1">
+                    L'image QR importée depuis la page <strong>Gestion des QR Codes</strong> sera utilisée lors de l'impression — associée à l'employé via le champ de correspondance.
+                  </p>
+                )}
+              </div>
+
+              {/* Content section — hidden when external */}
+              {(!selectedElement.qrSource || selectedElement.qrSource === 'standard') && (
               <div>
                 <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">Contenu du QR Code</label>
                 <div className="flex gap-2 mb-2">
@@ -1251,6 +1286,7 @@ export default function PropertiesPanel({
                   </div>
                 )}
               </div>
+              )}
             </div>
           )}
         </div>
