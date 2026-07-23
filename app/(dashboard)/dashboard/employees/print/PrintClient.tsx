@@ -902,28 +902,9 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
           position: 'absolute',
           top: 0,
           left: 0,
-          isolation: 'isolate',
         }}
       >
-        {bgStyle.backgroundImage ? (
-          <img 
-            src={(bgStyle.backgroundImage as string).replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '')} 
-            style={{ 
-              position: 'absolute', 
-              inset: 0, 
-              width: '100%', 
-              height: '100%', 
-              objectFit: 'cover', 
-              objectPosition: 'center',
-              opacity: bgStyle.opacity, 
-              pointerEvents: 'none', 
-              zIndex: 0 
-            }} 
-            alt="background" 
-          />
-        ) : (
-          <div style={bgStyle} />
-        )}
+        <div style={bgStyle} />
         {elements.filter(el => !el.parentId).map((el) => {
           const opacity = el.opacity !== undefined ? el.opacity : 1;
           return (
