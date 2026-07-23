@@ -1480,7 +1480,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         </div>
 
                         <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-hidden overflow-x-auto">
-                          <table className="w-full text-left border-collapse min-w-max">
+                          <table className="w-full text-left border-collapse min-w-max whitespace-nowrap">
                             <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                               <tr>
                                 <th className="py-2.5 px-4 w-12">Photo</th>
