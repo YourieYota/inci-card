@@ -299,25 +299,30 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     }
   };
 
+  // Case-insensitive lookup in dynamicData (handles NOM/Nom/nom, PRENOMS/Prenom/prenom, etc.)
+  const getDynField = (data: Record<string, any>, ...keys: string[]): string => {
+    if (!data || typeof data !== 'object') return '';
+    const dataLower = Object.fromEntries(Object.entries(data).map(([k, v]) => [k.toLowerCase(), v]));
+    for (const key of keys) {
+      const val = dataLower[key.toLowerCase()];
+      if (val !== undefined && val !== null && val !== '') return String(val);
+    }
+    return '';
+  };
+
   const getEmployeeName = (emp: any): string => {
     const data = emp.dynamicData as Record<string, any>;
-    if (data && typeof data === 'object') {
-      const p = data.Prenom || data.prenom || '';
-      const n = data.Nom || data.nom || '';
-      return `${p} ${n}`.trim() || emp.uniqueIdentifier;
-    }
-    return emp.uniqueIdentifier;
+    const p = getDynField(data, 'prenom', 'prenoms', 'prénom', 'prénoms');
+    const n = getDynField(data, 'nom');
+    return `${p} ${n}`.trim() || emp.uniqueIdentifier;
   };
 
   // Sort key: Nom first, then Prenom — ensures alphabetical sort is by family name
   const getEmployeeSortKey = (emp: any): string => {
     const data = emp.dynamicData as Record<string, any>;
-    if (data && typeof data === 'object') {
-      const n = data.Nom || data.nom || '';
-      const p = data.Prenom || data.prenom || '';
-      return `${n} ${p}`.trim() || emp.uniqueIdentifier;
-    }
-    return emp.uniqueIdentifier;
+    const n = getDynField(data, 'nom');
+    const p = getDynField(data, 'prenom', 'prenoms', 'prénom', 'prénoms');
+    return `${n} ${p}`.trim() || emp.uniqueIdentifier;
   };
 
   const cardTypes = useMemo(() => {
@@ -420,14 +425,21 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           valA = a.printedAt ? new Date(a.printedAt).getTime() : 0;
           valB = b.printedAt ? new Date(b.printedAt).getTime() : 0;
         } else {
-          valA = a.dynamicData?.[sortField] || '';
-          valB = b.dynamicData?.[sortField] || '';
+          // Dynamic field: case-insensitive key lookup
+          const dataA = a.dynamicData as Record<string, any>;
+          const dataB = b.dynamicData as Record<string, any>;
+          valA = getDynField(dataA, sortField) || '';
+          valB = getDynField(dataB, sortField) || '';
         }
+
+        const normalize = (v: any) => typeof v === 'string' ? v.trim() : v;
+        valA = normalize(valA);
+        valB = normalize(valB);
 
         if (typeof valA === 'string') {
           return sortDirection === 'asc'
-            ? valA.localeCompare(valB, 'fr', { numeric: true, sensitivity: 'base' })
-            : valB.localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
+            ? valA.localeCompare(String(valB), 'fr', { numeric: true, sensitivity: 'base' })
+            : String(valB).localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
         } else {
           return sortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
         }
@@ -622,14 +634,19 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           valA = a.printedAt ? new Date(a.printedAt).getTime() : 0;
           valB = b.printedAt ? new Date(b.printedAt).getTime() : 0;
         } else {
-          valA = a.dynamicData?.[detailsSortField] || '';
-          valB = b.dynamicData?.[detailsSortField] || '';
+          // Dynamic Excel field: case-insensitive key lookup
+          valA = getDynField(a.dynamicData as Record<string, any>, detailsSortField);
+          valB = getDynField(b.dynamicData as Record<string, any>, detailsSortField);
         }
+
+        const normalize = (v: any) => typeof v === 'string' ? v.trim() : v;
+        valA = normalize(valA);
+        valB = normalize(valB);
 
         if (typeof valA === 'string') {
           return detailsSortDirection === 'asc'
-            ? valA.localeCompare(valB, 'fr', { numeric: true, sensitivity: 'base' })
-            : valB.localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
+            ? valA.localeCompare(String(valB), 'fr', { numeric: true, sensitivity: 'base' })
+            : String(valB).localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
         } else {
           return detailsSortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
         }
@@ -1442,14 +1459,19 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                           valA = a.printedAt ? new Date(a.printedAt).getTime() : 0;
                           valB = b.printedAt ? new Date(b.printedAt).getTime() : 0;
                         } else {
-                          valA = a.emp?.dynamicData?.[detailsSortField] || '';
-                          valB = b.emp?.dynamicData?.[detailsSortField] || '';
+                          // Dynamic Excel field: case-insensitive key lookup
+                          valA = getDynField(a.emp?.dynamicData as Record<string, any>, detailsSortField);
+                          valB = getDynField(b.emp?.dynamicData as Record<string, any>, detailsSortField);
                         }
+
+                        const normalize = (v: any) => typeof v === 'string' ? v.trim() : v;
+                        valA = normalize(valA);
+                        valB = normalize(valB);
 
                         if (typeof valA === 'string') {
                           return detailsSortDirection === 'asc'
-                            ? valA.localeCompare(valB, 'fr', { numeric: true, sensitivity: 'base' })
-                            : valB.localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
+                            ? valA.localeCompare(String(valB), 'fr', { numeric: true, sensitivity: 'base' })
+                            : String(valB).localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
                         } else {
                           return detailsSortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
                         }
