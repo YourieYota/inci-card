@@ -79,6 +79,41 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   // Selection State (IDs of employees to be included in the batch)
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Record<string, boolean>>({});
 
+  // Card Type filter for editor & details
+  const [selectedCardType, setSelectedCardType] = useState('');
+  const [detailsCardType, setDetailsCardType] = useState('');
+
+  // PDF column visibility preferences
+  const [pdfFields, setPdfFields] = useState<Record<string, boolean>>({
+    name: true,
+    identifier: true,
+    cardType: true,
+    cardNumber: true,
+    printedAt: true,
+  });
+
+  // Load from localStorage on client side
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('inci-cache:delivery-batch-pdf-fields');
+      if (saved) {
+        setPdfFields(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.warn("Failed to load pdf fields:", e);
+    }
+  }, []);
+
+  const handlePdfFieldChange = (field: string, checked: boolean) => {
+    const updated = { ...pdfFields, [field]: checked };
+    setPdfFields(updated);
+    try {
+      localStorage.setItem('inci-cache:delivery-batch-pdf-fields', JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Failed to save pdf fields:", e);
+    }
+  };
+
   // Batch Details
   const [customBatchNumber, setCustomBatchNumber] = useState('');
 
@@ -233,10 +268,29 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     return emp.uniqueIdentifier;
   };
 
+  const cardTypes = useMemo(() => {
+    const types = new Set<string>();
+    availableEmployees.forEach(emp => {
+      emp.printJobs?.forEach((job: any) => {
+        if (job.templateType && job.cardNumber !== 'REIMPRESSION_DEMANDEE') {
+          types.add(job.templateType);
+        }
+      });
+    });
+    return Array.from(types);
+  }, [availableEmployees]);
+
   const filteredEmployees = useMemo(() => {
     if (!selectedCompanyId || availableEmployees.length === 0) return [];
 
     let result = availableEmployees;
+
+    // Filter by Card Type (templateType)
+    if (selectedCardType) {
+      result = result.filter(emp => 
+        emp.printJobs?.some((j: any) => j.templateType === selectedCardType)
+      );
+    }
 
     if (manualSearch.trim()) {
       const query = manualSearch.toLowerCase();
@@ -270,7 +324,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     }
 
     return result;
-  }, [availableEmployees, manualSearch, selectedGrouping, selectedFieldKey, filterValues, startDate, endDate, selectedCompanyId]);
+  }, [availableEmployees, manualSearch, selectedGrouping, selectedFieldKey, filterValues, startDate, endDate, selectedCompanyId, selectedCardType]);
 
   const handleToggleSelectAllFiltered = () => {
     if (filteredEmployees.length === 0) return;
@@ -390,11 +444,11 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     }
   };
 
-  const handlePrintSlip = (batch: any, employees: any[]) => {
+  const handlePrintSlip = (batch: any, employees: any[], filterCardType?: string) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const printedCards = employees.flatMap(emp => {
+    let printedCards = employees.flatMap(emp => {
       const jobs = emp.printJobs || [];
       if (jobs.length === 0) {
         return [{
@@ -421,6 +475,10 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
         printedAt: job.printedAt ? new Date(job.printedAt).toLocaleDateString('fr-FR') : (emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : 'N/A'),
       }));
     });
+
+    if (filterCardType) {
+      printedCards = printedCards.filter(c => c.cardType === filterCardType);
+    }
 
     const html = `
       <html>
@@ -486,11 +544,11 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
             <thead>
               <tr>
                 <th style="width: 50px;">#</th>
-                <th>Nom Complet</th>
-                <th>Matricule</th>
-                <th>Type de carte</th>
-                <th>N° de carte</th>
-                <th>Date d'impression</th>
+                ${pdfFields.name ? '<th>Nom Complet</th>' : ''}
+                ${pdfFields.identifier ? '<th>Matricule</th>' : ''}
+                ${pdfFields.cardType ? '<th>Type de carte</th>' : ''}
+                ${pdfFields.cardNumber ? '<th>N° de carte</th>' : ''}
+                ${pdfFields.printedAt ? "<th>Date d'impression</th>" : ''}
               </tr>
             </thead>
             <tbody>
@@ -498,11 +556,11 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 return `
                   <tr>
                     <td>${idx + 1}</td>
-                    <td style="font-weight: 600;">${card.name}</td>
-                    <td style="font-family: monospace;">${card.uniqueIdentifier}</td>
-                    <td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${card.cardType}</span></td>
-                    <td style="font-family: monospace; font-weight: 600;">${card.cardNumber}</td>
-                    <td>${card.printedAt}</td>
+                    ${pdfFields.name ? `<td style="font-weight: 600;">${card.name}</td>` : ''}
+                    ${pdfFields.identifier ? `<td style="font-family: monospace;">${card.uniqueIdentifier}</td>` : ''}
+                    ${pdfFields.cardType ? `<td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${card.cardType}</span></td>` : ''}
+                    ${pdfFields.cardNumber ? `<td style="font-family: monospace; font-weight: 600;">${card.cardNumber}</td>` : ''}
+                    ${pdfFields.printedAt ? `<td>${card.printedAt}</td>` : ''}
                   </tr>
                 `;
               }).join('')}
@@ -836,6 +894,50 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
+                        Type de carte du lot
+                      </label>
+                      <select
+                        value={selectedCardType}
+                        onChange={(e) => {
+                          setSelectedCardType(e.target.value);
+                          setWizardPage(1);
+                        }}
+                        className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-xl text-sm outline-none"
+                      >
+                        <option value="">Tous les types</option>
+                        {cardTypes.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
+                        Champs sur le PDF
+                      </label>
+                      <div className="bg-neutral-50 dark:bg-neutral-800 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 space-y-2.5">
+                        {[
+                          { id: 'name', label: 'Nom Complet' },
+                          { id: 'identifier', label: 'Matricule' },
+                          { id: 'cardType', label: 'Type de carte' },
+                          { id: 'cardNumber', label: 'N° de carte' },
+                          { id: 'printedAt', label: "Date d'impression" },
+                        ].map((f) => (
+                          <label key={f.id} className="flex items-center gap-2.5 cursor-pointer text-xs select-none">
+                            <input
+                              type="checkbox"
+                              checked={!!pdfFields[f.id]}
+                              onChange={(e) => handlePdfFieldChange(f.id, e.target.checked)}
+                              className="rounded border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-neutral-700 dark:text-neutral-300 font-medium">{f.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="h-px bg-neutral-200 dark:bg-neutral-800 my-2" />
 
                     <div>
@@ -1075,84 +1177,108 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
               ) : (
                 <>
                   {(() => {
-                    const printedCards = batchEmployees.flatMap(emp => {
-                    const jobs = emp.printJobs || [];
-                    if (jobs.length === 0) {
-                      return [{
-                        key: `${emp.id}_BADGE`,
-                        emp,
-                        cardType: 'BADGE',
-                        cardNumber: emp.cardNumber || '-',
-                        printedAt: emp.printedAt,
-                      }];
-                    }
-                    const uniqueTypes = new Set<string>();
-                    const uniqueJobs: any[] = [];
-                    jobs.forEach((job: any) => {
-                      if (!uniqueTypes.has(job.templateType)) {
-                        uniqueTypes.add(job.templateType);
-                        uniqueJobs.push(job);
-                      }
-                    });
-                    return uniqueJobs.map(job => ({
-                      key: `${emp.id}_${job.templateType}`,
-                      emp,
-                      cardType: job.templateType,
-                      cardNumber: job.cardNumber || '-',
-                      printedAt: job.printedAt || emp.printedAt,
-                    }));
-                  });
+                    const detailsCardTypes = Array.from(new Set(batchEmployees.flatMap(emp => 
+                      (emp.printJobs || []).filter((j: any) => j.cardNumber !== 'REIMPRESSION_DEMANDEE' && j.templateType !== 'DEBLOCAGE').map((j: any) => j.templateType)
+                    )));
 
-                  return (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-900 px-4 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl">
-                        <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Liste des cartes ({printedCards.length})</span>
-                        <button onClick={() => handlePrintSlip(selectedBatchDetails, batchEmployees)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 border border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-xs font-bold rounded-lg shadow-sm">
-                          <Printer className="w-4 h-4 text-indigo-500" />
-                          <span>Imprimer Bon de Livraison</span>
-                        </button>
-                      </div>
-                      <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-hidden">
-                        <table className="w-full text-left border-collapse">
-                          <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                            <tr>
-                              <th className="py-2.5 px-4 w-12">Photo</th>
-                              <th className="py-2.5 px-3">Nom</th>
-                              <th className="py-2.5 px-3">Matricule</th>
-                              <th className="py-2.5 px-3">Type de carte</th>
-                              <th className="py-2.5 px-3">N° de carte</th>
-                              <th className="py-2.5 px-3 text-right">Impression</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
-                            {printedCards.map(({ key, emp, cardType, cardNumber, printedAt }) => (
-                              <tr key={key} className="text-xs hover:bg-neutral-50/50 dark:hover:bg-neutral-800/10">
-                                <td className="py-2.5 px-4">
-                                  <div className="w-8 h-8 rounded bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden">
-                                    {emp.photoUrl ? (
-                                      /* eslint-disable-next-line @next/next/no-img-element */
-                                      <img 
-                                        src={emp.photoUrl} 
-                                        alt="" 
-                                        className={`w-full h-full ${((emp.dynamicData as any)?._photoFit === 'contain') ? 'object-contain' : 'object-cover'}`} 
-                                      />
-                                    ) : (
-                                      <User className="w-3.5 h-3.5 text-neutral-400" />
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>
-                                <td className="py-2.5 px-3 font-mono text-neutral-500">{emp.uniqueIdentifier}</td>
-                                <td className="py-2.5 px-3">
-                                  <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
-                                    {cardType}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-3 font-mono font-bold">{cardNumber}</td>
-                                <td className="py-2.5 px-3 text-right text-neutral-400">{printedAt ? new Date(printedAt).toLocaleDateString('fr-FR') : '-'}</td>
+                    let printedCards = batchEmployees.flatMap(emp => {
+                      const jobs = emp.printJobs || [];
+                      if (jobs.length === 0) {
+                        return [{
+                          key: `${emp.id}_BADGE`,
+                          emp,
+                          cardType: 'BADGE',
+                          cardNumber: emp.cardNumber || '-',
+                          printedAt: emp.printedAt,
+                        }];
+                      }
+                      const uniqueTypes = new Set<string>();
+                      const uniqueJobs: any[] = [];
+                      jobs.forEach((job: any) => {
+                        if (!uniqueTypes.has(job.templateType)) {
+                          uniqueTypes.add(job.templateType);
+                          uniqueJobs.push(job);
+                        }
+                      });
+                      return uniqueJobs.map(job => ({
+                        key: `${emp.id}_${job.templateType}`,
+                        emp,
+                        cardType: job.templateType,
+                        cardNumber: job.cardNumber || '-',
+                        printedAt: job.printedAt || emp.printedAt,
+                      }));
+                    });
+
+                    if (detailsCardType) {
+                      printedCards = printedCards.filter(c => c.cardType === detailsCardType);
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Liste des cartes ({printedCards.length})</span>
+                            {detailsCardTypes.length > 1 && (
+                              <select
+                                value={detailsCardType}
+                                onChange={(e) => setDetailsCardType(e.target.value)}
+                                className="px-2.5 py-1 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg text-xs outline-none"
+                              >
+                                <option value="">Tous les types</option>
+                                {detailsCardTypes.map(t => (
+                                  <option key={t} value={t}>{t}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                          <button onClick={() => handlePrintSlip(selectedBatchDetails, batchEmployees, detailsCardType)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 border border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-xs font-bold rounded-lg shadow-sm">
+                            <Printer className="w-4 h-4 text-indigo-500" />
+                            <span>Imprimer Bon de Livraison</span>
+                          </button>
+                        </div>
+                        <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-hidden">
+                          <table className="w-full text-left border-collapse">
+                            <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                              <tr>
+                                <th className="py-2.5 px-4 w-12">Photo</th>
+                                {pdfFields.name && <th className="py-2.5 px-3">Nom</th>}
+                                {pdfFields.identifier && <th className="py-2.5 px-3">Matricule</th>}
+                                {pdfFields.cardType && <th className="py-2.5 px-3">Type de carte</th>}
+                                {pdfFields.cardNumber && <th className="py-2.5 px-3">N° de carte</th>}
+                                {pdfFields.printedAt && <th className="py-2.5 px-3 text-right">Impression</th>}
                               </tr>
-                            ))}
-                          </tbody>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
+                              {printedCards.map(({ key, emp, cardType, cardNumber, printedAt }) => (
+                                <tr key={key} className="text-xs hover:bg-neutral-50/50 dark:hover:bg-neutral-800/10">
+                                  <td className="py-2.5 px-4">
+                                    <div className="w-8 h-8 rounded bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden">
+                                      {emp.photoUrl ? (
+                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                        <img 
+                                          src={emp.photoUrl} 
+                                          alt="" 
+                                          className={`w-full h-full ${((emp.dynamicData as any)?._photoFit === 'contain') ? 'object-contain' : 'object-cover'}`} 
+                                        />
+                                      ) : (
+                                        <User className="w-3.5 h-3.5 text-neutral-400" />
+                                      )}
+                                    </div>
+                                  </td>
+                                  {pdfFields.name && <td className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>}
+                                  {pdfFields.identifier && <td className="py-2.5 px-3 font-mono text-neutral-500">{emp.uniqueIdentifier}</td>}
+                                  {pdfFields.cardType && (
+                                    <td className="py-2.5 px-3">
+                                      <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
+                                        {cardType}
+                                      </span>
+                                    </td>
+                                  )}
+                                  {pdfFields.cardNumber && <td className="py-2.5 px-3 font-mono font-bold">{cardNumber}</td>}
+                                  {pdfFields.printedAt && <td className="py-2.5 px-3 text-right text-neutral-400">{printedAt ? new Date(printedAt).toLocaleDateString('fr-FR') : '-'}</td>}
+                                </tr>
+                              ))}
+                            </tbody>
                         </table>
                       </div>
                     </div>
