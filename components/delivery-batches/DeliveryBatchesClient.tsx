@@ -69,6 +69,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   const [filterCompanyId, setFilterCompanyId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterCardType, setFilterCardType] = useState('');
+
+  // Editor doc type selection
+  const [selectedDocTypeSlug, setSelectedDocTypeSlug] = useState('');
   
   // View State: 'list' | 'editor'
   const [view, setView] = useState<'list' | 'editor'>('list');
@@ -484,6 +487,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     setCustomBatchNumber('');
     setEditingBatch(null);
     setSelectedEmployeeIds({});
+    setSelectedDocTypeSlug('');
     setView('editor');
   };
 
@@ -493,6 +497,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     setEditingBatch(batch);
     setSelectedCompanyId(batch.companyId);
     setCustomBatchNumber(batch.batchNumber || '');
+    setSelectedDocTypeSlug(batch.cardDocumentTypeSlug || '');
     setView('editor');
   };
 
@@ -520,17 +525,19 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       if (editorMode === 'create') {
         const newBatch = await createDeliveryBatch({
           companyId: selectedCompanyId,
-          employeeIds
+          employeeIds,
+          cardDocumentTypeSlug: selectedDocTypeSlug || undefined,
         });
         
         if (customBatchNumber.trim() && newBatch.batchNumber !== customBatchNumber.trim()) {
-           await updateDeliveryBatch(newBatch.id, customBatchNumber.trim(), employeeIds);
+           await updateDeliveryBatch(newBatch.id, customBatchNumber.trim(), employeeIds, selectedDocTypeSlug || undefined);
         }
       } else if (editorMode === 'edit' && editingBatch) {
         await updateDeliveryBatch(
           editingBatch.id, 
           customBatchNumber.trim() || editingBatch.batchNumber, 
-          employeeIds
+          employeeIds,
+          selectedDocTypeSlug || undefined,
         );
       }
       
@@ -847,11 +854,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   const filteredBatches = batches.filter(b => {
     if (filterCompanyId && b.companyId !== filterCompanyId) return false;
     if (filterStatus && b.status !== filterStatus) return false;
-    if (filterCardType) {
-      const batchCompanyId = b.companyId;
-      const hasType = cardDocumentTypes.some(c => c.slug === filterCardType && (c.companyId === batchCompanyId || c.companyId === null));
-      if (!hasType) return false;
-    }
+    if (filterCardType && b.cardDocumentTypeSlug !== filterCardType) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       if (!b.batchNumber?.toLowerCase().includes(q) && !b.company?.name?.toLowerCase().includes(q)) return false;
@@ -1021,16 +1024,14 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       <Building2 className="w-4 h-4 text-indigo-500 flex-shrink-0" />
                       <span>{batch.company?.name || 'Entreprise inconnue'}</span>
                     </div>
-                    {/* Card document type badges for this batch's company */}
-                    {(() => {
-                      const types = cardDocumentTypes.filter(c => c.companyId === batch.companyId || c.companyId === null);
-                      return types.length > 0 ? (
+                    {/* Card document type badge */}
+                    {batch.cardDocumentTypeSlug && (() => {
+                      const docType = cardDocumentTypes.find(c => c.slug === batch.cardDocumentTypeSlug);
+                      return docType ? (
                         <div className="flex flex-wrap gap-1.5 mb-3">
-                          {types.map(c => (
-                            <span key={c.id} className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/30">
-                              {c.name}
-                            </span>
-                          ))}
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/30">
+                            {docType.name}
+                          </span>
                         </div>
                       ) : null;
                     })()}
@@ -1196,6 +1197,29 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         onChange={(e) => setCustomBatchNumber(e.target.value)}
                         className="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-xl text-sm outline-none"
                       />
+                    </div>
+
+                    {/* Document type of the batch */}
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
+                        Type de document <span className="text-rose-400">*</span>
+                      </label>
+                      <select
+                        value={selectedDocTypeSlug}
+                        onChange={(e) => setSelectedDocTypeSlug(e.target.value)}
+                        className={`w-full px-3 py-2.5 border rounded-xl text-sm outline-none transition bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 ${
+                          selectedDocTypeSlug
+                            ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/20'
+                            : 'border-neutral-200 dark:border-neutral-800'
+                        }`}
+                      >
+                        <option value="">-- Sélectionnez un type --</option>
+                        {cardDocumentTypes
+                          .filter(c => c.companyId === selectedCompanyId || c.companyId === null)
+                          .map(c => (
+                            <option key={c.id} value={c.slug}>{c.name}</option>
+                          ))}
+                      </select>
                     </div>
 
                     <div>

@@ -39,6 +39,7 @@ export default async function DeliveryBatchesPage() {
     updatedAt: b.updatedAt instanceof Date ? b.updatedAt.toISOString() : b.updatedAt,
     shippedAt: b.shippedAt instanceof Date ? b.shippedAt.toISOString() : b.shippedAt,
     deliveredAt: b.deliveredAt instanceof Date ? b.deliveredAt.toISOString() : b.deliveredAt,
+    cardDocumentTypeSlug: b.cardDocumentTypeSlug ?? null,
   }));
 
   const serializedCardDocumentTypes = cardDocumentTypes.map(c => ({

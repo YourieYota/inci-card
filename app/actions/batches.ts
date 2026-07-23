@@ -26,7 +26,7 @@ export async function getDeliveryBatches(companyId?: string) {
   }
 }
 
-export async function createDeliveryBatch({ companyId, employeeIds }: { companyId: string, employeeIds: string[] }) {
+export async function createDeliveryBatch({ companyId, employeeIds, cardDocumentTypeSlug }: { companyId: string, employeeIds: string[], cardDocumentTypeSlug?: string }) {
   if (!employeeIds.length) throw new Error('Aucun employé sélectionné');
   
   try {
@@ -41,7 +41,8 @@ export async function createDeliveryBatch({ companyId, employeeIds }: { companyI
       data: {
         batchNumber,
         companyId,
-        status: 'PREPARE'
+        status: 'PREPARE',
+        cardDocumentTypeSlug: cardDocumentTypeSlug || null,
       }
     });
 
@@ -190,17 +191,18 @@ export async function deleteDeliveryBatch(batchId: string) {
   }
 }
 
-export async function updateDeliveryBatch(batchId: string, customBatchNumber: string, employeeIds: string[]) {
+export async function updateDeliveryBatch(batchId: string, customBatchNumber: string, employeeIds: string[], cardDocumentTypeSlug?: string) {
   if (!employeeIds.length) throw new Error('Aucun employé sélectionné');
   
   try {
     // We update the batch number, and set the new list of employees
-    // 'set' will connect the provided IDs and disconnect any previous ones not in the list
+    const updateData: any = { batchNumber: customBatchNumber };
+    if (cardDocumentTypeSlug !== undefined) {
+      updateData.cardDocumentTypeSlug = cardDocumentTypeSlug || null;
+    }
     const batch = await prisma.deliveryBatch.update({
       where: { id: batchId },
-      data: {
-        batchNumber: customBatchNumber
-      }
+      data: updateData
     });
     
     // Break previous employee connections using raw SQL to bypass transactions

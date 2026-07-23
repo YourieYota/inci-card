@@ -148,14 +148,15 @@ model DeliveryBatch {
   status      String     @default("PREPARE")
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @default(now()) @updatedAt
-  batchNumber     String?    @unique
-  deliveredAt     DateTime?
-  shippedAt       DateTime?
-  signedProof     String?    @db.Text
-  signedProofName String?
-  signedProofType String?
-  company         Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employees       Employee[]
+  batchNumber             String?    @unique
+  deliveredAt             DateTime?
+  shippedAt               DateTime?
+  signedProof             String?    @db.Text
+  signedProofName         String?
+  signedProofType         String?
+  cardDocumentTypeSlug    String?
+  company                 Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees               Employee[]
 }
 
 model CardDocumentType {
