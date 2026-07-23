@@ -66,6 +66,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   const [search, setSearch] = useState('');
   const [filterCompanyId, setFilterCompanyId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterCardType, setFilterCardType] = useState('');
   
   // View State: 'list' | 'editor'
   const [view, setView] = useState<'list' | 'editor'>('list');
@@ -833,9 +834,35 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   }, [batches]);
 
+  // Compute unique card types per batch from their employees' printJobs
+  const batchCardTypesMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    batches.forEach(b => {
+      const types = new Set<string>();
+      (b.employees || []).forEach((emp: any) => {
+        (emp.printJobs || []).forEach((job: any) => {
+          if (job.templateType) types.add(job.templateType);
+        });
+      });
+      map.set(b.id, Array.from(types).sort());
+    });
+    return map;
+  }, [batches]);
+
+  // All card types present across all batches (for filter pills)
+  const allCardTypes = useMemo(() => {
+    const types = new Set<string>();
+    batchCardTypesMap.forEach(v => v.forEach(t => types.add(t)));
+    return Array.from(types).sort();
+  }, [batchCardTypesMap]);
+
   const filteredBatches = batches.filter(b => {
     if (filterCompanyId && b.companyId !== filterCompanyId) return false;
     if (filterStatus && b.status !== filterStatus) return false;
+    if (filterCardType) {
+      const types = batchCardTypesMap.get(b.id) || [];
+      if (!types.includes(filterCardType)) return false;
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       if (!b.batchNumber?.toLowerCase().includes(q) && !b.company?.name?.toLowerCase().includes(q)) return false;
@@ -843,7 +870,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     return true;
   });
 
-  const activeFilterCount = [filterCompanyId, filterStatus, search.trim()].filter(Boolean).length;
+  const activeFilterCount = [filterCompanyId, filterStatus, filterCardType, search.trim()].filter(Boolean).length;
 
   if (dbError) {
     return (
@@ -935,11 +962,32 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 ))}
               </div>
 
+              {/* Card type pills */}
+              {allCardTypes.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Type :</span>
+                  {allCardTypes.map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setFilterCardType(filterCardType === t ? '' : t)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                        filterCardType === t
+                          ? 'bg-violet-600 text-white border-violet-600'
+                          : 'bg-white dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 hover:border-violet-300'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Clear filters */}
               {activeFilterCount > 0 && (
                 <button
                   type="button"
-                  onClick={() => { setSearch(''); setFilterCompanyId(''); setFilterStatus(''); }}
+                  onClick={() => { setSearch(''); setFilterCompanyId(''); setFilterStatus(''); setFilterCardType(''); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 transition"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -981,10 +1029,20 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 mb-2.5 text-neutral-800 dark:text-neutral-200 font-bold">
-                      <Building2 className="w-4 h-4 text-indigo-500" />
+                    <div className="flex items-center gap-2 mb-2 text-neutral-800 dark:text-neutral-200 font-bold">
+                      <Building2 className="w-4 h-4 text-indigo-500 flex-shrink-0" />
                       <span>{batch.company?.name || 'Entreprise inconnue'}</span>
                     </div>
+                    {/* Card types badges */}
+                    {(batchCardTypesMap.get(batch.id) || []).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {(batchCardTypesMap.get(batch.id) || []).map(t => (
+                          <span key={t} className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/30">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4 flex items-center gap-1.5 font-medium">
                       <Clock className="w-3.5 h-3.5" />
                       Créé le {new Date(batch.createdAt).toLocaleDateString('fr-FR')}
