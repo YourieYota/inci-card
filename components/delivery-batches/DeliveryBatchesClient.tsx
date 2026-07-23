@@ -571,6 +571,44 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       printedCards = printedCards.filter(c => c.cardType === filterCardType);
     }
 
+    if (detailsSortField) {
+      printedCards = [...printedCards].sort((a, b) => {
+        let valA: any = '';
+        let valB: any = '';
+
+        if (detailsSortField === 'name') {
+          valA = a.name || '';
+          valB = b.name || '';
+        } else if (detailsSortField === 'identifier') {
+          valA = a.uniqueIdentifier || '';
+          valB = b.uniqueIdentifier || '';
+        } else if (detailsSortField === 'cardType') {
+          valA = a.cardType || '';
+          valB = b.cardType || '';
+        } else if (detailsSortField === 'cardNumber') {
+          valA = a.cardNumber || '';
+          valB = b.cardNumber || '';
+        } else if (detailsSortField === 'enrollmentNumber') {
+          valA = a.enrollmentNumber || '';
+          valB = b.enrollmentNumber || '';
+        } else if (detailsSortField === 'printedAt') {
+          valA = a.printedAt ? new Date(a.printedAt).getTime() : 0;
+          valB = b.printedAt ? new Date(b.printedAt).getTime() : 0;
+        } else {
+          valA = a.dynamicData?.[detailsSortField] || '';
+          valB = b.dynamicData?.[detailsSortField] || '';
+        }
+
+        if (typeof valA === 'string') {
+          return detailsSortDirection === 'asc'
+            ? valA.localeCompare(valB, 'fr', { sensitivity: 'base' })
+            : valB.localeCompare(valA, 'fr', { sensitivity: 'base' });
+        } else {
+          return detailsSortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
+        }
+      });
+    }
+
     const html = `
       <html>
         <head>
@@ -1318,6 +1356,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         return [{
                           key: `${emp.id}_BADGE`,
                           emp,
+                          name: getEmployeeName(emp),
+                          uniqueIdentifier: emp.uniqueIdentifier,
+                          enrollmentNumber: emp.enrollmentNumber || '-',
                           cardType: 'BADGE',
                           cardNumber: emp.cardNumber || '-',
                           printedAt: emp.printedAt,
@@ -1334,6 +1375,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       return uniqueJobs.map(job => ({
                         key: `${emp.id}_${job.templateType}`,
                         emp,
+                        name: getEmployeeName(emp),
+                        uniqueIdentifier: emp.uniqueIdentifier,
+                        enrollmentNumber: emp.enrollmentNumber || '-',
                         cardType: job.templateType,
                         cardNumber: job.cardNumber || '-',
                         printedAt: job.printedAt || emp.printedAt,
@@ -1342,6 +1386,44 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
                     if (detailsCardType) {
                       printedCards = printedCards.filter(c => c.cardType === detailsCardType);
+                    }
+
+                    if (detailsSortField) {
+                      printedCards = [...printedCards].sort((a, b) => {
+                        let valA: any = '';
+                        let valB: any = '';
+
+                        if (detailsSortField === 'name') {
+                          valA = a.name || '';
+                          valB = b.name || '';
+                        } else if (detailsSortField === 'identifier') {
+                          valA = a.uniqueIdentifier || '';
+                          valB = b.uniqueIdentifier || '';
+                        } else if (detailsSortField === 'cardType') {
+                          valA = a.cardType || '';
+                          valB = b.cardType || '';
+                        } else if (detailsSortField === 'cardNumber') {
+                          valA = a.cardNumber || '';
+                          valB = b.cardNumber || '';
+                        } else if (detailsSortField === 'enrollmentNumber') {
+                          valA = a.enrollmentNumber || '';
+                          valB = b.enrollmentNumber || '';
+                        } else if (detailsSortField === 'printedAt') {
+                          valA = a.printedAt ? new Date(a.printedAt).getTime() : 0;
+                          valB = b.printedAt ? new Date(b.printedAt).getTime() : 0;
+                        } else {
+                          valA = a.emp?.dynamicData?.[detailsSortField] || '';
+                          valB = b.emp?.dynamicData?.[detailsSortField] || '';
+                        }
+
+                        if (typeof valA === 'string') {
+                          return detailsSortDirection === 'asc'
+                            ? valA.localeCompare(valB, 'fr', { sensitivity: 'base' })
+                            : valB.localeCompare(valA, 'fr', { sensitivity: 'base' });
+                        } else {
+                          return detailsSortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
+                        }
+                      });
                     }
 
                     return (
@@ -1402,13 +1484,62 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                             <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                               <tr>
                                 <th className="py-2.5 px-4 w-12">Photo</th>
-                                {pdfFields.name && <th className="py-2.5 px-3">Nom</th>}
-                                {pdfFields.identifier && <th className="py-2.5 px-3">Matricule</th>}
-                                {pdfFields.cardType && <th className="py-2.5 px-3">Type de carte</th>}
-                                {pdfFields.cardNumber && <th className="py-2.5 px-3">N° de carte</th>}
-                                {pdfFields.enrollmentNumber && <th className="py-2.5 px-3">N° d'enrôlement</th>}
-                                {pdfFields.printedAt && <th className="py-2.5 px-3 text-right">Impression</th>}
-                                {dynamicKeys.map(k => pdfFields[k] && <th key={k} className="py-2.5 px-3">{k}</th>)}
+                                {pdfFields.name && (
+                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('name')}>
+                                    <div className="flex items-center gap-1 select-none">
+                                      <span>Nom</span>
+                                      {detailsSortField === 'name' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
+                                    </div>
+                                  </th>
+                                )}
+                                {pdfFields.identifier && (
+                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('identifier')}>
+                                    <div className="flex items-center gap-1 select-none">
+                                      <span>Matricule</span>
+                                      {detailsSortField === 'identifier' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
+                                    </div>
+                                  </th>
+                                )}
+                                {pdfFields.cardType && (
+                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('cardType')}>
+                                    <div className="flex items-center gap-1 select-none">
+                                      <span>Type de carte</span>
+                                      {detailsSortField === 'cardType' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
+                                    </div>
+                                  </th>
+                                )}
+                                {pdfFields.cardNumber && (
+                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('cardNumber')}>
+                                    <div className="flex items-center gap-1 select-none">
+                                      <span>N° de carte</span>
+                                      {detailsSortField === 'cardNumber' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
+                                    </div>
+                                  </th>
+                                )}
+                                {pdfFields.enrollmentNumber && (
+                                  <th className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('enrollmentNumber')}>
+                                    <div className="flex items-center gap-1 select-none">
+                                      <span>N° d'enrôlement</span>
+                                      {detailsSortField === 'enrollmentNumber' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
+                                    </div>
+                                  </th>
+                                )}
+                                {pdfFields.printedAt && (
+                                  <th className="py-2.5 px-3 text-right cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort('printedAt')}>
+                                    <div className="flex items-center justify-end gap-1 select-none">
+                                      <span>Impression</span>
+                                      {detailsSortField === 'printedAt' ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
+                                    </div>
+                                  </th>
+                                )}
+                                {dynamicKeys.map(k => pdfFields[k] && (
+                                  <th key={k} className="py-2.5 px-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition" onClick={() => handleDetailsSort(k)}>
+                                    <div className="flex items-center gap-1 select-none">
+                                      <span>{k}</span>
+                                      {detailsSortField === k ? (detailsSortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />) : <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600" />}
+                                    </div>
+                                  </th>
+                                ))}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
