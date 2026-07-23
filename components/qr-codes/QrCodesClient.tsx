@@ -328,23 +328,33 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
                 <Loader2 className="w-3 h-3 animate-spin" /> Chargement...
               </p>
             )}
-            {/* Ignore spaces toggle */}
-            <label className="flex items-center gap-2 mt-2 cursor-pointer select-none group">
-              <div
-                onClick={() => setIgnoreSpaces(v => !v)}
-                className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
-                  ignoreSpaces ? 'bg-violet-600' : 'bg-neutral-200 dark:bg-neutral-700'
-                }`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                  ignoreSpaces ? 'translate-x-4' : 'translate-x-0'
-                }`} />
-              </div>
-              <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-700 dark:group-hover:text-neutral-200 transition">
-                Ignorer les espaces lors du matching
-              </span>
-            </label>
+          </div>
+        </div>
 
+
+        {/* Ignore spaces — full width row */}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+          <button
+            type="button"
+            onClick={() => setIgnoreSpaces(v => !v)}
+            className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 focus:outline-none ${
+              ignoreSpaces ? 'bg-violet-600' : 'bg-neutral-300 dark:bg-neutral-600'
+            }`}
+            aria-pressed={ignoreSpaces}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+              ignoreSpaces ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
+          <div>
+            <p className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
+              Ignorer les espaces lors du matching
+            </p>
+            <p className="text-[11px] text-neutral-400">
+              {ignoreSpaces
+                ? 'Activé — "123 456" correspondra à "123456"'
+                : 'Désactivé — la valeur doit être identique caractère par caractère'}
+            </p>
           </div>
         </div>
 
