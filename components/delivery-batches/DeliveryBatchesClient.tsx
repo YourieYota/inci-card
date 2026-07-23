@@ -1318,7 +1318,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       {/* VIEW BATCH DETAILS MODAL (Read Only) */}
       {selectedBatchDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-6xl p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] h-full">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-6xl p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] h-full min-w-0">
             <div className="flex justify-between items-start pb-4 border-b border-neutral-200 dark:border-neutral-800">
               <div>
                 <div className="flex items-center gap-2">
@@ -1335,7 +1335,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto py-5 max-w-full overflow-x-hidden">
+            <div className="flex-1 overflow-y-auto py-5 max-w-full overflow-x-hidden min-w-0">
               {loadingBatchEmployees ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
@@ -1427,7 +1427,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                     }
 
                     return (
-                      <div className="space-y-4">
+                      <div className="space-y-4 w-full max-w-full min-w-0">
                         <div className="flex flex-col gap-3.5 bg-neutral-50 dark:bg-neutral-900 p-4 border border-neutral-200 dark:border-neutral-800 rounded-xl">
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
