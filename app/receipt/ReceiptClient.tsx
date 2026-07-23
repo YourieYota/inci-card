@@ -363,7 +363,7 @@ export default function ReceiptClient({ employee, template, dbError, employeeId 
                     top: `${el.y}px`,
                     width: `${el.width}px`,
                     height: `${el.height}px`,
-                    zIndex: 10,
+                    zIndex: (el as any).zIndex !== undefined ? (el as any).zIndex : undefined,
                     opacity,
                     mixBlendMode: (el as any).blendMode || 'normal',
                   }}

@@ -643,7 +643,6 @@ const cardStyle = (template: CardTemplate, side: 'recto' | 'verso') => {
     inset: 0,
     opacity: opacity,
     pointerEvents: 'none',
-    zIndex: 0,
   };
 
   if (bgUrl) {
@@ -916,7 +915,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                 top: `${el.y}px`,
                 width: `${el.width}px`,
                 height: `${el.height}px`,
-                zIndex: 10,
+                zIndex: (el as any).zIndex !== undefined ? (el as any).zIndex : undefined,
                 opacity,
                 mixBlendMode: (el as any).blendMode || 'normal',
               }}
