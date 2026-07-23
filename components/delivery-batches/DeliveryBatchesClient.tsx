@@ -282,14 +282,14 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   }, [availableEmployees]);
 
   const dynamicKeys = useMemo(() => {
-    const excludeKeys = ['nom', 'prenom', 'matricule', 'id', 'photo', 'photourl', 'status', 'printedat', 'createdat', 'updatedat', 'cardnumber', 'enrollmentnumber'];
+    const excludeKeys = ['id', 'photo', 'photourl', 'status', 'printedat', 'createdat', 'updatedat', 'cardnumber', 'enrollmentnumber'];
     const keys = new Set<string>();
     
     // Extract from available employees
     availableEmployees.forEach(emp => {
       if (emp.dynamicData && typeof emp.dynamicData === 'object') {
         Object.keys(emp.dynamicData).forEach(k => {
-          if (!excludeKeys.includes(k.toLowerCase())) {
+          if (!k.startsWith('_') && !excludeKeys.includes(k.toLowerCase())) {
             keys.add(k);
           }
         });
@@ -300,7 +300,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     batchEmployees.forEach(emp => {
       if (emp.dynamicData && typeof emp.dynamicData === 'object') {
         Object.keys(emp.dynamicData).forEach(k => {
-          if (!excludeKeys.includes(k.toLowerCase())) {
+          if (!k.startsWith('_') && !excludeKeys.includes(k.toLowerCase())) {
             keys.add(k);
           }
         });
