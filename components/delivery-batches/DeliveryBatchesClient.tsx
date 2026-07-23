@@ -1318,7 +1318,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       {/* VIEW BATCH DETAILS MODAL (Read Only) */}
       {selectedBatchDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-6xl p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] h-full min-w-0">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-6xl p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] h-full min-w-0 overflow-hidden">
             <div className="flex justify-between items-start pb-4 border-b border-neutral-200 dark:border-neutral-800">
               <div>
                 <div className="flex items-center gap-2">
