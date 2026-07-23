@@ -701,7 +701,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           <div class="details">
             <div class="details-box">
               <div class="details-title">Expéditeur</div>
-              <div class="details-value" style="font-weight: 700;">Imprimerie Nationale</div>
+              <div class="details-value" style="font-weight: 700;">INCI</div>
               <p style="font-size: 12px; color: #4b5563; margin: 4px 0 0 0;">Service Production & Expéditions</p>
             </div>
             <div class="details-box">
@@ -757,11 +757,11 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           </table>
           <div class="signatures">
             <div class="signature-box">
-              <div class="signature-title">Signature Expéditeur (Imprimerie)</div>
+              <div class="signature-title">Signature Expéditeur (${batch.company?.name || 'Entreprise'})</div>
               <div style="font-size: 10px; color: #9ca3af;">Date et signature</div>
             </div>
             <div class="signature-box">
-              <div class="signature-title">Signature Destinataire (Client)</div>
+              <div class="signature-title">Signature Destinataire (${batch.company?.name || 'Entreprise'})</div>
               <div style="font-size: 10px; color: #9ca3af;">Date, nom et signature du réceptionnaire</div>
             </div>
           </div>
@@ -1494,8 +1494,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
       {/* VIEW BATCH DETAILS MODAL (Read Only) */}
       {selectedBatchDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-6xl p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] h-full min-w-0 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-[98vw] max-w-[1600px] p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[96vh] h-full min-w-0 overflow-hidden">
             <div className="flex justify-between items-start pb-4 border-b border-neutral-200 dark:border-neutral-800">
               <div>
                 <div className="flex items-center gap-2">
@@ -1512,7 +1512,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto py-5 max-w-full overflow-x-hidden min-w-0">
+            <div className="flex-1 overflow-auto py-5 max-w-full min-w-0 relative">
               {loadingBatchEmployees ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
