@@ -768,16 +768,25 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
               filter: `brightness(${el.brightness ?? 100}%) contrast(${el.contrast ?? 100}%)`,
             }}
           >
-            <QRCode
-              value={
-                el.field
-                  ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode) || '')
-                  : (el.content ? resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode) : (emp.enrollmentNumber || emp.uniqueIdentifier))
-              }
-              size={150}
-              style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-              viewBox="0 0 256 256"
-            />
+            {el.qrSource === 'external' && (emp as any).externalQrUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={(emp as any).externalQrUrl}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                alt="QR externe"
+              />
+            ) : (
+              <QRCode
+                value={
+                  el.field
+                    ? (getFieldValue(emp, el.field, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode) || '')
+                    : (el.content ? resolvePlaceholders(el.content, emp, selectedCategoryName, selectedPhysicalTypeName, validityValue, validityUnit, categoryCardCode) : (emp.enrollmentNumber || emp.uniqueIdentifier))
+                }
+                size={150}
+                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                viewBox="0 0 256 256"
+              />
+            )}
           </div>
         )}
 

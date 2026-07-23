@@ -313,6 +313,7 @@ export default async function ReceiptPage({ searchParams }: PageProps) {
       createdAt: employee.company.createdAt.toISOString(),
     },
     dynamicData: employee.dynamicData,
+    externalQrUrl: employee.externalQrUrl,
   } : null;
 
   return (

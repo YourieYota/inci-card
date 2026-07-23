@@ -20,6 +20,7 @@ interface SerializedEmployee {
     createdAt: string;
   };
   dynamicData: any;
+  externalQrUrl?: string | null;
 }
 
 interface ReceiptClientProps {
@@ -451,14 +452,23 @@ export default function ReceiptClient({ employee, template, dbError, employeeId 
                           padding: '5%',
                         }}
                       >
-                        <QRCode
-                          value={
-                            getFieldValue(localEmployee, el.field) || localEmployee.enrollmentNumber || localEmployee.uniqueIdentifier
-                          }
-                          size={150}
-                          style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                          viewBox="0 0 256 256"
-                        />
+                        {el.qrSource === 'external' && localEmployee.externalQrUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={localEmployee.externalQrUrl}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            alt="QR externe"
+                          />
+                        ) : (
+                          <QRCode
+                            value={
+                              getFieldValue(localEmployee, el.field) || localEmployee.enrollmentNumber || localEmployee.uniqueIdentifier
+                            }
+                            size={150}
+                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                            viewBox="0 0 256 256"
+                          />
+                        )}
                       </div>
                     )}
 
