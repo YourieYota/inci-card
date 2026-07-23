@@ -89,6 +89,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     identifier: true,
     cardType: true,
     cardNumber: true,
+    enrollmentNumber: true,
     printedAt: true,
   });
 
@@ -280,6 +281,35 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     return Array.from(types);
   }, [availableEmployees]);
 
+  const dynamicKeys = useMemo(() => {
+    const excludeKeys = ['nom', 'prenom', 'matricule', 'id', 'photo', 'photourl', 'status', 'printedat', 'createdat', 'updatedat', 'cardnumber', 'enrollmentnumber'];
+    const keys = new Set<string>();
+    
+    // Extract from available employees
+    availableEmployees.forEach(emp => {
+      if (emp.dynamicData && typeof emp.dynamicData === 'object') {
+        Object.keys(emp.dynamicData).forEach(k => {
+          if (!excludeKeys.includes(k.toLowerCase())) {
+            keys.add(k);
+          }
+        });
+      }
+    });
+
+    // Extract from selected batch details employees
+    batchEmployees.forEach(emp => {
+      if (emp.dynamicData && typeof emp.dynamicData === 'object') {
+        Object.keys(emp.dynamicData).forEach(k => {
+          if (!excludeKeys.includes(k.toLowerCase())) {
+            keys.add(k);
+          }
+        });
+      }
+    });
+
+    return Array.from(keys);
+  }, [availableEmployees, batchEmployees]);
+
   const filteredEmployees = useMemo(() => {
     if (!selectedCompanyId || availableEmployees.length === 0) return [];
 
@@ -456,7 +486,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           uniqueIdentifier: emp.uniqueIdentifier,
           cardType: 'BADGE',
           cardNumber: emp.cardNumber || 'Non généré',
+          enrollmentNumber: emp.enrollmentNumber || '-',
           printedAt: emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : 'N/A',
+          dynamicData: emp.dynamicData || {},
         }];
       }
       const uniqueTypes = new Set<string>();
@@ -471,8 +503,10 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
         name: `${(emp.dynamicData as any)?.Prenom || (emp.dynamicData as any)?.prenom || ''} ${(emp.dynamicData as any)?.Nom || (emp.dynamicData as any)?.nom || ''}`.trim() || emp.uniqueIdentifier,
         uniqueIdentifier: emp.uniqueIdentifier,
         cardType: job.templateType,
-        cardNumber: job.cardNumber || 'Non généré',
+        cardNumber: job.cardNumber || emp.cardNumber || 'Non généré',
+        enrollmentNumber: emp.enrollmentNumber || '-',
         printedAt: job.printedAt ? new Date(job.printedAt).toLocaleDateString('fr-FR') : (emp.printedAt ? new Date(emp.printedAt).toLocaleDateString('fr-FR') : 'N/A'),
+        dynamicData: emp.dynamicData || {},
       }));
     });
 
@@ -548,7 +582,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 ${pdfFields.identifier ? '<th>Matricule</th>' : ''}
                 ${pdfFields.cardType ? '<th>Type de carte</th>' : ''}
                 ${pdfFields.cardNumber ? '<th>N° de carte</th>' : ''}
+                ${pdfFields.enrollmentNumber ? "<th>N° d'enrôlement</th>" : ''}
                 ${pdfFields.printedAt ? "<th>Date d'impression</th>" : ''}
+                ${dynamicKeys.map(k => pdfFields[k] ? `<th>${k}</th>` : '').join('')}
               </tr>
             </thead>
             <tbody>
@@ -560,7 +596,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                     ${pdfFields.identifier ? `<td style="font-family: monospace;">${card.uniqueIdentifier}</td>` : ''}
                     ${pdfFields.cardType ? `<td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${card.cardType}</span></td>` : ''}
                     ${pdfFields.cardNumber ? `<td style="font-family: monospace; font-weight: 600;">${card.cardNumber}</td>` : ''}
+                    ${pdfFields.enrollmentNumber ? `<td>${card.enrollmentNumber}</td>` : ''}
                     ${pdfFields.printedAt ? `<td>${card.printedAt}</td>` : ''}
+                    ${dynamicKeys.map(k => pdfFields[k] ? `<td>${(card.dynamicData as any)?.[k] || '-'}</td>` : '').join('')}
                   </tr>
                 `;
               }).join('')}
@@ -917,24 +955,45 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
                         Champs sur le PDF
                       </label>
-                      <div className="bg-neutral-50 dark:bg-neutral-800 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 space-y-2.5">
-                        {[
-                          { id: 'name', label: 'Nom Complet' },
-                          { id: 'identifier', label: 'Matricule' },
-                          { id: 'cardType', label: 'Type de carte' },
-                          { id: 'cardNumber', label: 'N° de carte' },
-                          { id: 'printedAt', label: "Date d'impression" },
-                        ].map((f) => (
-                          <label key={f.id} className="flex items-center gap-2.5 cursor-pointer text-xs select-none">
-                            <input
-                              type="checkbox"
-                              checked={!!pdfFields[f.id]}
-                              onChange={(e) => handlePdfFieldChange(f.id, e.target.checked)}
-                              className="rounded border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="text-neutral-700 dark:text-neutral-300 font-medium">{f.label}</span>
-                          </label>
-                        ))}
+                      <div className="bg-neutral-50 dark:bg-neutral-800 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 space-y-3.5 max-h-60 overflow-y-auto">
+                        <div className="space-y-2">
+                          <span className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">Champs standards</span>
+                          {[
+                            { id: 'name', label: 'Nom Complet' },
+                            { id: 'identifier', label: 'Matricule' },
+                            { id: 'cardType', label: 'Type de carte' },
+                            { id: 'cardNumber', label: 'N° de carte' },
+                            { id: 'enrollmentNumber', label: "N° d'enrôlement" },
+                            { id: 'printedAt', label: "Date d'impression" },
+                          ].map((f) => (
+                            <label key={f.id} className="flex items-center gap-2.5 cursor-pointer text-xs select-none">
+                              <input
+                                type="checkbox"
+                                checked={!!pdfFields[f.id]}
+                                onChange={(e) => handlePdfFieldChange(f.id, e.target.checked)}
+                                className="rounded border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="text-neutral-700 dark:text-neutral-300 font-medium">{f.label}</span>
+                            </label>
+                          ))}
+                        </div>
+
+                        {dynamicKeys.length > 0 && (
+                          <div className="space-y-2 pt-2 border-t border-neutral-200 dark:border-neutral-700/60">
+                            <span className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">Champs dynamiques (Excel)</span>
+                            {dynamicKeys.map((k) => (
+                              <label key={k} className="flex items-center gap-2.5 cursor-pointer text-xs select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={!!pdfFields[k]}
+                                  onChange={(e) => handlePdfFieldChange(k, e.target.checked)}
+                                  className="rounded border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-neutral-700 dark:text-neutral-300 font-medium">{k}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1215,29 +1274,59 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
                     return (
                       <div className="space-y-4">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 border border-neutral-200 dark:border-neutral-800 rounded-xl">
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Liste des cartes ({printedCards.length})</span>
-                            {detailsCardTypes.length > 1 && (
-                              <select
-                                value={detailsCardType}
-                                onChange={(e) => setDetailsCardType(e.target.value)}
-                                className="px-2.5 py-1 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg text-xs outline-none"
-                              >
-                                <option value="">Tous les types</option>
-                                {detailsCardTypes.map(t => (
-                                  <option key={t} value={t}>{t}</option>
-                                ))}
-                              </select>
-                            )}
+                        <div className="flex flex-col gap-3.5 bg-neutral-50 dark:bg-neutral-900 p-4 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Liste des cartes ({printedCards.length})</span>
+                              {detailsCardTypes.length > 1 && (
+                                <select
+                                  value={detailsCardType}
+                                  onChange={(e) => setDetailsCardType(e.target.value)}
+                                  className="px-2.5 py-1 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg text-xs outline-none"
+                                >
+                                  <option value="">Tous les types</option>
+                                  {detailsCardTypes.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                            <button onClick={() => handlePrintSlip(selectedBatchDetails, batchEmployees, detailsCardType)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 border border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-xs font-bold rounded-lg shadow-sm">
+                              <Printer className="w-4 h-4 text-indigo-500" />
+                              <span>Imprimer Bon de Livraison</span>
+                            </button>
                           </div>
-                          <button onClick={() => handlePrintSlip(selectedBatchDetails, batchEmployees, detailsCardType)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 border border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-xs font-bold rounded-lg shadow-sm">
-                            <Printer className="w-4 h-4 text-indigo-500" />
-                            <span>Imprimer Bon de Livraison</span>
-                          </button>
+
+                          <div className="h-px bg-neutral-200 dark:bg-neutral-700/60" />
+
+                          <div className="space-y-2">
+                            <span className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">Champs à afficher sur le PDF :</span>
+                            <div className="flex flex-wrap gap-x-4 gap-y-2">
+                              {[
+                                { id: 'name', label: 'Nom Complet' },
+                                { id: 'identifier', label: 'Matricule' },
+                                { id: 'cardType', label: 'Type de carte' },
+                                { id: 'cardNumber', label: 'N° de carte' },
+                                { id: 'enrollmentNumber', label: "N° d'enrôlement" },
+                                { id: 'printedAt', label: "Date d'impression" },
+                                ...dynamicKeys.map(k => ({ id: k, label: k }))
+                              ].map((f) => (
+                                <label key={f.id} className="flex items-center gap-2 cursor-pointer text-xs select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!pdfFields[f.id]}
+                                    onChange={(e) => handlePdfFieldChange(f.id, e.target.checked)}
+                                    className="rounded border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  <span className="text-neutral-700 dark:text-neutral-300 font-medium">{f.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                        <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-hidden">
-                          <table className="w-full text-left border-collapse">
+
+                        <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 rounded-xl overflow-hidden overflow-x-auto">
+                          <table className="w-full text-left border-collapse min-w-max">
                             <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                               <tr>
                                 <th className="py-2.5 px-4 w-12">Photo</th>
@@ -1245,7 +1334,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                 {pdfFields.identifier && <th className="py-2.5 px-3">Matricule</th>}
                                 {pdfFields.cardType && <th className="py-2.5 px-3">Type de carte</th>}
                                 {pdfFields.cardNumber && <th className="py-2.5 px-3">N° de carte</th>}
+                                {pdfFields.enrollmentNumber && <th className="py-2.5 px-3">N° d'enrôlement</th>}
                                 {pdfFields.printedAt && <th className="py-2.5 px-3 text-right">Impression</th>}
+                                {dynamicKeys.map(k => pdfFields[k] && <th key={k} className="py-2.5 px-3">{k}</th>)}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-850">
@@ -1275,7 +1366,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                     </td>
                                   )}
                                   {pdfFields.cardNumber && <td className="py-2.5 px-3 font-mono font-bold">{cardNumber}</td>}
+                                  {pdfFields.enrollmentNumber && <td className="py-2.5 px-3 font-mono">{emp.enrollmentNumber || '-'}</td>}
                                   {pdfFields.printedAt && <td className="py-2.5 px-3 text-right text-neutral-400">{printedAt ? new Date(printedAt).toLocaleDateString('fr-FR') : '-'}</td>}
+                                  {dynamicKeys.map(k => pdfFields[k] && <td key={k} className="py-2.5 px-3 text-neutral-600 dark:text-neutral-400">{(emp.dynamicData as any)?.[k] || '-'}</td>)}
                                 </tr>
                               ))}
                             </tbody>
