@@ -64,6 +64,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   const [batches, setBatches] = useState<any[]>(initialBatches);
   const [companies] = useState<any[]>(initialCompanies);
   const [search, setSearch] = useState('');
+  const [filterCompanyId, setFilterCompanyId] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   
   // View State: 'list' | 'editor'
   const [view, setView] = useState<'list' | 'editor'>('list');
@@ -822,10 +824,26 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     reader.readAsDataURL(file);
   };
 
-  const filteredBatches = batches.filter(b => 
-    b.batchNumber?.toLowerCase().includes(search.toLowerCase()) ||
-    b.company?.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Options for the list filters
+  const batchCompanies = useMemo(() => {
+    const seen = new Map<string, string>();
+    batches.forEach(b => {
+      if (b.companyId && b.company?.name) seen.set(b.companyId, b.company.name);
+    });
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  }, [batches]);
+
+  const filteredBatches = batches.filter(b => {
+    if (filterCompanyId && b.companyId !== filterCompanyId) return false;
+    if (filterStatus && b.status !== filterStatus) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      if (!b.batchNumber?.toLowerCase().includes(q) && !b.company?.name?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const activeFilterCount = [filterCompanyId, filterStatus, search.trim()].filter(Boolean).length;
 
   if (dbError) {
     return (
@@ -861,18 +879,78 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
             </button>
           </div>
 
-          <div className="flex bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
-            <div className="relative flex-1 max-w-md">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-neutral-400">
-                <Search className="w-4 h-4" />
+          {/* Filter bar */}
+          <div className="bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3">
+
+              {/* Search */}
+              <div className="relative flex-1 min-w-[200px] max-w-xs">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-neutral-400">
+                  <Search className="w-4 h-4" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Rechercher un lot..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-sm rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/25 placeholder-neutral-400 text-neutral-800 dark:text-neutral-200"
+                />
+              </div>
+
+              {/* Company filter */}
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none" />
+                <select
+                  value={filterCompanyId}
+                  onChange={e => setFilterCompanyId(e.target.value)}
+                  className={`pl-8 pr-8 py-2 border rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500/25 bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 transition appearance-none cursor-pointer ${
+                    filterCompanyId ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300' : 'border-neutral-200'
+                  }`}
+                >
+                  <option value="">Toutes les entreprises</option>
+                  {batchCompanies.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status pills */}
+              <div className="flex items-center gap-1.5">
+                {[{ value: '', label: 'Tous', color: 'neutral' }, { value: 'PREPARE', label: 'Préparé', color: 'amber' }, { value: 'EN_TRANSIT', label: 'En Transit', color: 'blue' }, { value: 'LIVRE', label: 'Livré', color: 'emerald' }].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFilterStatus(opt.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                      filterStatus === opt.value
+                        ? opt.color === 'amber' ? 'bg-amber-500 text-white border-amber-500'
+                          : opt.color === 'blue' ? 'bg-blue-500 text-white border-blue-500'
+                          : opt.color === 'emerald' ? 'bg-emerald-500 text-white border-emerald-500'
+                          : 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Clear filters */}
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setFilterCompanyId(''); setFilterStatus(''); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Effacer ({activeFilterCount})
+                </button>
+              )}
+
+              {/* Result count */}
+              <span className="ml-auto text-xs text-neutral-400 font-medium">
+                {filteredBatches.length} lot{filteredBatches.length !== 1 ? 's' : ''} affiché{filteredBatches.length !== 1 ? 's' : ''}
               </span>
-              <input
-                type="text"
-                placeholder="Rechercher par n° de lot ou entreprise..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-sm rounded-xl outline-none transition-all focus:ring-2 focus:ring-indigo-500/25 placeholder-neutral-400 text-neutral-800 dark:text-neutral-200"
-              />
             </div>
           </div>
 
