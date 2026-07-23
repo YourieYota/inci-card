@@ -701,7 +701,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           <div class="details">
             <div class="details-box">
               <div class="details-title">Expéditeur</div>
-              <div class="details-value" style="font-weight: 700;">INCI</div>
+              <div class="details-value" style="font-weight: 700;">Imprimerie Nationale de Côte d'Ivoire (INCI)</div>
               <p style="font-size: 12px; color: #4b5563; margin: 4px 0 0 0;">Service Production & Expéditions</p>
             </div>
             <div class="details-box">
@@ -757,7 +757,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           </table>
           <div class="signatures">
             <div class="signature-box">
-              <div class="signature-title">Signature Expéditeur (${batch.company?.name || 'Entreprise'})</div>
+              <div class="signature-title">Signature Expéditeur (Imprimerie Nationale de Côte d'Ivoire (INCI))</div>
               <div style="font-size: 10px; color: #9ca3af;">Date et signature</div>
             </div>
             <div class="signature-box">
