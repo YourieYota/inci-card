@@ -80,6 +80,8 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
 
   // ── Filter for match table
   const [tableFilter, setTableFilter] = useState<'all' | 'matched' | 'unmatched'>('all');
+  // ── Matching options
+  const [ignoreSpaces, setIgnoreSpaces] = useState(false);
 
   // ─── Fetch employees when company changes ───────────────────────────────
   const handleCompanyChange = async (cid: string) => {
@@ -135,9 +137,11 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
         const imageDataUrl = await fileToDataUrl(blob, getMimeType(ext));
 
         // Find matching employee
+        const normalize = (s: string) => ignoreSpaces ? s.replace(/\s+/g, '') : s;
         const emp = employees.find(e => {
           const val = e.dynamicData[matchingField];
-          return val !== undefined && val !== null && String(val).trim() === fieldValue.trim();
+          return val !== undefined && val !== null &&
+            normalize(String(val).trim()) === normalize(fieldValue.trim());
         }) ?? null;
 
         let status: MatchResult['status'] = 'unmatched';
@@ -161,7 +165,7 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
     } finally {
       setIsProcessing(false);
     }
-  }, [matchingField, employees]);
+  }, [matchingField, employees, ignoreSpaces]);
 
   // ─── Drag and drop ──────────────────────────────────────────────────────
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -324,6 +328,23 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
                 <Loader2 className="w-3 h-3 animate-spin" /> Chargement...
               </p>
             )}
+            {/* Ignore spaces toggle */}
+            <label className="flex items-center gap-2 mt-2 cursor-pointer select-none group">
+              <div
+                onClick={() => setIgnoreSpaces(v => !v)}
+                className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
+                  ignoreSpaces ? 'bg-violet-600' : 'bg-neutral-200 dark:bg-neutral-700'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                  ignoreSpaces ? 'translate-x-4' : 'translate-x-0'
+                }`} />
+              </div>
+              <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-700 dark:group-hover:text-neutral-200 transition">
+                Ignorer les espaces lors du matching
+              </span>
+            </label>
+
           </div>
         </div>
 
