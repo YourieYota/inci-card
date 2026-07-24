@@ -1707,6 +1707,15 @@ export default function StudioClient({
               formats={formats}
               onMoveElement={handleMoveElement}
               availableGroups={elements.filter(e => e.type === 'group').map((e, i) => ({ id: e.id, name: `Groupe ${i + 1}` }))}
+              onUpdateGroupChildren={(groupId, childFlexMode) => {
+                const updatedElements = elements.map((el) => {
+                  if (el.parentId === groupId) {
+                    return { ...el, childFlexMode: childFlexMode as any };
+                  }
+                  return el;
+                });
+                handleUpdateElements(updatedElements, true);
+              }}
             />
           </div>
         </div>

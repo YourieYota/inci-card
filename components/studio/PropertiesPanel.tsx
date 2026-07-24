@@ -21,6 +21,7 @@ interface PropertiesPanelProps {
   formats: any[];
   onMoveElement?: (direction: 'front' | 'back' | 'up' | 'down') => void;
   availableGroups?: { id: string; name: string }[];
+  onUpdateGroupChildren?: (groupId: string, childFlexMode: string) => void;
 }
 
 interface DimensionInputProps {
@@ -107,6 +108,7 @@ export default function PropertiesPanel({
   formats = [],
   onMoveElement,
   availableGroups = [],
+  onUpdateGroupChildren,
 }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -895,6 +897,35 @@ export default function PropertiesPanel({
                     Rendre transparent
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {selectedElement.type === 'group' && onUpdateGroupChildren && (
+            <div className="flex flex-col gap-4 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5" title="Applique un mode de taille à tous les éléments de ce groupe">
+                  Taille par défaut des enfants
+                </label>
+                <div className="flex rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm">
+                  {[
+                    { value: 'auto', label: 'Ajuster' },
+                    { value: 'fill', label: '100%' },
+                    { value: 'flex', label: 'Partager' },
+                    { value: 'fixed', label: 'Fixe' }
+                  ].map((mode) => (
+                    <button
+                      key={mode.value}
+                      onClick={() => onUpdateGroupChildren(selectedElement.id, mode.value)}
+                      className="flex-1 py-1.5 text-[11px] font-semibold flex justify-center items-center border-r last:border-r-0 border-neutral-200 dark:border-neutral-800 bg-white text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700"
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1.5 leading-tight">
+                  Cliquez sur "Ajuster" pour coller les textes les uns aux autres sans espaces inutiles.
+                </p>
               </div>
             </div>
           )}
