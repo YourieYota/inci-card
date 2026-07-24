@@ -1,0 +1,7 @@
+rembg
+fastapi
+uvicorn
+pillow
+requests
+pydantic
+python-multipart
