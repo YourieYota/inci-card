@@ -742,6 +742,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                 <BlendedImage
                   src={emp.photoUrl}
                   blendMode={el.blendMode}
+                  className="print-employee-photo"
                   style={{
                     width: '100%',
                     height: '100%',
@@ -1206,6 +1207,35 @@ export default function PrintClient({ employees, templates, companyName, documen
 
       const htmlToImageFn = (window as any).htmlToImage;
       const jsPDFFn = (window as any).jspdf.jsPDF;
+
+      const layoutConfig = (template?.layoutConfig as unknown as any[]) || [];
+      const hasAutoRemoveBg = layoutConfig.some((el: any) => el.type === 'image' && el.autoRemoveBackground);
+      
+      if (hasAutoRemoveBg) {
+        const photos = document.querySelectorAll('.print-employee-photo');
+        if (photos.length > 0) {
+          const { removeBackground } = await import('@imgly/background-removal');
+          const config = { publicPath: `${window.location.origin}/assets/imgly/` };
+          
+          for (let i = 0; i < photos.length; i++) {
+            const img = photos[i] as HTMLImageElement;
+            if (img.src && img.dataset.bgRemoved !== "true") {
+              try {
+                const blob = await removeBackground(img.src, config);
+                const reader = new FileReader();
+                const dataUrl = await new Promise<string>((resolve) => {
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                });
+                img.src = dataUrl;
+                img.dataset.bgRemoved = "true";
+              } catch(err) {
+                console.error("AI bg removal failed for img", i, err);
+              }
+            }
+          }
+        }
+      }
 
       const isA4 = printFormat === 'A4';
       const pdf = new jsPDFFn({

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react';
+import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Sparkles, Loader2 } from 'lucide-react';
+import { removeBackground, Config } from '@imgly/background-removal';
 import { StudioElement } from './Canvas';
 
 interface PropertiesPanelProps {
@@ -113,6 +114,30 @@ export default function PropertiesPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [recentColors, setRecentColors] = useState<string[]>([]);
+  const [isRemovingBg, setIsRemovingBg] = useState(false);
+
+  const handleRemoveBackground = async () => {
+    if (!selectedElement || !selectedElement.logoUrl) return;
+    setIsRemovingBg(true);
+    
+    try {
+      const config: Config = {
+        publicPath: `${window.location.origin}/assets/imgly/`, // Use local models
+      };
+      
+      const blob = await removeBackground(selectedElement.logoUrl, config);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onUpdateElement({ ...selectedElement, logoUrl: reader.result as string });
+      };
+      reader.readAsDataURL(blob);
+    } catch (err) {
+      console.error("Erreur lors du détourage:", err);
+      alert("Une erreur est survenue lors du détourage de l'image.");
+    } finally {
+      setIsRemovingBg(false);
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem('studio_recent_colors');
@@ -517,6 +542,63 @@ export default function PropertiesPanel({
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* AI Background Removal */}
+          {selectedElement.type === 'logo' && (
+            <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 mt-4">
+              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                Détourage par IA (Hors-ligne)
+              </label>
+              <button
+                onClick={handleRemoveBackground}
+                disabled={isRemovingBg || !selectedElement.logoUrl}
+                className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 rounded-xl flex items-center justify-center gap-2 transition disabled:opacity-50"
+              >
+                {isRemovingBg ? (
+                  <>
+                    <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" />
+                    <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400">Analyse IA en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400">Effacer l'arrière-plan</span>
+                  </>
+                )}
+              </button>
+              <p className="text-[10px] text-neutral-400 mt-2 leading-relaxed">
+                Utilise l'intelligence artificielle locale pour isoler le sujet de l'image. Fonctionne même sans connexion internet.
+              </p>
+            </div>
+          )}
+
+          {selectedElement.type === 'image' && (
+            <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 mt-4">
+              <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                Détourage automatique des photos
+              </label>
+              <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 p-2.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
+                <label className="text-[11px] font-semibold text-indigo-800 dark:text-indigo-300 cursor-pointer flex-1" htmlFor="auto-bg-toggle">
+                  Détourer les photos des employés à l'impression
+                </label>
+                <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                  <input 
+                    type="checkbox" 
+                    id="auto-bg-toggle"
+                    className="sr-only peer"
+                    checked={!!selectedElement.autoRemoveBackground}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, autoRemoveBackground: e.target.checked })}
+                  />
+                  <div className="w-9 h-5 bg-indigo-200/50 peer-focus:outline-none rounded-full peer dark:bg-indigo-900/50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-indigo-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
+              <p className="text-[10px] text-indigo-400/80 dark:text-indigo-400/60 mt-2 leading-relaxed">
+                Si activé, l'IA détourera automatiquement la photo de chaque employé avant la génération du PDF. Attention : cela ralentit légèrement la génération (environ 0.5s par employé).
+              </p>
             </div>
           )}
 
