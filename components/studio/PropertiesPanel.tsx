@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Sparkles, Loader2 } from 'lucide-react';
-import { removeBackground, Config } from '@imgly/background-removal';
+// Dynamic import used inside handleRemoveBackground to avoid Turbopack bundling issues
 import { StudioElement } from './Canvas';
 
 interface PropertiesPanelProps {
@@ -121,17 +121,23 @@ export default function PropertiesPanel({
     setIsRemovingBg(true);
     
     try {
-      const config: Config = {
-        publicPath: `${window.location.origin}/assets/imgly/`, // Use local models
-      };
+      const res = await fetch('/api/remove-bg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageData: selectedElement.logoUrl }),
+      });
+
+      const data = await res.json();
       
-      const blob = await removeBackground(selectedElement.logoUrl, config);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onUpdateElement({ ...selectedElement, logoUrl: reader.result as string });
-      };
-      reader.readAsDataURL(blob);
-    } catch (err) {
+      if (!res.ok || data.error) {
+        alert(data.message || data.error || "Une erreur est survenue lors du détourage de l'image.");
+        return;
+      }
+
+      if (data.result) {
+        onUpdateElement({ ...selectedElement, logoUrl: data.result });
+      }
+    } catch (err: any) {
       console.error("Erreur lors du détourage:", err);
       alert("Une erreur est survenue lors du détourage de l'image.");
     } finally {
@@ -575,7 +581,7 @@ export default function PropertiesPanel({
             </div>
           )}
 
-          {selectedElement.type === 'image' && (
+          {(selectedElement.type === 'image' || selectedElement.type === 'logo') && (
             <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 mt-4">
               <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
@@ -593,7 +599,11 @@ export default function PropertiesPanel({
                     checked={!!selectedElement.autoRemoveBackground}
                     onChange={(e) => onUpdateElement({ ...selectedElement, autoRemoveBackground: e.target.checked })}
                   />
-                  <div className="w-9 h-5 bg-indigo-200/50 peer-focus:outline-none rounded-full peer dark:bg-indigo-900/50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-indigo-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                  <div className={`w-9 h-5 peer-focus:outline-none rounded-full peer transition-colors duration-200 ease-in-out ${
+                    selectedElement.autoRemoveBackground 
+                      ? 'bg-indigo-500' 
+                      : 'bg-neutral-300 dark:bg-neutral-600'
+                  } peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:shadow-sm after:transition-all`}></div>
                 </label>
               </div>
               <p className="text-[10px] text-indigo-400/80 dark:text-indigo-400/60 mt-2 leading-relaxed">

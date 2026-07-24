@@ -1178,7 +1178,64 @@ export default function PrintClient({ employees, templates, companyName, documen
   const gridRowCount = Math.max(1, Math.floor(printableHeight / (mmHeight + gap)));
   const gridChunkSize = gridColsCount * gridRowCount;
 
-  const handlePrint = () => {
+  const processAutoRemoveBg = async () => {
+    let rawConfig = (template?.layoutConfig as unknown as any) || [];
+    if (typeof rawConfig === 'string') {
+      try {
+        rawConfig = JSON.parse(rawConfig);
+      } catch(e) {
+        rawConfig = [];
+      }
+    }
+
+    let allElements: any[] = [];
+    if (Array.isArray(rawConfig)) {
+      allElements = rawConfig;
+    } else if (rawConfig && typeof rawConfig === 'object') {
+      allElements = [
+        ...(rawConfig.recto?.elements || []),
+        ...(rawConfig.verso?.elements || []),
+        ...(rawConfig.elements || []),
+      ];
+    }
+
+    const hasAutoRemoveBg = allElements.some((el: any) => !!el.autoRemoveBackground);
+    
+    if (hasAutoRemoveBg) {
+      const photos = document.querySelectorAll('.print-employee-photo');
+      if (photos.length > 0) {
+        for (let i = 0; i < photos.length; i++) {
+          const img = photos[i] as HTMLImageElement;
+          if (img.src && img.dataset.bgRemoved !== "true") {
+            try {
+              const res = await fetch('/api/remove-bg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageData: img.src }),
+              });
+              const data = await res.json();
+              if (data.result) {
+                img.src = data.result;
+                img.dataset.bgRemoved = "true";
+              }
+            } catch(err) {
+              console.error("AI bg removal failed for img", i, err);
+            }
+          }
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      processAutoRemoveBg();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [selectedTemplateType, selectedCategoryId, employees]);
+
+  const handlePrint = async () => {
+    await processAutoRemoveBg();
     window.print();
   };
 
@@ -1208,34 +1265,7 @@ export default function PrintClient({ employees, templates, companyName, documen
       const htmlToImageFn = (window as any).htmlToImage;
       const jsPDFFn = (window as any).jspdf.jsPDF;
 
-      const layoutConfig = (template?.layoutConfig as unknown as any[]) || [];
-      const hasAutoRemoveBg = layoutConfig.some((el: any) => el.type === 'image' && el.autoRemoveBackground);
-      
-      if (hasAutoRemoveBg) {
-        const photos = document.querySelectorAll('.print-employee-photo');
-        if (photos.length > 0) {
-          const { removeBackground } = await import('@imgly/background-removal');
-          const config = { publicPath: `${window.location.origin}/assets/imgly/` };
-          
-          for (let i = 0; i < photos.length; i++) {
-            const img = photos[i] as HTMLImageElement;
-            if (img.src && img.dataset.bgRemoved !== "true") {
-              try {
-                const blob = await removeBackground(img.src, config);
-                const reader = new FileReader();
-                const dataUrl = await new Promise<string>((resolve) => {
-                  reader.onloadend = () => resolve(reader.result as string);
-                  reader.readAsDataURL(blob);
-                });
-                img.src = dataUrl;
-                img.dataset.bgRemoved = "true";
-              } catch(err) {
-                console.error("AI bg removal failed for img", i, err);
-              }
-            }
-          }
-        }
-      }
+      await processAutoRemoveBg();
 
       const isA4 = printFormat === 'A4';
       const pdf = new jsPDFFn({

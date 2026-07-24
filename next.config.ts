@@ -8,9 +8,7 @@ const nextConfig: any = {
       bodySizeLimit: "10mb",
     },
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -38,12 +36,11 @@ const nextConfig: any = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' blob:",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              // Autoriser les images depuis : self, data: (Base64), blob: (canvas), localhost:4000 (pont Canon)
-              "img-src 'self' data: blob: http://localhost:4000",
-              "connect-src 'self' http://localhost:4000 ws://localhost:3000",
+              "img-src 'self' data: blob: http://localhost:4000 https:",
+              "connect-src 'self' http://localhost:4000 ws://localhost:3000 https: blob:",
               "media-src 'self' blob:",
               "worker-src 'self' blob:",
             ].join('; '),
