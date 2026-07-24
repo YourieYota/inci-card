@@ -1185,12 +1185,12 @@ export default function PrintClient({ employees, templates, companyName, documen
     setIsDownloadingPdf(true);
     try {
       // Dynamically load scripts if not present
-      if (!(window as any).html2canvas) {
+      if (!(window as any).htmlToImage) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = '/html2canvas.min.js';
+          script.src = '/html-to-image.js';
           script.onload = resolve;
-          script.onerror = () => reject(new Error("Failed to load html2canvas.min.js from public folder"));
+          script.onerror = () => reject(new Error("Failed to load html-to-image.js from public folder"));
           document.head.appendChild(script);
         });
       }
@@ -1204,7 +1204,7 @@ export default function PrintClient({ employees, templates, companyName, documen
         });
       }
 
-      const html2canvasFn = (window as any).html2canvas;
+      const htmlToImageFn = (window as any).htmlToImage;
       const jsPDFFn = (window as any).jspdf.jsPDF;
 
       const isA4 = printFormat === 'A4';
@@ -1224,15 +1224,12 @@ export default function PrintClient({ employees, templates, companyName, documen
       for (let i = 0; i < elements.length; i++) {
         const el = elements[i] as HTMLElement;
         
-        const canvas = await html2canvasFn(el, {
-          scale: 3, // 3x scale for high resolution
+        // Use html-to-image to get the data url directly
+        const imgData = await htmlToImageFn.toPng(el, {
+          pixelRatio: 3, // High resolution
           useCORS: true,
-          allowTaint: true,
-          backgroundColor: null,
-          logging: false
+          backgroundColor: '#ffffff'
         });
-
-        const imgData = canvas.toDataURL('image/png');
         
         if (i > 0) {
           pdf.addPage(isA4 ? 'a4' : [mmWidth, mmHeight], isA4 ? 'portrait' : (mmWidth > mmHeight ? 'landscape' : 'portrait'));
