@@ -846,7 +846,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                       position: 'relative',
                       width: child.childFlexMode === 'fixed' ? `${child.width}px` : (child.childFlexMode === 'fill' ? '100%' : (child.childFlexMode === 'auto' ? 'auto' : (el.flexDirection === 'row' ? (child.type === 'text' || child.type === 'group' ? 'auto' : `${child.width}px`) : (child.type === 'text' || child.type === 'group' ? '100%' : `${child.width}px`)))),
                       height: el.flexDirection === 'row' && el.flexWrap !== 'wrap' ? 'auto' : (child.type === 'text' || child.type === 'group' ? 'auto' : `${child.height}px`),
-                      minHeight: child.type === 'text' ? `${child.height}px` : undefined,
+                      minHeight: (child.type === 'text' && child.childFlexMode !== 'auto') ? `${child.height}px` : undefined,
                       flex: child.childFlexMode === 'flex' ? '1 1 0%' : (child.childFlexMode === 'auto' ? '0 0 auto' : (child.childFlexMode === 'fixed' || child.childFlexMode === 'fill' ? 'none' : ((el.flexDirection === 'row' && (child.type === 'text' || child.type === 'group')) ? '1 1 0%' : '0 0 auto'))),
                       transform: `translate(${(child as any).offsetX || 0}px, ${(child as any).offsetY || 0}px)`,
                       opacity: child.opacity !== undefined ? child.opacity : 1,
