@@ -285,6 +285,7 @@ export default function PropertiesPanel({
               </label>
               <div className="flex rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-sm">
                 {[
+                  { value: 'auto', label: 'Ajuster' },
                   { value: 'fill', label: '100%' },
                   { value: 'flex', label: 'Partager' },
                   { value: 'fixed', label: 'Taille fixe' }
@@ -292,7 +293,7 @@ export default function PropertiesPanel({
                   <button
                     key={mode.value}
                     onClick={() => onUpdateElement({ ...selectedElement, childFlexMode: mode.value as any })}
-                    className={`flex-1 py-1.5 text-[11px] font-semibold flex justify-center items-center ${
+                    className={`flex-1 py-1.5 text-[11px] font-semibold flex justify-center items-center border-r last:border-r-0 border-neutral-200 dark:border-neutral-800 ${
                       (selectedElement.childFlexMode || 'fill') === mode.value
                         ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
                         : 'bg-white text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700'
