@@ -17,8 +17,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pre-load ONNX session for fast AI inference (u2net model)
-session = new_session("u2net")
+# Use lightweight 'u2netp' model (only 4.7 MB instead of 176 MB) for low RAM footprint (< 100 MB)
+session = new_session("u2netp")
 
 class RemoveBgRequest(BaseModel):
     image: str
@@ -26,7 +26,7 @@ class RemoveBgRequest(BaseModel):
 @app.get("/")
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "rembg-service", "model": "u2net"}
+    return {"status": "ok", "service": "rembg-service", "model": "u2netp"}
 
 @app.post("/remove-bg")
 def remove_bg(req: RemoveBgRequest):
@@ -37,18 +37,15 @@ def remove_bg(req: RemoveBgRequest):
 
         image_bytes = None
 
-        # 1. Handle base64 data URLs
         if data.startswith("data:") or "base64," in data:
             base64_data = data.split("base64,")[1]
             image_bytes = base64.b64decode(base64_data)
-        # 2. Handle HTTP URLs
         elif data.startswith("http://") or data.startswith("https://"):
             res = requests.get(data, timeout=10)
             if res.status_code == 200:
                 image_bytes = res.content
             else:
                 raise HTTPException(status_code=400, detail=f"Failed to fetch image HTTP {res.status_code}")
-        # 3. Handle raw base64
         else:
             image_bytes = base64.b64decode(data)
 
@@ -57,10 +54,9 @@ def remove_bg(req: RemoveBgRequest):
 
         input_image = Image.open(io.BytesIO(image_bytes))
 
-        # Perform AI background removal using rembg
+        # Perform fast AI background removal with lightweight model
         output_image = remove(input_image, session=session)
 
-        # Convert result back to transparent PNG Data URL
         buffered = io.BytesIO()
         output_image.save(buffered, format="PNG")
         output_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
@@ -72,5 +68,5 @@ def remove_bg(req: RemoveBgRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    print("[rembg-service] Starting Rembg microservice on port 5000...")
+    print("[rembg-service] Starting lightweight Rembg microservice on port 5000...")
     uvicorn.run(app, host="0.0.0.0", port=5000)
