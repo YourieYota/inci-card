@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Employee, CardTemplate } from '@prisma/client';
-import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle, Lock, Ban, RotateCcw, Trash2 } from 'lucide-react';
+import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle, Lock, Ban, RotateCcw, Trash2, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { confirmPrint, validatePrintEligibility, deleteEmployeesByIds, assignCardNumbersForCategory } from '@/app/actions/employees';
 import { StudioElement } from '@/components/studio/Canvas';
@@ -1717,6 +1717,16 @@ export default function PrintClient({ employees, templates, companyName, documen
             >
               <Printer className="w-4 h-4" />
               <span>Imprimer</span>
+            </button>
+            <button
+              onClick={() => {
+                alert("Pour télécharger le fichier PDF avec une qualité optimale, veuillez sélectionner l'option 'Enregistrer au format PDF' (ou 'Save as PDF') comme destination dans la fenêtre d'impression qui va s'ouvrir.");
+                window.print();
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-100 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 rounded-xl text-xs font-bold transition shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              <span>Télécharger PDF</span>
             </button>
             <button
               onClick={handleValidatePrint}
