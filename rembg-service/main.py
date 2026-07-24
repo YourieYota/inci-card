@@ -17,14 +17,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Use lightweight 'u2netp' model (only 4.7 MB instead of 176 MB) for low RAM footprint (< 100 MB)
 session = new_session("u2netp")
 
 class RemoveBgRequest(BaseModel):
     image: str
 
-@app.get("/")
-@app.get("/health")
+# Support both GET and HEAD requests for Render's health checks
+@app.api_route("/", methods=["GET", "HEAD"])
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "ok", "service": "rembg-service", "model": "u2netp"}
 
