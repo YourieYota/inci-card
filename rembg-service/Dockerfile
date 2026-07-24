@@ -18,7 +18,5 @@ RUN mkdir -p /root/.u2net && \
 
 COPY . .
 
-ENV PORT=5000
-EXPOSE 5000
-
-CMD ["python", "main.py"]
+# Listen dynamically on PORT assigned by Render environment (defaults to 10000)
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}"]
