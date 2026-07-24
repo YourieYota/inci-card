@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[remove-bg] Image loaded successfully (${imageBuffer.length} bytes, type ${mimeType})`);
 
-    // 1. OPTION 1: Self-hosted rembg microservice (if REMBG_SERVICE_URL is set)
-    const rembgServiceUrl = process.env.REMBG_SERVICE_URL;
+    // 1. OPTION 1: Self-hosted rembg microservice (defaults to production live microservice)
+    const rembgServiceUrl = process.env.REMBG_SERVICE_URL || 'https://rembg-service-h15k.onrender.com/remove-bg';
     if (rembgServiceUrl) {
       console.log(`[remove-bg] Calling self-hosted rembg service at ${rembgServiceUrl}`);
       const base64Input = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
