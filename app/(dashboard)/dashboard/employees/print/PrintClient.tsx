@@ -922,11 +922,18 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                 zIndex: (el as any).zIndex !== undefined ? (el as any).zIndex : undefined,
                 opacity,
                 mixBlendMode: (el as any).blendMode || 'normal',
-                transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : undefined,
-                transformOrigin: 'center center',
               }}
             >
-              {renderElementContent(el)}
+              <div
+                className="w-full h-full relative flex items-center justify-center pointer-events-none"
+                style={{
+                  transform: `rotate(${(el as any).rotation || 0}deg)`,
+                  width: '100%',
+                  height: '100%',
+                }}
+              >
+                {renderElementContent(el)}
+              </div>
             </div>
           );
         })}
