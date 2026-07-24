@@ -18,6 +18,7 @@ RUN mkdir -p /root/.u2net && \
 
 COPY . .
 
+ENV PORT=5000
 EXPOSE 5000
 
 CMD ["python", "main.py"]

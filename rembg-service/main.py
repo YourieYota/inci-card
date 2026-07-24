@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import base64
 import io
+import os
 import requests
 from PIL import Image
 from rembg import remove, new_session
@@ -68,5 +69,6 @@ def remove_bg(req: RemoveBgRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    print("[rembg-service] Starting lightweight Rembg microservice on port 5000...")
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"[rembg-service] Starting lightweight Rembg microservice on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
