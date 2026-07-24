@@ -882,33 +882,19 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
   }
 
   const { bgStyle, borderRadius } = cardStyle(template, side);
-  const mmWidth = width * 0.264583;
-  const mmHeight = height * 0.264583;
-  const scaleRatio = (mmWidth / 25.4 * 96) / width;
 
   return (
     <div
       className="relative overflow-hidden border border-neutral-300 dark:border-neutral-700 bg-white select-none shrink-0"
       style={{
-        width: `${mmWidth}mm`,
-        height: `${mmHeight}mm`,
-        borderRadius: `${borderRadius * 0.264583}mm`,
+        width: `${width}px`,
+        height: `${height}px`,
+        borderRadius: `${borderRadius}px`,
         boxSizing: 'border-box',
       }}
     >
-      <div
-        style={{
-          transform: `scale(${scaleRatio})`,
-          transformOrigin: 'top left',
-          width: `${width}px`,
-          height: `${height}px`,
-          position: 'absolute',
-          top: 0,
-          left: 0,
-        }}
-      >
-        <div style={bgStyle} />
-        {elements.filter(el => !el.parentId).map((el) => {
+      <div style={bgStyle} />
+      {elements.filter(el => !el.parentId).map((el) => {
           const opacity = el.opacity !== undefined ? el.opacity : 1;
           return (
             <div
@@ -937,7 +923,6 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
             </div>
           );
         })}
-      </div>
     </div>
   );
 }
