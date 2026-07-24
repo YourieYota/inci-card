@@ -1223,12 +1223,23 @@ export default function PrintClient({ employees, templates, companyName, documen
 
       for (let i = 0; i < elements.length; i++) {
         const el = elements[i] as HTMLElement;
+        const width = el.offsetWidth;
+        const height = el.offsetHeight;
         
         // Use html-to-image to get the data url directly
         const imgData = await htmlToImageFn.toPng(el, {
           pixelRatio: 3, // High resolution
           useCORS: true,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          width: width,
+          height: height,
+          style: {
+            transform: 'none',
+            margin: '0',
+            position: 'relative',
+            left: '0',
+            top: '0'
+          }
         });
         
         if (i > 0) {
