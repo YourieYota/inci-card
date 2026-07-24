@@ -884,6 +884,7 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
   const { bgStyle, borderRadius } = cardStyle(template, side);
   const mmWidth = width * 0.264583;
   const mmHeight = height * 0.264583;
+  const scaleRatio = (mmWidth / 25.4 * 96) / width;
 
   return (
     <div
@@ -897,6 +898,8 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
     >
       <div
         style={{
+          transform: `scale(${scaleRatio})`,
+          transformOrigin: 'top left',
           width: `${width}px`,
           height: `${height}px`,
           position: 'absolute',
@@ -910,8 +913,8 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
           return (
             <div
               key={el.id}
+              className="absolute pointer-events-none"
               style={{
-                position: 'absolute',
                 left: `${el.x}px`,
                 top: `${el.y}px`,
                 width: `${el.width}px`,
@@ -919,18 +922,11 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
                 zIndex: (el as any).zIndex !== undefined ? (el as any).zIndex : undefined,
                 opacity,
                 mixBlendMode: (el as any).blendMode || 'normal',
+                transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : undefined,
+                transformOrigin: 'center center',
               }}
             >
-              <div
-                className="w-full h-full relative flex items-center justify-center pointer-events-none"
-                style={{
-                  transform: `rotate(${(el as any).rotation || 0}deg)`,
-                  width: '100%',
-                  height: '100%',
-                }}
-              >
-                {renderElementContent(el)}
-              </div>
+              {renderElementContent(el)}
             </div>
           );
         })}
@@ -1360,7 +1356,7 @@ export default function PrintClient({ employees, templates, companyName, documen
     if (printFormat === 'CARD') {
       if (layoutMode === 'recto-only') {
         return eligibleEmployees.map((emp, idx) => (
-          <div key={`card-recto-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
+          <div key={`card-recto-${idx}`} className="print-page-card print-page-card-preview">
             <CardRender 
               emp={emp} 
               template={template} 
@@ -1376,7 +1372,7 @@ export default function PrintClient({ employees, templates, companyName, documen
       }
       if (layoutMode === 'verso-only') {
         return eligibleEmployees.map((emp, idx) => (
-          <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
+          <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview">
             <CardRender 
               emp={emp} 
               template={template} 
@@ -1392,7 +1388,7 @@ export default function PrintClient({ employees, templates, companyName, documen
       }
       // duplex
       return eligibleEmployees.flatMap((emp, idx) => [
-        <div key={`card-recto-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
+        <div key={`card-recto-${idx}`} className="print-page-card print-page-card-preview">
           <CardRender 
             emp={emp} 
             template={template} 
@@ -1404,7 +1400,7 @@ export default function PrintClient({ employees, templates, companyName, documen
             categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
           />
         </div>,
-        <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview mb-4 flex items-center justify-center overflow-hidden">
+        <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview">
           <CardRender 
             emp={emp} 
             template={template} 
@@ -1813,6 +1809,7 @@ export default function PrintClient({ employees, templates, companyName, documen
         }
 
         .print-page-card-preview {
+          display: block;
           background: white;
           box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
           border: 1px solid #e5e7eb;
@@ -1821,7 +1818,9 @@ export default function PrintClient({ employees, templates, companyName, documen
           height: ${mmHeight}mm;
           margin-left: auto;
           margin-right: auto;
-          box-sizing: border-box;
+          margin-bottom: 16px;
+          box-sizing: content-box;
+          overflow: hidden;
           position: relative;
         }
         
@@ -1889,6 +1888,7 @@ export default function PrintClient({ employees, templates, companyName, documen
             overflow: hidden !important;
           }
           .print-page-card {
+            display: block !important;
             page-break-after: always !important;
             page-break-inside: avoid !important;
             box-shadow: none !important;
@@ -1898,7 +1898,7 @@ export default function PrintClient({ employees, templates, companyName, documen
             margin: 0 !important;
             width: ${mmWidth}mm !important;
             height: ${mmHeight}mm !important;
-            box-sizing: border-box !important;
+            box-sizing: content-box !important;
             overflow: hidden !important;
           }
           html, body {
