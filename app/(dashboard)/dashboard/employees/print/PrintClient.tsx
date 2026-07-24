@@ -1226,6 +1226,8 @@ export default function PrintClient({ employees, templates, companyName, documen
         const width = el.offsetWidth;
         const height = el.offsetHeight;
         
+        console.log(`Generating image for element ${i}, dimensions: ${width}x${height}`);
+        
         // Use html-to-image to get the data url directly
         const imgData = await htmlToImageFn.toPng(el, {
           pixelRatio: 3, // High resolution
@@ -1233,14 +1235,19 @@ export default function PrintClient({ employees, templates, companyName, documen
           backgroundColor: '#ffffff',
           width: width,
           height: height,
+          canvasWidth: width * 3,
+          canvasHeight: height * 3,
           style: {
             transform: 'none',
             margin: '0',
             position: 'relative',
             left: '0',
-            top: '0'
+            top: '0',
+            overflow: 'visible'
           }
         });
+        
+        console.log(`Image data length for element ${i}: ${imgData.length}`);
         
         if (i > 0) {
           pdf.addPage(isA4 ? 'a4' : [mmWidth, mmHeight], isA4 ? 'portrait' : (mmWidth > mmHeight ? 'landscape' : 'portrait'));
@@ -1248,6 +1255,8 @@ export default function PrintClient({ employees, templates, companyName, documen
         
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        console.log(`Adding to PDF page ${i}, pdf dimensions: ${pdfWidth}x${pdfHeight}`);
         
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
