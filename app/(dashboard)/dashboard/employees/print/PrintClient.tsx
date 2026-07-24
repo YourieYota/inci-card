@@ -1080,6 +1080,7 @@ export default function PrintClient({ employees, templates, companyName, documen
   const [printFormat, setPrintFormat] = useState<'A4' | 'CARD'>('A4');
   const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>('side-by-side');
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Eligibility state
@@ -1178,6 +1179,78 @@ export default function PrintClient({ employees, templates, companyName, documen
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      // Dynamically load scripts if not present
+      if (!(window as any).html2canvas) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      if (!(window as any).jspdf) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+
+      const html2canvasFn = (window as any).html2canvas;
+      const jsPDFFn = (window as any).jspdf.jsPDF;
+
+      const isA4 = printFormat === 'A4';
+      const pdf = new jsPDFFn({
+        orientation: isA4 ? 'portrait' : (mmWidth > mmHeight ? 'landscape' : 'portrait'),
+        unit: 'mm',
+        format: isA4 ? 'a4' : [mmWidth, mmHeight]
+      });
+
+      const elements = document.querySelectorAll(isA4 ? '.print-page-preview' : '.print-page-card-preview');
+      
+      if (elements.length === 0) {
+        alert("Aucune carte à télécharger.");
+        return;
+      }
+
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i] as HTMLElement;
+        
+        const canvas = await html2canvasFn(el, {
+          scale: 3, // 3x scale for high resolution
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+          logging: false
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        
+        if (i > 0) {
+          pdf.addPage(isA4 ? 'a4' : [mmWidth, mmHeight], isA4 ? 'portrait' : (mmWidth > mmHeight ? 'landscape' : 'portrait'));
+        }
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      }
+      
+      pdf.save(`Badges_${localCompanyName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+    } catch (error) {
+      console.error("Erreur génération PDF:", error);
+      alert("Une erreur est survenue lors de la génération du PDF.");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const handleValidatePrint = async () => {
@@ -1719,14 +1792,12 @@ export default function PrintClient({ employees, templates, companyName, documen
               <span>Imprimer</span>
             </button>
             <button
-              onClick={() => {
-                alert("Pour télécharger le fichier PDF avec une qualité optimale, veuillez sélectionner l'option 'Enregistrer au format PDF' (ou 'Save as PDF') comme destination dans la fenêtre d'impression qui va s'ouvrir.");
-                window.print();
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-100 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 rounded-xl text-xs font-bold transition shadow-sm"
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf || eligibleEmployees.length === 0}
+              className="flex items-center gap-1.5 px-4 py-2 border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-100 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
             >
-              <Download className="w-4 h-4" />
-              <span>Télécharger PDF</span>
+              {isDownloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              <span>{isDownloadingPdf ? 'Génération...' : 'Télécharger PDF'}</span>
             </button>
             <button
               onClick={handleValidatePrint}
