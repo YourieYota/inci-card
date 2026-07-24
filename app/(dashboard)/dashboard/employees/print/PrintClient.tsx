@@ -1188,18 +1188,18 @@ export default function PrintClient({ employees, templates, companyName, documen
       if (!(window as any).html2canvas) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          script.src = '/html2canvas.min.js';
           script.onload = resolve;
-          script.onerror = reject;
+          script.onerror = () => reject(new Error("Failed to load html2canvas.min.js from public folder"));
           document.head.appendChild(script);
         });
       }
       if (!(window as any).jspdf) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          script.src = '/jspdf.umd.min.js';
           script.onload = resolve;
-          script.onerror = reject;
+          script.onerror = () => reject(new Error("Failed to load jspdf.umd.min.js from public folder"));
           document.head.appendChild(script);
         });
       }
@@ -1245,9 +1245,11 @@ export default function PrintClient({ employees, templates, companyName, documen
       }
       
       pdf.save(`Badges_${localCompanyName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
-    } catch (error) {
-      console.error("Erreur génération PDF:", error);
-      alert("Une erreur est survenue lors de la génération du PDF.");
+    } catch (error: any) {
+      console.error("Erreur génération PDF détails:", error);
+      if (error && error.message) console.error(error.message);
+      if (error && error.stack) console.error(error.stack);
+      alert("Une erreur est survenue lors de la génération du PDF: " + (error?.message || 'Erreur inconnue'));
     } finally {
       setIsDownloadingPdf(false);
     }
