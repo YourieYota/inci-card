@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global dictionary for lazy ONNX sessions
+# Global dictionary for ONNX sessions
 sessions = {}
 
 def get_session(model_name: str = "u2netp") -> ort.InferenceSession:
@@ -49,6 +49,14 @@ def get_session(model_name: str = "u2netp") -> ort.InferenceSession:
         sessions[model_name] = session
         
     return sessions[model_name]
+
+# Pre-load default u2netp session immediately at server startup
+try:
+    print("[rembg-service] Pre-loading default u2netp ONNX session at startup...")
+    get_session("u2netp")
+    print("[rembg-service] Pre-loading complete! Microservice is ready for instant inference.")
+except Exception as err:
+    print(f"[rembg-service] Warning: Failed to pre-load session at startup: {err}")
 
 class RemoveBgRequest(BaseModel):
     image: str
