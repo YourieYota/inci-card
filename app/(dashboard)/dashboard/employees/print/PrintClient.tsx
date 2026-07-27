@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Employee, CardTemplate } from '@prisma/client';
 import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, AlertCircle, Lock, Ban, RotateCcw, Trash2, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
