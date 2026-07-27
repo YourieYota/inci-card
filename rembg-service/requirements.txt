@@ -1,4 +1,3 @@
-rembg
 onnxruntime-cpu
 fastapi
 uvicorn
@@ -6,3 +5,4 @@ pillow
 requests
 pydantic
 python-multipart
+numpy

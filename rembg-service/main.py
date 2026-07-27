@@ -1,24 +1,19 @@
 import os
-
-# Set U2NET_HOME environment variable BEFORE importing rembg so it uses local pre-downloaded models
-os.environ["U2NET_HOME"] = os.path.abspath(os.path.join(os.path.dirname(__file__), ".u2net"))
-# Disable ONNXRuntime telemetry / GPU discovery logging
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
+import io
+import base64
+import numpy as np
+import requests
+from PIL import Image
+import onnxruntime as ort
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import base64
-import io
-import requests
-from PIL import Image
-from rembg import remove, new_session
 
-app = FastAPI(title="Rembg Microservice for INCI Card")
+# Set U2NET_HOME environment variable to local .u2net directory
+U2NET_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".u2net"))
+os.environ["U2NET_HOME"] = U2NET_DIR
+
+app = FastAPI(title="Pure ONNX Rembg Microservice for INCI Card")
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,14 +23,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global dictionary to lazy-load ONNX sessions on demand to preserve RAM
+# Global dictionary for lazy ONNX sessions
 sessions = {}
 
-def get_session(model_name: str = "u2netp"):
+def get_session(model_name: str = "u2netp") -> ort.InferenceSession:
     if model_name not in sessions:
-        print(f"[rembg-service] Loading ONNX CPU session for model: {model_name}...")
-        providers = ['CPUExecutionProvider']
-        sessions[model_name] = new_session(model_name, providers=providers)
+        model_filename = f"{model_name}.onnx"
+        model_path = os.path.join(U2NET_DIR, model_filename)
+        
+        if not os.path.exists(model_path):
+            # Fallback to u2netp if specific model path doesn't exist
+            model_path = os.path.join(U2NET_DIR, "u2netp.onnx")
+
+        print(f"[rembg-service] Loading ONNX InferenceSession from {model_path}...")
+        
+        opts = ort.SessionOptions()
+        opts.intra_op_num_threads = 1
+        opts.inter_op_num_threads = 1
+        
+        session = ort.InferenceSession(
+            model_path,
+            sess_options=opts,
+            providers=['CPUExecutionProvider']
+        )
+        sessions[model_name] = session
+        
     return sessions[model_name]
 
 class RemoveBgRequest(BaseModel):
@@ -45,7 +57,48 @@ class RemoveBgRequest(BaseModel):
 @app.api_route("/", methods=["GET", "HEAD"])
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
-    return {"status": "ok", "service": "rembg-service", "u2net_home": os.environ.get("U2NET_HOME"), "models_loaded": list(sessions.keys())}
+    return {
+        "status": "ok",
+        "service": "pure-onnx-rembg-service",
+        "u2net_dir": U2NET_DIR,
+        "sessions": list(sessions.keys())
+    }
+
+def process_background_removal(input_image: Image.Image, session: ort.InferenceSession) -> Image.Image:
+    orig_w, orig_h = input_image.size
+    
+    # 1. Resize to 320x320 for U2-Net ONNX model input
+    img_rgb = input_image.convert("RGB").resize((320, 320), Image.Resampling.LANCZOS)
+    
+    # 2. Normalize image array
+    arr = np.array(img_rgb).astype(np.float32) / 255.0
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+    arr = (arr - mean) / std
+    
+    # 3. Transpose to (1, 3, 320, 320) tensor
+    tensor = np.expand_dims(arr.transpose((2, 0, 1)), 0).astype(np.float32)
+    
+    # 4. Run ONNX Inference
+    input_name = session.get_inputs()[0].name
+    output = session.run(None, {input_name: tensor})[0]
+    
+    # 5. Extract alpha mask tensor (1, 1, 320, 320) -> (320, 320)
+    mask_arr = output[0, 0]
+    ma = np.max(mask_arr)
+    mi = np.min(mask_arr)
+    if ma > mi:
+        mask_arr = (mask_arr - mi) / (ma - mi)
+    else:
+        mask_arr = np.zeros_like(mask_arr)
+        
+    mask_img = Image.fromarray((mask_arr * 255).astype(np.uint8), mode="L")
+    mask_img = mask_img.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+    
+    # 6. Apply mask as alpha channel
+    output_image = input_image.convert("RGBA")
+    output_image.putalpha(mask_img)
+    return output_image
 
 @app.post("/remove-bg")
 def remove_bg(req: RemoveBgRequest):
@@ -73,16 +126,12 @@ def remove_bg(req: RemoveBgRequest):
 
         input_image = Image.open(io.BytesIO(image_bytes))
 
-        # Downscale input image to max 800px to guarantee RAM stays < 90MB and prevent OOM crashes on Render
+        # Downscale input image to max 800px to guarantee low memory usage
         if max(input_image.width, input_image.height) > 800:
             input_image.thumbnail((800, 800), Image.Resampling.LANCZOS)
 
-        # Lazy-load requested session ("u2net" for high precision, "u2netp" for low RAM)
-        target_model = req.model if req.model in ["u2net", "u2netp", "silueta"] else "u2netp"
-        session = get_session(target_model)
-
-        # Perform AI background removal
-        output_image = remove(input_image, session=session)
+        session = get_session(req.model)
+        output_image = process_background_removal(input_image, session)
 
         buffered = io.BytesIO()
         output_image.save(buffered, format="PNG", optimize=True)
@@ -96,5 +145,5 @@ def remove_bg(req: RemoveBgRequest):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 5000))
-    print(f"[rembg-service] Starting Rembg microservice on port {port}...")
+    print(f"[rembg-service] Starting Pure ONNX Rembg microservice on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
