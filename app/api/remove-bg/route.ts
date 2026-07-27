@@ -42,64 +42,61 @@ export async function POST(request: NextRequest) {
 
     console.log(`[remove-bg] Image loaded successfully (${imageBuffer.length} bytes, type ${mimeType})`);
 
-    // 1. OPTION 1: Self-hosted rembg microservice (defaults to local 5000 in dev or production live microservice on Render)
-    const defaultUrl = process.env.NODE_ENV === 'production'
+    // 1. OPTION 1: Self-hosted rembg microservice (tries primary URL, falls back to live cloud service if offline)
+    const primaryUrl = process.env.REMBG_SERVICE_URL || (process.env.NODE_ENV === 'production'
       ? 'https://rembg-service-h15k.onrender.com/remove-bg'
-      : 'http://localhost:5000/remove-bg';
-    const rembgServiceUrl = process.env.REMBG_SERVICE_URL || defaultUrl;
+      : 'http://localhost:5000/remove-bg');
+    const fallbackUrl = 'https://rembg-service-h15k.onrender.com/remove-bg';
+    const urlsToTry = primaryUrl === fallbackUrl ? [primaryUrl] : [primaryUrl, fallbackUrl];
 
-    if (rembgServiceUrl) {
-      console.log(`[remove-bg] Calling self-hosted rembg service at ${rembgServiceUrl}`);
+    const base64Input = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+
+    for (const serviceUrl of urlsToTry) {
       try {
-        const base64Input = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-        const modelToUse = rembgServiceUrl.includes('localhost') ? 'u2net' : 'u2netp';
+        console.log(`[remove-bg] Trying rembg service at ${serviceUrl}...`);
+        const modelToUse = serviceUrl.includes('localhost') ? 'u2net' : 'u2netp';
         let res: Response | null = null;
         let attempts = 0;
-        const maxAttempts = 3;
+        const maxAttempts = serviceUrl.includes('localhost') ? 1 : 3;
 
         while (attempts < maxAttempts) {
           attempts++;
           try {
-            console.log(`[remove-bg] Calling rembg service at ${rembgServiceUrl} (attempt ${attempts}/${maxAttempts})...`);
-            res = await fetch(rembgServiceUrl, {
+            res = await fetch(serviceUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ image: base64Input, model: modelToUse }),
-              signal: AbortSignal.timeout(45000),
+              signal: AbortSignal.timeout(30000),
             });
 
             if (res.ok) break;
 
             const errText = await res.text();
-            console.warn(`[remove-bg] rembg service returned HTTP ${res.status} on attempt ${attempts}: ${errText.slice(0, 100)}`);
+            console.warn(`[remove-bg] rembg service at ${serviceUrl} returned HTTP ${res.status} on attempt ${attempts}: ${errText.slice(0, 100)}`);
           } catch (err: any) {
-            console.warn(`[remove-bg] rembg service connection error on attempt ${attempts}:`, err?.message || err);
+            console.warn(`[remove-bg] rembg service connection error for ${serviceUrl} on attempt ${attempts}:`, err?.message || err);
           }
 
           if (attempts < maxAttempts) {
-            console.log(`[remove-bg] Container waking up... waiting 3s before retry ${attempts + 1}/${maxAttempts}`);
-            await new Promise((r) => setTimeout(r, 3000));
+            console.log(`[remove-bg] Container waking up... waiting 2s before retry ${attempts + 1}/${maxAttempts}`);
+            await new Promise((r) => setTimeout(r, 2000));
           }
         }
 
         if (res && res.ok) {
           const data = await res.json();
           return NextResponse.json({ result: data.result || data.image });
-        } else {
-          const status = res ? res.status : 500;
-          return NextResponse.json(
-            { error: `Le service de détourage se réveille (HTTP ${status}). Veuillez ré-essayer.` },
-            { status: 500 }
-          );
         }
       } catch (err: any) {
-        console.error(`[remove-bg] Erreur de connexion à rembg (${rembgServiceUrl}):`, err?.message || err);
-        return NextResponse.json(
-          { error: `Impossible de contacter le service de détourage (${rembgServiceUrl}). Vérifiez qu'il est bien démarré.` },
-          { status: 500 }
-        );
+        console.warn(`[remove-bg] Exception when trying ${serviceUrl}:`, err?.message || err);
       }
     }
+
+    console.error(`[remove-bg] All rembg services failed (${urlsToTry.join(', ')}).`);
+    return NextResponse.json(
+      { error: `Impossible de contacter les services de détourage (${urlsToTry.join(', ')}).` },
+      { status: 500 }
+    );
 
     // 2. OPTION 2A: Remove.bg Cloud API (if REMOVE_BG_API_KEY is set)
     const removeBgApiKey = process.env.REMOVE_BG_API_KEY;
