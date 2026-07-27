@@ -50,13 +50,15 @@ def get_session(model_name: str = "u2netp") -> ort.InferenceSession:
         
     return sessions[model_name]
 
-# Pre-load default u2netp session immediately at server startup
-try:
-    print("[rembg-service] Pre-loading default u2netp ONNX session at startup...")
-    get_session("u2netp")
-    print("[rembg-service] Pre-loading complete! Microservice is ready for instant inference.")
-except Exception as err:
-    print(f"[rembg-service] Warning: Failed to pre-load session at startup: {err}")
+# Asynchronous startup event handler so port binding happens instantly
+@app.on_event("startup")
+def startup_event():
+    try:
+        print("[rembg-service] Pre-loading default u2netp ONNX session during app startup...")
+        get_session("u2netp")
+        print("[rembg-service] ONNX session ready! Microservice is ready for instant inference.")
+    except Exception as err:
+        print(f"[rembg-service] Warning during startup pre-load: {err}")
 
 class RemoveBgRequest(BaseModel):
     image: str
