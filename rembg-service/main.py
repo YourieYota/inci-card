@@ -1,6 +1,7 @@
 import os
 import io
 import base64
+import threading
 import numpy as np
 import requests
 from PIL import Image
@@ -50,15 +51,18 @@ def get_session(model_name: str = "u2netp") -> ort.InferenceSession:
         
     return sessions[model_name]
 
-# Asynchronous startup event handler so port binding happens instantly
+# Non-blocking daemon background thread pre-loader so port 10000 binds instantly
 @app.on_event("startup")
 def startup_event():
-    try:
-        print("[rembg-service] Pre-loading default u2netp ONNX session during app startup...")
-        get_session("u2netp")
-        print("[rembg-service] ONNX session ready! Microservice is ready for instant inference.")
-    except Exception as err:
-        print(f"[rembg-service] Warning during startup pre-load: {err}")
+    def bg_load():
+        try:
+            print("[rembg-service] Background thread pre-loading ONNX session...")
+            get_session("u2netp")
+            print("[rembg-service] Background thread pre-load complete! Model ready.")
+        except Exception as err:
+            print(f"[rembg-service] Warning during background pre-load: {err}")
+
+    threading.Thread(target=bg_load, daemon=True).start()
 
 class RemoveBgRequest(BaseModel):
     image: str
@@ -90,7 +94,7 @@ def process_background_removal(input_image: Image.Image, session: ort.InferenceS
     std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
     arr = (arr - mean) / std
     
-    # 4. Transpose to C-contiguous (1, 3, 320, 320) tensor
+    # 4. Transpose to C-contiguous (1, 3, 320, 320) tensor to prevent C++ memory access violations
     tensor = np.ascontiguousarray(np.expand_dims(arr.transpose((2, 0, 1)), 0).astype(np.float32))
     
     # 5. Run ONNX Inference
