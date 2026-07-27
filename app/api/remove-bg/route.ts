@@ -42,20 +42,36 @@ export async function POST(request: NextRequest) {
 
     console.log(`[remove-bg] Image loaded successfully (${imageBuffer.length} bytes, type ${mimeType})`);
 
-    // 1. OPTION 1: Self-hosted rembg microservice (defaults to production live microservice)
-    const rembgServiceUrl = process.env.REMBG_SERVICE_URL || 'https://rembg-service-h15k.onrender.com/remove-bg';
+    // 1. OPTION 1: Self-hosted rembg microservice (defaults to local 5000 or production live microservice)
+    const rembgServiceUrl = process.env.REMBG_SERVICE_URL || 'http://localhost:5000/remove-bg';
     if (rembgServiceUrl) {
       console.log(`[remove-bg] Calling self-hosted rembg service at ${rembgServiceUrl}`);
-      const base64Input = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-      const res = await fetch(rembgServiceUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Input }),
-        signal: AbortSignal.timeout(30000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return NextResponse.json({ result: data.result || data.image });
+      try {
+        const base64Input = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+        const res = await fetch(rembgServiceUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Input }),
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          return NextResponse.json({ result: data.result || data.image });
+        } else {
+          const errorText = await res.text();
+          console.error(`[remove-bg] rembg service returned HTTP ${res.status}: ${errorText}`);
+          return NextResponse.json(
+            { error: `Erreur du service de détourage (HTTP ${res.status}): ${errorText.slice(0, 100)}` },
+            { status: 500 }
+          );
+        }
+      } catch (err: any) {
+        console.error(`[remove-bg] Erreur de connexion à rembg (${rembgServiceUrl}):`, err?.message || err);
+        return NextResponse.json(
+          { error: `Impossible de contacter le service de détourage (${rembgServiceUrl}). Vérifiez qu'il est bien démarré.` },
+          { status: 500 }
+        );
       }
     }
 
