@@ -18,20 +18,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load sessions: u2net (high precision for portraits & light clothing) and u2netp (lightweight fallback)
-print("[rembg-service] Initializing AI models...")
-session_u2net = new_session("u2net")
-session_u2netp = new_session("u2netp")
-print("[rembg-service] AI models initialized successfully.")
+# Global dictionary to lazy-load ONNX sessions on demand to preserve RAM
+sessions = {}
+
+def get_session(model_name: str = "u2netp"):
+    if model_name not in sessions:
+        print(f"[rembg-service] Loading ONNX session for model: {model_name}...")
+        sessions[model_name] = new_session(model_name)
+    return sessions[model_name]
 
 class RemoveBgRequest(BaseModel):
     image: str
-    model: str = "u2net"
+    model: str = "u2netp"
 
 @app.api_route("/", methods=["GET", "HEAD"])
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
-    return {"status": "ok", "service": "rembg-service", "models": ["u2net", "u2netp"]}
+    return {"status": "ok", "service": "rembg-service", "models_loaded": list(sessions.keys())}
 
 @app.post("/remove-bg")
 def remove_bg(req: RemoveBgRequest):
@@ -59,11 +62,12 @@ def remove_bg(req: RemoveBgRequest):
 
         input_image = Image.open(io.BytesIO(image_bytes))
 
-        # Select session: u2net by default for perfect clothing and shoulder outlines
-        target_session = session_u2net if req.model != "u2netp" else session_u2netp
+        # Lazy-load requested session ("u2net" for high precision, "u2netp" for low RAM)
+        target_model = req.model if req.model in ["u2net", "u2netp", "silueta"] else "u2netp"
+        session = get_session(target_model)
 
         # Perform AI background removal
-        output_image = remove(input_image, session=target_session)
+        output_image = remove(input_image, session=session)
 
         buffered = io.BytesIO()
         output_image.save(buffered, format="PNG")
@@ -77,5 +81,5 @@ def remove_bg(req: RemoveBgRequest):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 5000))
-    print(f"[rembg-service] Starting Rembg microservice with high-precision model on port {port}...")
+    print(f"[rembg-service] Starting Rembg microservice on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
