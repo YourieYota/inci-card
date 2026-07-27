@@ -1,6 +1,8 @@
 import os
 
-# Disable ONNXRuntime CPU affinity and OpenMP thread binding to prevent cgroups/seccomp SIGSYS crashes under Render Linux containers
+# Completely disable GPU discovery to prevent ONNXRuntime device_discovery.cc crash on Linux Render containers
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["HIP_VISIBLE_DEVICES"] = ""
 os.environ["ORT_DISABLE_CPU_AFFINITY"] = "1"
 os.environ["OMP_PROC_BIND"] = "FALSE"
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -18,6 +20,9 @@ import onnxruntime as ort
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Explicitly set ONNX log severity to error-only
+ort.set_default_logger_severity(3)
 
 # Set U2NET_HOME environment variable to local .u2net directory
 U2NET_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".u2net"))
@@ -46,11 +51,13 @@ def get_session(model_name: str = "u2netp") -> ort.InferenceSession:
             if not os.path.exists(model_path):
                 model_path = os.path.join(U2NET_DIR, "u2netp.onnx")
 
-            print(f"[rembg-service] Thread-safe loading of ONNX InferenceSession from {model_path}...")
+            print(f"[rembg-service] Thread-safe CPU loading of ONNX InferenceSession from {model_path}...")
             
             opts = ort.SessionOptions()
             opts.intra_op_num_threads = 1
             opts.inter_op_num_threads = 1
+            opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
             
             session = ort.InferenceSession(
                 model_path,

@@ -2,7 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Set U2NET_HOME environment variable to /app/.u2net
+# Completely disable GPU discovery to prevent ONNXRuntime device_discovery.cc crash under Render Linux containers
+ENV CUDA_VISIBLE_DEVICES=""
+ENV HIP_VISIBLE_DEVICES=""
+ENV ORT_DISABLE_CPU_AFFINITY="1"
+ENV OMP_PROC_BIND="FALSE"
+ENV OMP_NUM_THREADS="1"
 ENV U2NET_HOME=/app/.u2net
 
 # Install system dependencies (including libgomp1 for ONNXRuntime)
