@@ -49,7 +49,7 @@ def remove_bg(req: RemoveBgRequest):
             base64_data = data.split("base64,")[1]
             image_bytes = base64.b64decode(base64_data)
         elif data.startswith("http://") or data.startswith("https://"):
-            res = requests.get(data, timeout=10)
+            res = requests.get(data, timeout=15)
             if res.status_code == 200:
                 image_bytes = res.content
             else:
@@ -62,6 +62,10 @@ def remove_bg(req: RemoveBgRequest):
 
         input_image = Image.open(io.BytesIO(image_bytes))
 
+        # Downscale input image to max 800px to guarantee RAM stays < 90MB and prevent OOM crashes on Render
+        if max(input_image.width, input_image.height) > 800:
+            input_image.thumbnail((800, 800), Image.Resampling.LANCZOS)
+
         # Lazy-load requested session ("u2net" for high precision, "u2netp" for low RAM)
         target_model = req.model if req.model in ["u2net", "u2netp", "silueta"] else "u2netp"
         session = get_session(target_model)
@@ -70,12 +74,12 @@ def remove_bg(req: RemoveBgRequest):
         output_image = remove(input_image, session=session)
 
         buffered = io.BytesIO()
-        output_image.save(buffered, format="PNG")
+        output_image.save(buffered, format="PNG", optimize=True)
         output_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
         return {"result": f"data:image/png;base64,{output_base64}"}
     except Exception as e:
-        print(f"[rembg-service] Error: {e}")
+        print(f"[rembg-service] Error during remove-bg: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
