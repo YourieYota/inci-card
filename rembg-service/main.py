@@ -1,4 +1,12 @@
 import os
+
+# Disable ONNXRuntime CPU affinity and OpenMP thread binding to prevent cgroups/seccomp SIGSYS crashes under Render Linux containers
+os.environ["ORT_DISABLE_CPU_AFFINITY"] = "1"
+os.environ["OMP_PROC_BIND"] = "FALSE"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 import io
 import base64
 import threading
