@@ -18,15 +18,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-session = new_session("u2netp")
+# Load sessions: u2net (high precision for portraits & light clothing) and u2netp (lightweight fallback)
+print("[rembg-service] Initializing AI models...")
+session_u2net = new_session("u2net")
+session_u2netp = new_session("u2netp")
+print("[rembg-service] AI models initialized successfully.")
 
 class RemoveBgRequest(BaseModel):
     image: str
+    model: str = "u2net"
 
 @app.api_route("/", methods=["GET", "HEAD"])
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
-    return {"status": "ok", "service": "rembg-service", "model": "u2netp"}
+    return {"status": "ok", "service": "rembg-service", "models": ["u2net", "u2netp"]}
 
 @app.post("/remove-bg")
 def remove_bg(req: RemoveBgRequest):
@@ -54,8 +59,11 @@ def remove_bg(req: RemoveBgRequest):
 
         input_image = Image.open(io.BytesIO(image_bytes))
 
-        # Perform fast AI background removal with lightweight model
-        output_image = remove(input_image, session=session)
+        # Select session: u2net by default for perfect clothing and shoulder outlines
+        target_session = session_u2net if req.model != "u2netp" else session_u2netp
+
+        # Perform AI background removal
+        output_image = remove(input_image, session=target_session)
 
         buffered = io.BytesIO()
         output_image.save(buffered, format="PNG")
@@ -68,6 +76,6 @@ def remove_bg(req: RemoveBgRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 10000))
-    print(f"[rembg-service] Starting lightweight Rembg microservice on port {port}...")
+    port = int(os.environ.get("PORT", 5000))
+    print(f"[rembg-service] Starting Rembg microservice with high-precision model on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
