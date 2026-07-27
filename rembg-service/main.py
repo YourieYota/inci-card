@@ -24,39 +24,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global dictionary for ONNX sessions
+# Global dictionary for ONNX sessions and thread lock
 sessions = {}
+session_lock = threading.Lock()
 
 def get_session(model_name: str = "u2netp") -> ort.InferenceSession:
-    if model_name not in sessions:
-        model_filename = f"{model_name}.onnx"
-        model_path = os.path.join(U2NET_DIR, model_filename)
-        
-        if not os.path.exists(model_path):
-            # Fallback to u2netp if specific model path doesn't exist
-            model_path = os.path.join(U2NET_DIR, "u2netp.onnx")
+    with session_lock:
+        if model_name not in sessions:
+            model_filename = f"{model_name}.onnx"
+            model_path = os.path.join(U2NET_DIR, model_filename)
+            
+            if not os.path.exists(model_path):
+                # Fallback to u2netp if specific model path doesn't exist
+                model_path = os.path.join(U2NET_DIR, "u2netp.onnx")
 
-        print(f"[rembg-service] Loading ONNX InferenceSession from {model_path}...")
-        
-        opts = ort.SessionOptions()
-        opts.intra_op_num_threads = 1
-        opts.inter_op_num_threads = 1
-        
-        session = ort.InferenceSession(
-            model_path,
-            sess_options=opts,
-            providers=['CPUExecutionProvider']
-        )
-        sessions[model_name] = session
-        
-    return sessions[model_name]
+            print(f"[rembg-service] Thread-safe loading of ONNX InferenceSession from {model_path}...")
+            
+            opts = ort.SessionOptions()
+            opts.intra_op_num_threads = 1
+            opts.inter_op_num_threads = 1
+            
+            session = ort.InferenceSession(
+                model_path,
+                sess_options=opts,
+                providers=['CPUExecutionProvider']
+            )
+            sessions[model_name] = session
+            
+        return sessions[model_name]
 
-# Non-blocking daemon background thread pre-loader so port 10000 binds instantly
+# Non-blocking daemon background thread pre-loader with thread safety
 @app.on_event("startup")
 def startup_event():
     def bg_load():
         try:
-            print("[rembg-service] Background thread pre-loading ONNX session...")
+            print("[rembg-service] Safe background thread pre-loading ONNX session...")
             get_session("u2netp")
             print("[rembg-service] Background thread pre-load complete! Model ready.")
         except Exception as err:
@@ -97,9 +99,10 @@ def process_background_removal(input_image: Image.Image, session: ort.InferenceS
     # 4. Transpose to C-contiguous (1, 3, 320, 320) tensor to prevent C++ memory access violations
     tensor = np.ascontiguousarray(np.expand_dims(arr.transpose((2, 0, 1)), 0).astype(np.float32))
     
-    # 5. Run ONNX Inference
-    input_name = session.get_inputs()[0].name
-    output = session.run(None, {input_name: tensor})[0]
+    # 5. Run ONNX Inference with thread lock to ensure single-threaded execution on Render CPU
+    with session_lock:
+        input_name = session.get_inputs()[0].name
+        output = session.run(None, {input_name: tensor})[0]
     
     # 6. Extract alpha mask tensor (1, 1, 320, 320) -> (target_w, target_h)
     mask_arr = np.ascontiguousarray(output[0, 0])
