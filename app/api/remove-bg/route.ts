@@ -53,21 +53,42 @@ export async function POST(request: NextRequest) {
       try {
         const base64Input = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
         const modelToUse = rembgServiceUrl.includes('localhost') ? 'u2net' : 'u2netp';
-        const res = await fetch(rembgServiceUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64Input, model: modelToUse }),
-          signal: AbortSignal.timeout(45000),
-        });
+        let res: Response | null = null;
+        let attempts = 0;
+        const maxAttempts = 3;
 
-        if (res.ok) {
+        while (attempts < maxAttempts) {
+          attempts++;
+          try {
+            console.log(`[remove-bg] Calling rembg service at ${rembgServiceUrl} (attempt ${attempts}/${maxAttempts})...`);
+            res = await fetch(rembgServiceUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: base64Input, model: modelToUse }),
+              signal: AbortSignal.timeout(45000),
+            });
+
+            if (res.ok) break;
+
+            const errText = await res.text();
+            console.warn(`[remove-bg] rembg service returned HTTP ${res.status} on attempt ${attempts}: ${errText.slice(0, 100)}`);
+          } catch (err: any) {
+            console.warn(`[remove-bg] rembg service connection error on attempt ${attempts}:`, err?.message || err);
+          }
+
+          if (attempts < maxAttempts) {
+            console.log(`[remove-bg] Container waking up... waiting 3s before retry ${attempts + 1}/${maxAttempts}`);
+            await new Promise((r) => setTimeout(r, 3000));
+          }
+        }
+
+        if (res && res.ok) {
           const data = await res.json();
           return NextResponse.json({ result: data.result || data.image });
         } else {
-          const errorText = await res.text();
-          console.error(`[remove-bg] rembg service returned HTTP ${res.status}: ${errorText}`);
+          const status = res ? res.status : 500;
           return NextResponse.json(
-            { error: `Erreur du service de détourage (HTTP ${res.status}): ${errorText.slice(0, 100)}` },
+            { error: `Le service de détourage se réveille (HTTP ${status}). Veuillez ré-essayer.` },
             { status: 500 }
           );
         }
