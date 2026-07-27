@@ -12,10 +12,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`[remove-bg] Processing image: ${sourceImage.slice(0, 60)}...`);
 
-    // Helper: Convert any image source (data URL, relative URL, localhost URL, remote URL) to Buffer + data URL
+    // Helper: Convert any image source (data URL, relative URL, localhost URL, remote URL) to Buffer
     let imageBuffer: Buffer;
     let mimeType = 'image/png';
-    let inputDataUrl = sourceImage;
 
     if (sourceImage.startsWith('data:')) {
       const parts = sourceImage.split(',');
@@ -39,21 +38,23 @@ export async function POST(request: NextRequest) {
       const arrayBuffer = await imgRes.arrayBuffer();
       imageBuffer = Buffer.from(arrayBuffer);
       mimeType = imgRes.headers.get('content-type') || 'image/png';
-      inputDataUrl = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
     }
 
     console.log(`[remove-bg] Image loaded successfully (${imageBuffer.length} bytes, type ${mimeType})`);
 
     // 1. OPTION 1: Native In-App JS/Node AI Background Removal (100% serverless / containerless)
+    let lastError = '';
     try {
       console.log('[remove-bg] Performing native JS background removal inside Next.js Node.js server...');
-      const blob = await removeBackground(inputDataUrl);
+      const inputBlob = new Blob([new Uint8Array(imageBuffer)], { type: mimeType });
+      const blob = await removeBackground(inputBlob);
       const outputBuffer = Buffer.from(await blob.arrayBuffer());
       const resultDataUrl = `data:image/png;base64,${outputBuffer.toString('base64')}`;
       console.log(`[remove-bg] Success! Native JS background removal returned ${outputBuffer.length} bytes transparent PNG`);
       return NextResponse.json({ result: resultDataUrl });
     } catch (nativeErr: any) {
-      console.warn('[remove-bg] Native JS background removal error:', nativeErr?.message || nativeErr);
+      lastError = nativeErr?.message || String(nativeErr);
+      console.error('[remove-bg] Native JS background removal error details:', nativeErr);
     }
 
     // 2. OPTION 2: Remove.bg Cloud API (if REMOVE_BG_API_KEY is set)
@@ -86,49 +87,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. OPTION 3: Replicate API (if REPLICATE_API_TOKEN is set)
-    const replicateToken = process.env.REPLICATE_API_TOKEN;
-    if (replicateToken) {
-      console.log('[remove-bg] Calling Replicate API...');
-      const base64Input = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-      const res = await fetch('https://api.replicate.com/v1/predictions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${replicateToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          version: 'fb8808906663f739660c9b0e271424177d6368d4f40d8778f564757c91cf967a',
-          input: { image: base64Input },
-        }),
-      });
-
-      if (res.ok) {
-        const prediction = await res.json();
-        let resultUrl = prediction.output;
-        
-        let attempts = 0;
-        while (!resultUrl && attempts < 30) {
-          await new Promise(r => setTimeout(r, 1000));
-          const checkRes = await fetch(prediction.urls.get, {
-            headers: { 'Authorization': `Token ${replicateToken}` },
-          });
-          const checkData = await checkRes.json();
-          resultUrl = checkData.output;
-          attempts++;
-        }
-
-        if (resultUrl) {
-          const finalImgRes = await fetch(resultUrl);
-          const finalBuffer = await finalImgRes.arrayBuffer();
-          const base64 = Buffer.from(finalBuffer).toString('base64');
-          return NextResponse.json({ result: `data:image/png;base64,${base64}` });
-        }
-      }
-    }
-
     return NextResponse.json(
-      { error: 'Échec du détourage d\'image natif.' },
+      { error: `Échec du détourage d'image natif: ${lastError}` },
       { status: 500 }
     );
   } catch (error: any) {
