@@ -75,25 +75,29 @@ def health():
     }
 
 def process_background_removal(input_image: Image.Image, session: ort.InferenceSession) -> Image.Image:
-    orig_w, orig_h = input_image.size
+    # 1. Downscale input image to max 800px first to guarantee lightweight processing
+    if max(input_image.width, input_image.height) > 800:
+        input_image.thumbnail((800, 800), Image.Resampling.LANCZOS)
+        
+    target_w, target_h = input_image.size
     
-    # 1. Resize to 320x320 for U2-Net ONNX model input
+    # 2. Resize to 320x320 for U2-Net ONNX model input
     img_rgb = input_image.convert("RGB").resize((320, 320), Image.Resampling.LANCZOS)
     
-    # 2. Normalize image array
+    # 3. Normalize image array
     arr = np.array(img_rgb, dtype=np.float32) / 255.0
     mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
     std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
     arr = (arr - mean) / std
     
-    # 3. Transpose to C-contiguous (1, 3, 320, 320) tensor to prevent C++ memory access violations
+    # 4. Transpose to C-contiguous (1, 3, 320, 320) tensor
     tensor = np.ascontiguousarray(np.expand_dims(arr.transpose((2, 0, 1)), 0).astype(np.float32))
     
-    # 4. Run ONNX Inference
+    # 5. Run ONNX Inference
     input_name = session.get_inputs()[0].name
     output = session.run(None, {input_name: tensor})[0]
     
-    # 5. Extract alpha mask tensor (1, 1, 320, 320) -> (320, 320)
+    # 6. Extract alpha mask tensor (1, 1, 320, 320) -> (target_w, target_h)
     mask_arr = np.ascontiguousarray(output[0, 0])
     ma = np.max(mask_arr)
     mi = np.min(mask_arr)
@@ -103,9 +107,9 @@ def process_background_removal(input_image: Image.Image, session: ort.InferenceS
         mask_arr = np.zeros_like(mask_arr)
         
     mask_img = Image.fromarray((mask_arr * 255).astype(np.uint8), mode="L")
-    mask_img = mask_img.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+    mask_img = mask_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
     
-    # 6. Apply mask as alpha channel
+    # 7. Apply mask as alpha channel
     output_image = input_image.convert("RGBA")
     output_image.putalpha(mask_img)
     return output_image
@@ -136,15 +140,11 @@ def remove_bg(req: RemoveBgRequest):
 
         input_image = Image.open(io.BytesIO(image_bytes))
 
-        # Downscale input image to max 800px to guarantee low memory usage
-        if max(input_image.width, input_image.height) > 800:
-            input_image.thumbnail((800, 800), Image.Resampling.LANCZOS)
-
         session = get_session(req.model)
         output_image = process_background_removal(input_image, session)
 
         buffered = io.BytesIO()
-        output_image.save(buffered, format="PNG", optimize=True)
+        output_image.save(buffered, format="PNG")
         output_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
         return {"result": f"data:image/png;base64,{output_base64}"}
