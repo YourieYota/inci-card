@@ -1177,49 +1177,57 @@ export default function PrintClient({ employees, templates, companyName, documen
   const gridColsCount = (2 * mmWidth + gap) <= printableWidth ? 2 : 1;
   const gridRowCount = Math.max(1, Math.floor(printableHeight / (mmHeight + gap)));
   const gridChunkSize = gridColsCount * gridRowCount;
+  const isProcessingBgRef = useRef(false);
 
   const processAutoRemoveBg = async () => {
-    let rawConfig = (template?.layoutConfig as unknown as any) || [];
-    if (typeof rawConfig === 'string') {
-      try {
-        rawConfig = JSON.parse(rawConfig);
-      } catch(e) {
-        rawConfig = [];
+    if (isProcessingBgRef.current) return;
+    isProcessingBgRef.current = true;
+
+    try {
+      let rawConfig = (template?.layoutConfig as unknown as any) || [];
+      if (typeof rawConfig === 'string') {
+        try {
+          rawConfig = JSON.parse(rawConfig);
+        } catch(e) {
+          rawConfig = [];
+        }
       }
-    }
 
-    let allElements: any[] = [];
-    if (Array.isArray(rawConfig)) {
-      allElements = rawConfig;
-    } else if (rawConfig && typeof rawConfig === 'object') {
-      allElements = [
-        ...(rawConfig.recto?.elements || []),
-        ...(rawConfig.verso?.elements || []),
-        ...(rawConfig.elements || []),
-      ];
-    }
+      let allElements: any[] = [];
+      if (Array.isArray(rawConfig)) {
+        allElements = rawConfig;
+      } else if (rawConfig && typeof rawConfig === 'object') {
+        allElements = [
+          ...(rawConfig.recto?.elements || []),
+          ...(rawConfig.verso?.elements || []),
+          ...(rawConfig.elements || []),
+        ];
+      }
 
-    const hasAutoRemoveBg = allElements.some((el: any) => !!el.autoRemoveBackground);
-    
-    if (hasAutoRemoveBg) {
-      const photos = document.querySelectorAll('.print-employee-photo');
-      if (photos.length > 0) {
+      const hasAutoRemoveBg = allElements.some((el: any) => !!el.autoRemoveBackground);
+      
+      if (hasAutoRemoveBg) {
+        const photos = Array.from(document.querySelectorAll('.print-employee-photo')) as HTMLImageElement[];
         for (let i = 0; i < photos.length; i++) {
-          const img = photos[i] as HTMLImageElement;
+          const img = photos[i];
           if (img.src && img.dataset.bgRemoved !== "true" && img.dataset.bgProcessing !== "true") {
             img.dataset.bgProcessing = "true";
             try {
-              console.log(`[PrintClient] Auto-removing background for employee photo ${i + 1}/${photos.length}...`);
+              console.log(`[PrintClient] Sequential auto-remove bg for photo ${i + 1}/${photos.length}...`);
               const res = await fetch('/api/remove-bg', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ imageData: img.src }),
               });
-              const data = await res.json();
-              if (data.result) {
-                img.src = data.result;
-                img.dataset.bgRemoved = "true";
-                console.log(`[PrintClient] Photo ${i + 1} background removed successfully.`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.result) {
+                  img.src = data.result;
+                  img.dataset.bgRemoved = "true";
+                  console.log(`[PrintClient] Photo ${i + 1}/${photos.length} background removed successfully.`);
+                }
+              } else {
+                console.warn(`[PrintClient] Photo ${i + 1} bg removal returned HTTP ${res.status}`);
               }
             } catch(err) {
               console.error("AI bg removal failed for img", i, err);
@@ -1229,6 +1237,8 @@ export default function PrintClient({ employees, templates, companyName, documen
           }
         }
       }
+    } finally {
+      isProcessingBgRef.current = false;
     }
   };
 
