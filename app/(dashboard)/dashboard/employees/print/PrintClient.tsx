@@ -1206,8 +1206,10 @@ export default function PrintClient({ employees, templates, companyName, documen
       if (photos.length > 0) {
         for (let i = 0; i < photos.length; i++) {
           const img = photos[i] as HTMLImageElement;
-          if (img.src && img.dataset.bgRemoved !== "true") {
+          if (img.src && img.dataset.bgRemoved !== "true" && img.dataset.bgProcessing !== "true") {
+            img.dataset.bgProcessing = "true";
             try {
+              console.log(`[PrintClient] Auto-removing background for employee photo ${i + 1}/${photos.length}...`);
               const res = await fetch('/api/remove-bg', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1217,9 +1219,12 @@ export default function PrintClient({ employees, templates, companyName, documen
               if (data.result) {
                 img.src = data.result;
                 img.dataset.bgRemoved = "true";
+                console.log(`[PrintClient] Photo ${i + 1} background removed successfully.`);
               }
             } catch(err) {
               console.error("AI bg removal failed for img", i, err);
+            } finally {
+              delete img.dataset.bgProcessing;
             }
           }
         }
@@ -1228,10 +1233,16 @@ export default function PrintClient({ employees, templates, companyName, documen
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer1 = setTimeout(() => {
       processAutoRemoveBg();
-    }, 600);
-    return () => clearTimeout(timer);
+    }, 800);
+    const timer2 = setTimeout(() => {
+      processAutoRemoveBg();
+    }, 2500);
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
   }, [selectedTemplateType, selectedCategoryId, employees]);
 
   const handlePrint = async () => {

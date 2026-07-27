@@ -42,8 +42,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`[remove-bg] Image loaded successfully (${imageBuffer.length} bytes, type ${mimeType})`);
 
-    // 1. OPTION 1: Self-hosted rembg microservice (defaults to local 5000 or production live microservice)
-    const rembgServiceUrl = process.env.REMBG_SERVICE_URL || 'http://localhost:5000/remove-bg';
+    // 1. OPTION 1: Self-hosted rembg microservice (defaults to local 5000 in dev or production live microservice on Render)
+    const defaultUrl = process.env.NODE_ENV === 'production'
+      ? 'https://rembg-service-h15k.onrender.com/remove-bg'
+      : 'http://localhost:5000/remove-bg';
+    const rembgServiceUrl = process.env.REMBG_SERVICE_URL || defaultUrl;
+
     if (rembgServiceUrl) {
       console.log(`[remove-bg] Calling self-hosted rembg service at ${rembgServiceUrl}`);
       try {
@@ -53,7 +57,7 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64Input, model: modelToUse }),
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(45000),
         });
 
         if (res.ok) {
