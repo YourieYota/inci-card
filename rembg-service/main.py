@@ -71,20 +71,20 @@ def process_background_removal(input_image: Image.Image, session: ort.InferenceS
     img_rgb = input_image.convert("RGB").resize((320, 320), Image.Resampling.LANCZOS)
     
     # 2. Normalize image array
-    arr = np.array(img_rgb).astype(np.float32) / 255.0
+    arr = np.array(img_rgb, dtype=np.float32) / 255.0
     mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
     std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
     arr = (arr - mean) / std
     
-    # 3. Transpose to (1, 3, 320, 320) tensor
-    tensor = np.expand_dims(arr.transpose((2, 0, 1)), 0).astype(np.float32)
+    # 3. Transpose to C-contiguous (1, 3, 320, 320) tensor to prevent C++ memory access violations
+    tensor = np.ascontiguousarray(np.expand_dims(arr.transpose((2, 0, 1)), 0).astype(np.float32))
     
     # 4. Run ONNX Inference
     input_name = session.get_inputs()[0].name
     output = session.run(None, {input_name: tensor})[0]
     
     # 5. Extract alpha mask tensor (1, 1, 320, 320) -> (320, 320)
-    mask_arr = output[0, 0]
+    mask_arr = np.ascontiguousarray(output[0, 0])
     ma = np.max(mask_arr)
     mi = np.min(mask_arr)
     if ma > mi:
