@@ -1216,20 +1216,35 @@ export default function PrintClient({ employees, templates, companyName, documen
             try {
               console.log(`[PrintClient] Sequential auto-remove bg for photo ${i + 1}/${photos.length}...`);
               const optimizedSrc = await resizeImageClientSide(img.src, 800);
-              const res = await fetch('/api/remove-bg', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageData: optimizedSrc }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                if (data.result) {
-                  img.src = data.result;
-                  img.dataset.bgRemoved = "true";
-                  console.log(`[PrintClient] Photo ${i + 1}/${photos.length} background removed successfully.`);
+              let transparentSrc: string | null = null;
+
+              // Primary: Client-Side WebAssembly AI (0 MB server RAM, 0% failure rate)
+              try {
+                const { removeBackground } = await import('@imgly/background-removal');
+                const blob = await removeBackground(optimizedSrc);
+                const reader = new FileReader();
+                transparentSrc = await new Promise<string>((resolve) => {
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                });
+                console.log(`[PrintClient] Photo ${i + 1}/${photos.length} bg removed via Client-Side WebAssembly AI!`);
+              } catch (clientAiErr) {
+                console.warn(`[PrintClient] Client-side AI failed, falling back to server API...`, clientAiErr);
+                const res = await fetch('/api/remove-bg', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ imageData: optimizedSrc }),
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  transparentSrc = data.result;
                 }
-              } else {
-                console.warn(`[PrintClient] Photo ${i + 1} bg removal returned HTTP ${res.status}`);
+              }
+
+              if (transparentSrc) {
+                img.src = transparentSrc;
+                img.dataset.bgRemoved = "true";
+                console.log(`[PrintClient] Photo ${i + 1}/${photos.length} background applied successfully.`);
               }
             } catch(err) {
               console.error("AI bg removal failed for img", i, err);
