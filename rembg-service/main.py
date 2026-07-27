@@ -80,7 +80,7 @@ class RemoveBgRequest(BaseModel):
 
 @app.api_route("/", methods=["GET", "HEAD"])
 @app.api_route("/health", methods=["GET", "HEAD"])
-def health():
+async def health():
     return {
         "status": "ok",
         "service": "pure-onnx-rembg-service",
@@ -130,7 +130,7 @@ def process_background_removal(input_image: Image.Image, session: ort.InferenceS
     return output_image
 
 @app.post("/remove-bg")
-def remove_bg(req: RemoveBgRequest):
+async def remove_bg(req: RemoveBgRequest):
     step = "start"
     try:
         step = "check_data"
