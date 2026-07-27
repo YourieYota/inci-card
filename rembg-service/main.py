@@ -10,11 +10,12 @@ os.environ["MKL_NUM_THREADS"] = "1"
 import io
 import base64
 import threading
+import traceback
 import numpy as np
 import requests
 from PIL import Image
 import onnxruntime as ort
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -43,7 +44,6 @@ def get_session(model_name: str = "u2netp") -> ort.InferenceSession:
             model_path = os.path.join(U2NET_DIR, model_filename)
             
             if not os.path.exists(model_path):
-                # Fallback to u2netp if specific model path doesn't exist
                 model_path = os.path.join(U2NET_DIR, "u2netp.onnx")
 
             print(f"[rembg-service] Thread-safe loading of ONNX InferenceSession from {model_path}...")
@@ -131,41 +131,39 @@ def process_background_removal(input_image: Image.Image, session: ort.InferenceS
 
 @app.post("/remove-bg")
 def remove_bg(req: RemoveBgRequest):
+    step = "start"
     try:
+        step = "check_data"
         data = req.image
         if not data:
-            raise HTTPException(status_code=400, detail="No image provided")
+            return {"error": "No image provided"}
 
-        image_bytes = None
+        step = "base64_decode"
+        if "base64," in data:
+            data = data.split("base64,")[1]
+        image_bytes = base64.b64decode(data)
 
-        if data.startswith("data:") or "base64," in data:
-            base64_data = data.split("base64,")[1]
-            image_bytes = base64.b64decode(base64_data)
-        elif data.startswith("http://") or data.startswith("https://"):
-            res = requests.get(data, timeout=15)
-            if res.status_code == 200:
-                image_bytes = res.content
-            else:
-                raise HTTPException(status_code=400, detail=f"Failed to fetch image HTTP {res.status_code}")
-        else:
-            image_bytes = base64.b64decode(data)
-
-        if not image_bytes:
-            raise HTTPException(status_code=400, detail="Could not read image bytes")
-
+        step = "pil_open"
         input_image = Image.open(io.BytesIO(image_bytes))
 
+        step = "get_session"
         session = get_session(req.model)
+
+        step = "process_removal"
         output_image = process_background_removal(input_image, session)
 
+        step = "save_png"
         buffered = io.BytesIO()
         output_image.save(buffered, format="PNG")
+
+        step = "base64_encode"
         output_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
         return {"result": f"data:image/png;base64,{output_base64}"}
     except Exception as e:
-        print(f"[rembg-service] Error during remove-bg: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        err_msg = f"Failed at step [{step}]: {str(e)}\n{traceback.format_exc()}"
+        print(f"[rembg-service] {err_msg}")
+        return {"error": err_msg}
 
 if __name__ == "__main__":
     import uvicorn
