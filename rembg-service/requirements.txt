@@ -1,5 +1,5 @@
-rembg[cpu]
-onnxruntime
+rembg
+onnxruntime-cpu
 fastapi
 uvicorn
 pillow
