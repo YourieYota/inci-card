@@ -2,6 +2,12 @@ import os
 
 # Set U2NET_HOME environment variable BEFORE importing rembg so it uses local pre-downloaded models
 os.environ["U2NET_HOME"] = os.path.abspath(os.path.join(os.path.dirname(__file__), ".u2net"))
+# Disable ONNXRuntime telemetry / GPU discovery logging
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,8 +33,9 @@ sessions = {}
 
 def get_session(model_name: str = "u2netp"):
     if model_name not in sessions:
-        print(f"[rembg-service] Loading ONNX session for model: {model_name}...")
-        sessions[model_name] = new_session(model_name)
+        print(f"[rembg-service] Loading ONNX CPU session for model: {model_name}...")
+        providers = ['CPUExecutionProvider']
+        sessions[model_name] = new_session(model_name, providers=providers)
     return sessions[model_name]
 
 class RemoveBgRequest(BaseModel):
