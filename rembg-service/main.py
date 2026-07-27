@@ -1,9 +1,13 @@
+import os
+
+# Set U2NET_HOME environment variable BEFORE importing rembg so it uses local pre-downloaded models
+os.environ["U2NET_HOME"] = os.path.abspath(os.path.join(os.path.dirname(__file__), ".u2net"))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import base64
 import io
-import os
 import requests
 from PIL import Image
 from rembg import remove, new_session
@@ -34,7 +38,7 @@ class RemoveBgRequest(BaseModel):
 @app.api_route("/", methods=["GET", "HEAD"])
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
-    return {"status": "ok", "service": "rembg-service", "models_loaded": list(sessions.keys())}
+    return {"status": "ok", "service": "rembg-service", "u2net_home": os.environ.get("U2NET_HOME"), "models_loaded": list(sessions.keys())}
 
 @app.post("/remove-bg")
 def remove_bg(req: RemoveBgRequest):
