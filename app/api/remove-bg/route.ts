@@ -48,10 +48,11 @@ export async function POST(request: NextRequest) {
       console.log(`[remove-bg] Calling self-hosted rembg service at ${rembgServiceUrl}`);
       try {
         const base64Input = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+        const modelToUse = rembgServiceUrl.includes('localhost') ? 'u2net' : 'u2netp';
         const res = await fetch(rembgServiceUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64Input }),
+          body: JSON.stringify({ image: base64Input, model: modelToUse }),
           signal: AbortSignal.timeout(30000),
         });
 
