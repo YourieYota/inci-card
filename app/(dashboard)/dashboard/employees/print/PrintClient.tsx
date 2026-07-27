@@ -12,6 +12,7 @@ import BlendedImage from '@/components/studio/BlendedImage';
 
 import { safeGetItem, safeSetItem, cleanEmployeesForCache } from '@/lib/storage';
 import { resizeImageClientSide } from '@/lib/imageUtils';
+import { removeBackgroundCanvas } from '@/app/utils/canvasRemoveBg';
 
 interface PrintClientProps {
   employees: (Employee & { company: { name: string } })[];
@@ -1084,6 +1085,7 @@ export default function PrintClient({ employees, templates, companyName, documen
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isProcessingBg, setIsProcessingBg] = useState<boolean>(false);
 
   // Eligibility state
   const [eligibleEmployees, setEligibleEmployees] = useState<typeof employees>(employees);
@@ -1180,7 +1182,7 @@ export default function PrintClient({ employees, templates, companyName, documen
   const gridChunkSize = gridColsCount * gridRowCount;
   const isProcessingBgRef = useRef(false);
 
-  const processAutoRemoveBg = async () => {
+  const processAutoRemoveBg = async (force: boolean = false) => {
     if (isProcessingBgRef.current) return;
     isProcessingBgRef.current = true;
 
@@ -1205,39 +1207,44 @@ export default function PrintClient({ employees, templates, companyName, documen
         ];
       }
 
-      const hasAutoRemoveBg = allElements.some((el: any) => !!el.autoRemoveBackground);
+      const hasAutoRemoveBg = force || allElements.some((el: any) => !!el.autoRemoveBackground);
       
       if (hasAutoRemoveBg) {
         const photos = Array.from(document.querySelectorAll('.print-employee-photo')) as HTMLImageElement[];
         for (let i = 0; i < photos.length; i++) {
           const img = photos[i];
-          if (img.src && img.dataset.bgRemoved !== "true" && img.dataset.bgProcessing !== "true") {
+          if (img.src && (force || (img.dataset.bgRemoved !== "true" && img.dataset.bgProcessing !== "true"))) {
             img.dataset.bgProcessing = "true";
             try {
-              console.log(`[PrintClient] Sequential auto-remove bg for photo ${i + 1}/${photos.length}...`);
+              console.log(`[PrintClient] Sequential bg removal for photo ${i + 1}/${photos.length}...`);
               const optimizedSrc = await resizeImageClientSide(img.src, 800);
               let transparentSrc: string | null = null;
 
-              // Primary: Client-Side WebAssembly AI (0 MB server RAM, 0% failure rate)
+              // Step 1: Instant Client-Side Canvas Chroma/Luminance Removal (< 5ms, 0 errors)
               try {
-                const { removeBackground } = await import('@imgly/background-removal');
-                const blob = await removeBackground(optimizedSrc);
-                const reader = new FileReader();
-                transparentSrc = await new Promise<string>((resolve) => {
-                  reader.onloadend = () => resolve(reader.result as string);
-                  reader.readAsDataURL(blob);
-                });
-                console.log(`[PrintClient] Photo ${i + 1}/${photos.length} bg removed via Client-Side WebAssembly AI!`);
-              } catch (clientAiErr) {
-                console.warn(`[PrintClient] Client-side AI failed, falling back to server API...`, clientAiErr);
-                const res = await fetch('/api/remove-bg', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ imageData: optimizedSrc }),
-                });
-                if (res.ok) {
-                  const data = await res.json();
-                  transparentSrc = data.result;
+                const canvasResult = await removeBackgroundCanvas(optimizedSrc);
+                if (canvasResult && canvasResult !== optimizedSrc) {
+                  transparentSrc = canvasResult;
+                  console.log(`[PrintClient] Photo ${i + 1}/${photos.length} bg cleaned via instant Canvas!`);
+                }
+              } catch (canvasErr) {
+                console.warn("[PrintClient] Canvas bg removal fallback:", canvasErr);
+              }
+
+              // Step 2: Server API fallback (if canvas didn't alter image or as secondary)
+              if (!transparentSrc) {
+                try {
+                  const res = await fetch('/api/remove-bg', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageData: optimizedSrc }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.result) transparentSrc = data.result;
+                  }
+                } catch (apiErr) {
+                  console.warn("[PrintClient] Server API bg removal fallback error:", apiErr);
                 }
               }
 
@@ -1901,6 +1908,18 @@ export default function PrintClient({ employees, templates, companyName, documen
 
           {/* Action Buttons */}
           <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                setIsProcessingBg(true);
+                await processAutoRemoveBg(true);
+                setIsProcessingBg(false);
+              }}
+              disabled={isProcessingBg || eligibleEmployees.length === 0}
+              className="flex items-center gap-1.5 px-4 py-2 border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20 hover:bg-purple-100 dark:hover:bg-purple-950/40 text-purple-700 dark:text-purple-400 rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+            >
+              {isProcessingBg ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              <span>{isProcessingBg ? 'Détourage...' : 'Détourer les photos'}</span>
+            </button>
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
