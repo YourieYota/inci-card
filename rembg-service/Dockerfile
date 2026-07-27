@@ -18,7 +18,8 @@ RUN mkdir -p /root/.u2net && \
 
 COPY . .
 
-ENV PORT=5000
+# Let Render dynamically assign $PORT (defaults to 5000 if PORT is unset)
 EXPOSE 5000
+EXPOSE 10000
 
 CMD ["python", "main.py"]
