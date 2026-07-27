@@ -9,7 +9,7 @@ import Toolbar from './Toolbar';
 import PropertiesPanel from './PropertiesPanel';
 import { getTemplate, saveTemplate, createCompany, getCompanyFields } from '@/app/actions/templates';
 import { getCardCategories, getCardFormats, getCardPhysicalTypes, getCardDocumentTypes } from '@/app/actions/cards';
-import { safeSetItem, safeGetItem } from '@/lib/storage';
+import { safeSetItem, safeGetItem, cleanTemplateForCache } from '@/lib/storage';
 
 const getDefaultElements = (width: number, height: number, type?: string): StudioElement[] => {
   const isPortrait = height > width;
@@ -1096,7 +1096,7 @@ export default function StudioClient({
         // Cache fields and template locally
         safeSetItem(`inci-cache:fields:${selectedCompanyId}`, JSON.stringify(fields));
         if (template) {
-          safeSetItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`, JSON.stringify(template));
+          safeSetItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`, JSON.stringify(cleanTemplateForCache(template)));
         } else {
           localStorage.removeItem(`inci-cache:template:${selectedCompanyId}:${cardType}:${selectedCategoryId || 'default'}`);
         }

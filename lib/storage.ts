@@ -97,9 +97,68 @@ export function safeRemoveItem(key: string): boolean {
 export function cleanEmployeesForCache(employees: any[]): any[] {
   if (!Array.isArray(employees)) return [];
   return employees.map((emp) => {
-    if (emp && emp.photoUrl && emp.photoUrl.startsWith('data:')) {
-      return { ...emp, photoUrl: null };
+    let cleanEmp = { ...emp };
+    
+    // Strip large strings from known fields
+    if (cleanEmp.photoUrl && cleanEmp.photoUrl.startsWith('data:')) cleanEmp.photoUrl = null;
+    if (cleanEmp.idCardRectoUrl && cleanEmp.idCardRectoUrl.startsWith('data:')) cleanEmp.idCardRectoUrl = null;
+    if (cleanEmp.idCardVersoUrl && cleanEmp.idCardVersoUrl.startsWith('data:')) cleanEmp.idCardVersoUrl = null;
+    if (cleanEmp.signatureUrl && cleanEmp.signatureUrl.startsWith('data:')) cleanEmp.signatureUrl = null;
+    
+    // Deep strip data: URIs in customFields
+    if (cleanEmp.customFields) {
+      try {
+        const fields = typeof cleanEmp.customFields === 'string' ? JSON.parse(cleanEmp.customFields) : cleanEmp.customFields;
+        let modified = false;
+        for (const k in fields) {
+          if (typeof fields[k] === 'string' && fields[k].startsWith('data:')) {
+            fields[k] = '[base64_omitted_for_cache]';
+            modified = true;
+          }
+        }
+        if (modified) {
+          cleanEmp.customFields = typeof cleanEmp.customFields === 'string' ? JSON.stringify(fields) : fields;
+        }
+      } catch(e) {}
     }
-    return emp;
+    return cleanEmp;
   });
+}
+
+/**
+ * Strips bulky base64 data URLs from template elements (like huge background images)
+ * before storing them in localStorage cache.
+ */
+export function cleanTemplateForCache(template: any): any {
+  if (!template) return template;
+  try {
+    let cleanTpl = { ...template };
+    let config = cleanTpl.layoutConfig;
+    if (typeof config === 'string') {
+      config = JSON.parse(config);
+    }
+    if (config) {
+      const processElements = (elements: any[]) => {
+        if (!Array.isArray(elements)) return;
+        elements.forEach(el => {
+          if (el.type === 'image' && el.src && el.src.startsWith('data:')) {
+            el.src = ''; // Clear heavy image source for offline cache
+          }
+        });
+      };
+      
+      if (Array.isArray(config)) {
+        processElements(config);
+      } else if (typeof config === 'object') {
+        processElements(config.elements);
+        processElements(config.recto?.elements);
+        processElements(config.verso?.elements);
+      }
+      
+      cleanTpl.layoutConfig = typeof cleanTpl.layoutConfig === 'string' ? JSON.stringify(config) : config;
+    }
+    return cleanTpl;
+  } catch (e) {
+    return template;
+  }
 }

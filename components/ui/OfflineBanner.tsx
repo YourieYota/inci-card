@@ -5,7 +5,7 @@ import { WifiOff, Wifi, X, RefreshCw, Loader2 } from 'lucide-react';
 import { getOfflineQueue, clearOfflineQueue, OfflineMutation } from '@/lib/offlineQueue';
 import { syncOfflineMutations } from '@/app/actions/sync';
 import { fetchAllPreCacheData } from '@/app/actions/preCache';
-import { safeSetItem, cleanEmployeesForCache } from '@/lib/storage';
+import { safeSetItem, cleanEmployeesForCache, cleanTemplateForCache } from '@/lib/storage';
 
 export default function OfflineBanner() {
   const [isOnline, setIsOnline] = useState(true);
@@ -111,7 +111,7 @@ export default function OfflineBanner() {
             // 5. Templates by company & type
             if (data.templates) {
               data.templates.forEach(t => {
-                safeSetItem(`inci-cache:template:${t.companyId}:${t.type}`, JSON.stringify(t));
+                safeSetItem(`inci-cache:template:${t.companyId}:${t.type}`, JSON.stringify(cleanTemplateForCache(t)));
               });
             }
           }

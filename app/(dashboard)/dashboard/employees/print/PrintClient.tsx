@@ -10,7 +10,8 @@ import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
 import BlendedImage from '@/components/studio/BlendedImage';
 
-import { safeGetItem, safeSetItem } from '@/lib/storage';
+import { safeGetItem, safeSetItem, cleanEmployeesForCache } from '@/lib/storage';
+import { resizeImageClientSide } from '@/lib/imageUtils';
 
 interface PrintClientProps {
   employees: (Employee & { company: { name: string } })[];
@@ -1214,10 +1215,11 @@ export default function PrintClient({ employees, templates, companyName, documen
             img.dataset.bgProcessing = "true";
             try {
               console.log(`[PrintClient] Sequential auto-remove bg for photo ${i + 1}/${photos.length}...`);
+              const optimizedSrc = await resizeImageClientSide(img.src, 800);
               const res = await fetch('/api/remove-bg', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageData: img.src }),
+                body: JSON.stringify({ imageData: optimizedSrc }),
               });
               if (res.ok) {
                 const data = await res.json();
