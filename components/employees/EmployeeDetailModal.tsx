@@ -180,8 +180,15 @@ export default function EmployeeDetailModal({
           return;
         }
 
+        const isTransparentFormat = file.type === 'image/png' || file.type === 'image/webp' || file.type === 'image/gif';
+        if (!isTransparentFormat) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+        }
+
         ctx.drawImage(img, 0, 0, width, height);
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+        const exportFormat = isTransparentFormat ? 'image/png' : 'image/jpeg';
+        const compressedBase64 = canvas.toDataURL(exportFormat, isTransparentFormat ? undefined : 0.85);
         setUploadedPhoto(compressedBase64);
       };
       img.onerror = () => {

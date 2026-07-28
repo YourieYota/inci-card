@@ -251,9 +251,17 @@ export default function EmployeesClient({
               }
               canvas.width = width;
               canvas.height = height;
+              const isPngOrWebp = blob.type.includes('png') || blob.type.includes('webp') || base64.startsWith('data:image/png') || base64.startsWith('data:image/webp');
               const ctx = canvas.getContext('2d');
-              if (ctx) ctx.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.8)); // 80% quality JPEG
+              if (ctx) {
+                if (!isPngOrWebp) {
+                  ctx.fillStyle = '#FFFFFF';
+                  ctx.fillRect(0, 0, width, height);
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+              }
+              const exportFormat = isPngOrWebp ? 'image/png' : 'image/jpeg';
+              resolve(canvas.toDataURL(exportFormat, isPngOrWebp ? undefined : 0.8));
             };
             img.onerror = reject;
             img.src = URL.createObjectURL(blob);

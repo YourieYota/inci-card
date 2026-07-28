@@ -48,16 +48,22 @@ export async function resizeImageClientSide(src: string, maxDimension: number = 
         return resolve(src); // Fallback to original if canvas fails
       }
 
-      // Draw white background in case the image is transparent PNG
-      // so it converts safely to JPEG
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, width, height);
+      const isPngOrWebp = src.startsWith('data:image/png') || 
+                          src.startsWith('data:image/webp') || 
+                          src.toLowerCase().includes('.png') || 
+                          src.toLowerCase().includes('.webp');
+
+      if (!isPngOrWebp) {
+        // Draw white background for non-transparent formats so it converts cleanly to JPEG
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+      }
 
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Export as heavily compressed JPEG (0.8 quality = perfect balance of size/quality)
-      // Usually results in < 150KB size.
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      // Export as PNG if transparent, or JPEG if not transparent
+      const exportFormat = isPngOrWebp ? 'image/png' : 'image/jpeg';
+      const dataUrl = canvas.toDataURL(exportFormat, isPngOrWebp ? undefined : 0.8);
       resolve(dataUrl);
     };
 
