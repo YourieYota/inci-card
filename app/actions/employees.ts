@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
+import { extractCategoryFromDynamicData } from '@/lib/categoryUtils';
 import crypto from 'crypto';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
@@ -948,6 +949,12 @@ export async function restoreEmployees(employees: any[]) {
  * Génère un numéro de carte unique basé sur le cardCode du type de document.
  * Format: {cardCode}-{séquence} (ex: BADGE-0001)
  */
+
+
+/**
+ * Génère un numéro de carte unique basé sur le cardCode du type de document ou de la catégorie.
+ * Format: {cardCode}{séquence} (ex: BADGE0001, AGRAC0001)
+ */
 async function generateCardNumber(companyId: string, templateType: string, categoryId?: string, overridePrefix?: string): Promise<string> {
   let prefix = overridePrefix || templateType.toUpperCase();
 
@@ -959,19 +966,39 @@ async function generateCardNumber(companyId: string, templateType: string, categ
       category = await prisma.cardCategory.findUnique({
         where: { id: categoryId },
       });
-    } else {
+    }
+    
+    if (!category) {
       category = await prisma.cardCategory.findFirst({
         where: {
-          companyId,
-          OR: [
-            { name: { equals: categoryId, mode: 'insensitive' } },
-            { cardCode: { equals: categoryId, mode: 'insensitive' } }
+          AND: [
+            {
+              OR: [
+                { companyId },
+                { companyId: null }
+              ]
+            },
+            {
+              OR: [
+                { id: categoryId },
+                { name: { equals: categoryId, mode: 'insensitive' } },
+                { slug: { equals: categoryId, mode: 'insensitive' } },
+                { cardCode: { equals: categoryId, mode: 'insensitive' } }
+              ]
+            }
           ]
         }
       });
     }
-    if (category?.cardCode) {
-      prefix = category.cardCode;
+
+    if (category) {
+      if (category.cardCode && category.cardCode.trim() !== '') {
+        prefix = category.cardCode.trim();
+      } else if (category.slug) {
+        prefix = category.slug.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      } else if (category.name) {
+        prefix = category.name.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      }
     }
   }
 
@@ -987,8 +1014,8 @@ async function generateCardNumber(companyId: string, templateType: string, categ
       },
     });
 
-    if (docType?.cardCode) {
-      prefix = docType.cardCode;
+    if (docType?.cardCode && docType.cardCode.trim() !== '') {
+      prefix = docType.cardCode.trim();
     }
   }
 
@@ -1132,11 +1159,7 @@ export async function confirmPrint(
       let cardNumber = emp.cardNumber;
       if (!cardNumber) {
         // Find category from dynamicData if not provided
-        let catId = categoryId;
-        if (!catId && emp.dynamicData) {
-           const d = emp.dynamicData as any;
-           catId = d.categorie_id || d.category_id || d.Category;
-        }
+        const catId = categoryId || extractCategoryFromDynamicData(emp.dynamicData);
         cardNumber = await generateCardNumber(emp.companyId, templateType, catId);
       }
 
@@ -1254,18 +1277,7 @@ export async function requestReprint(employeeId: string, reason: string, templat
     }
 
     // Generate a new card number immediately so it displays correctly on the print page preview!
-    let catId = undefined;
-    if (emp.dynamicData) {
-       const d = emp.dynamicData as any;
-       // Find any key that matches category/catégorie (case-insensitive, ignoring accents)
-       const catKey = Object.keys(d).find(k => {
-         const norm = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-         return norm === 'categorie' || norm === 'category';
-       });
-       if (catKey) {
-         catId = d[catKey];
-       }
-    }
+    const catId = extractCategoryFromDynamicData(emp.dynamicData);
 
     // Extract existing prefix from current cardNumber to ensure we respect it!
     let overridePrefix: string | undefined = undefined;
@@ -1419,8 +1431,7 @@ export async function ensureCardNumbers(employeeIds: string[], defaultTemplateTy
   });
 
   for (const emp of employees) {
-    const d = emp.dynamicData as any;
-    const catId = d?.categorie_id || d?.category_id || d?.Category;
+    const catId = extractCategoryFromDynamicData(emp.dynamicData);
     const cardNumber = await generateCardNumber(emp.companyId, defaultTemplateType, catId);
     await prisma.employee.update({
       where: { id: emp.id },
@@ -1432,22 +1443,50 @@ export async function assignCardNumbersForCategory(employeeIds: string[], catego
   try {
     console.log(`[assignCardNumbersForCategory] called with ${employeeIds.length} ids, catId=${categoryId}, type=${templateType}`);
     
+    let targetPrefix: string | undefined = undefined;
+    if (categoryId) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
+      let cat = null;
+      if (isUuid) {
+        cat = await prisma.cardCategory.findUnique({ where: { id: categoryId } });
+      }
+      if (!cat) {
+        cat = await prisma.cardCategory.findFirst({
+          where: {
+            AND: [
+              { OR: [{ companyId: null }, { companyId: { not: null } }] },
+              { OR: [{ id: categoryId }, { name: { equals: categoryId, mode: 'insensitive' } }, { slug: { equals: categoryId, mode: 'insensitive' } }, { cardCode: { equals: categoryId, mode: 'insensitive' } }] }
+            ]
+          }
+        });
+      }
+      if (cat) {
+        if (cat.cardCode && cat.cardCode.trim() !== '') {
+          targetPrefix = cat.cardCode.trim();
+        } else if (cat.slug) {
+          targetPrefix = cat.slug.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        } else if (cat.name) {
+          targetPrefix = cat.name.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        }
+      }
+    }
+
     const employees = await prisma.employee.findMany({
       where: {
         id: { in: employeeIds },
-        OR: [
-          { cardNumber: null },
-          { cardNumber: { startsWith: 'BADGE' } }
-        ]
       },
     });
     
-    console.log(`[assignCardNumbersForCategory] Found ${employees.length} employees with eligible card number to update`);
+    console.log(`[assignCardNumbersForCategory] Found ${employees.length} employees to check/assign`);
     
     const updatedNumbers: Record<string, string> = {};
     if (employees.length === 0) return updatedNumbers;
 
     for (const emp of employees) {
+      if (targetPrefix && emp.cardNumber && emp.cardNumber.startsWith(targetPrefix)) {
+        updatedNumbers[emp.id] = emp.cardNumber;
+        continue;
+      }
       const cardNumber = await generateCardNumber(emp.companyId, templateType, categoryId);
       console.log(`[assignCardNumbersForCategory] Generated card number "${cardNumber}" for employee ${emp.id}`);
       await prisma.employee.update({

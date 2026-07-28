@@ -10,6 +10,7 @@ import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
 import BlendedImage from '@/components/studio/BlendedImage';
 
+import { extractCategoryFromDynamicData } from '@/lib/categoryUtils';
 import { safeGetItem, safeSetItem, cleanEmployeesForCache } from '@/lib/storage';
 import { resizeImageClientSide } from '@/lib/imageUtils';
 import { removeBackgroundCanvas } from '@/app/utils/canvasRemoveBg';
@@ -1032,12 +1033,12 @@ export default function PrintClient({ employees, templates, companyName, documen
     if (assignedFlag === key) return;
     
     if (localEmployees.length > 0) {
-      const employeesToAssign = localEmployees.filter(e => !e.cardNumber || e.cardNumber.startsWith('BADGE'));
+      const employeesToAssign = localEmployees;
       console.log("[assignCardNumbers] Check to assign:", employeesToAssign.length, "employees");
       if (employeesToAssign.length > 0) {
         const categoryMap: Record<string, string[]> = {};
         employeesToAssign.forEach(emp => {
-          const empCatId = (emp.dynamicData as any)?.categorie_id || (emp.dynamicData as any)?.category_id || selectedCategoryId || '';
+          const empCatId = extractCategoryFromDynamicData(emp.dynamicData) || selectedCategoryId || '';
           if (empCatId) {
             if (!categoryMap[empCatId]) {
               categoryMap[empCatId] = [];
@@ -1542,6 +1543,28 @@ export default function PrintClient({ employees, templates, companyName, documen
     const selectedCategoryName = categories.find((c) => c.id === selectedCategoryId)?.name;
     const selectedPhysicalTypeName = physicalTypes.find((p) => p.id === selectedPhysicalTypeId)?.name;
 
+    const getEmpCategoryCardCode = (emp: any) => {
+      const dynamicCat = extractCategoryFromDynamicData(emp.dynamicData);
+      let cat: any = undefined;
+      if (dynamicCat) {
+        cat = categories.find((c: any) => 
+          c.id === dynamicCat || 
+          c.name?.toLowerCase() === dynamicCat.toLowerCase() || 
+          c.slug?.toLowerCase() === dynamicCat.toLowerCase() ||
+          c.cardCode?.toLowerCase() === dynamicCat.toLowerCase()
+        );
+      }
+      if (!cat && selectedCategoryId) {
+        cat = categories.find((c: any) => c.id === selectedCategoryId);
+      }
+      if (cat) {
+        if (cat.cardCode && cat.cardCode.trim() !== '') return cat.cardCode.trim();
+        if (cat.slug) return cat.slug.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (cat.name) return cat.name.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      }
+      return undefined;
+    };
+
     if (printFormat === 'CARD') {
       if (layoutMode === 'recto-only') {
         return eligibleEmployees.map((emp, idx) => (
@@ -1554,7 +1577,7 @@ export default function PrintClient({ employees, templates, companyName, documen
               selectedPhysicalTypeName={selectedPhysicalTypeName} 
               validityValue={validityValue} 
               validityUnit={validityUnit} 
-              categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+              categoryCardCode={getEmpCategoryCardCode(emp)}
             />
           </div>
         ));
@@ -1570,7 +1593,7 @@ export default function PrintClient({ employees, templates, companyName, documen
               selectedPhysicalTypeName={selectedPhysicalTypeName} 
               validityValue={validityValue} 
               validityUnit={validityUnit} 
-              categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+              categoryCardCode={getEmpCategoryCardCode(emp)}
             />
           </div>
         ));
@@ -1586,7 +1609,7 @@ export default function PrintClient({ employees, templates, companyName, documen
             selectedPhysicalTypeName={selectedPhysicalTypeName} 
             validityValue={validityValue} 
             validityUnit={validityUnit} 
-            categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+            categoryCardCode={getEmpCategoryCardCode(emp)}
           />
         </div>,
         <div key={`card-verso-${idx}`} className="print-page-card print-page-card-preview">
@@ -1598,7 +1621,7 @@ export default function PrintClient({ employees, templates, companyName, documen
             selectedPhysicalTypeName={selectedPhysicalTypeName} 
             validityValue={validityValue} 
             validityUnit={validityUnit} 
-            categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+            categoryCardCode={getEmpCategoryCardCode(emp)}
           />
         </div>
       ]);
@@ -1625,7 +1648,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                   selectedPhysicalTypeName={selectedPhysicalTypeName}
                   validityValue={validityValue}
                   validityUnit={validityUnit}
-                  categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+                  categoryCardCode={getEmpCategoryCardCode(emp)}
                 />
               </div>
               <div className="flex flex-col items-center">
@@ -1638,7 +1661,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                   selectedPhysicalTypeName={selectedPhysicalTypeName}
                   validityValue={validityValue}
                   validityUnit={validityUnit}
-                  categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+                  categoryCardCode={getEmpCategoryCardCode(emp)}
                 />
               </div>
             </div>
@@ -1666,7 +1689,7 @@ export default function PrintClient({ employees, templates, companyName, documen
               selectedPhysicalTypeName={selectedPhysicalTypeName}
               validityValue={validityValue}
               validityUnit={validityUnit}
-              categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+              categoryCardCode={getEmpCategoryCardCode(emp)}
             />
           ))}
         </div>
@@ -1692,7 +1715,7 @@ export default function PrintClient({ employees, templates, companyName, documen
               selectedPhysicalTypeName={selectedPhysicalTypeName}
               validityValue={validityValue}
               validityUnit={validityUnit}
-              categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+              categoryCardCode={getEmpCategoryCardCode(emp)}
             />
           ))}
         </div>
@@ -1719,7 +1742,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                 selectedPhysicalTypeName={selectedPhysicalTypeName}
                 validityValue={validityValue}
                 validityUnit={validityUnit}
-                categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+                categoryCardCode={getEmpCategoryCardCode(emp)}
               />
             ))}
           </div>
@@ -1742,7 +1765,7 @@ export default function PrintClient({ employees, templates, companyName, documen
                 selectedPhysicalTypeName={selectedPhysicalTypeName}
                 validityValue={validityValue}
                 validityUnit={validityUnit}
-                categoryCardCode={categories.find((c: any) => c.id === selectedCategoryId || c.id === (emp.dynamicData as any)?.categorie_id || c.id === (emp.dynamicData as any)?.category_id)?.cardCode}
+                categoryCardCode={getEmpCategoryCardCode(emp)}
               />
             ))}
           </div>
