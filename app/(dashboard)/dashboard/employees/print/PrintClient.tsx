@@ -1322,53 +1322,74 @@ export default function PrintClient({ employees, templates, companyName, documen
         format: isA4 ? 'a4' : [mmWidth, mmHeight]
       });
 
-      const elements = document.querySelectorAll(isA4 ? '.print-page-preview' : '.print-page-card-preview');
+      const elements = Array.from(document.querySelectorAll(isA4 ? '.print-page-preview' : '.print-page-card-preview')) as HTMLElement[];
       
       if (elements.length === 0) {
         alert("Aucune carte à télécharger.");
         return;
       }
 
+      let addedPagesCount = 0;
+
       for (let i = 0; i < elements.length; i++) {
-        const el = elements[i] as HTMLElement;
-        const width = el.offsetWidth;
-        const height = el.offsetHeight;
+        const el = elements[i];
+        const width = el.offsetWidth || el.clientWidth || (isA4 ? 794 : template.width);
+        const height = el.offsetHeight || el.clientHeight || (isA4 ? 1123 : template.height);
         
-        console.log(`Generating image for element ${i}, dimensions: ${width}x${height}`);
+        if (!width || !height) continue;
+
+        console.log(`Generating image for page/card ${i + 1}/${elements.length}, dimensions: ${width}x${height}`);
         
-        // Use html-to-image to get the data url directly
-        const imgData = await htmlToImageFn.toPng(el, {
-          pixelRatio: 3, // High resolution
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          width: width,
-          height: height,
-          canvasWidth: width * 3,
-          canvasHeight: height * 3,
-          style: {
-            transform: 'none',
-            margin: '0',
-            position: 'relative',
-            left: '0',
-            top: '0',
-            overflow: 'visible'
+        try {
+          // Use html-to-image to get the data url directly
+          const imgData = await htmlToImageFn.toPng(el, {
+            pixelRatio: 2, // Stable high resolution without canvas OOM
+            useCORS: true,
+            cacheBust: false,
+            skipFonts: true, // Prevent font CORS timeouts on multi-page generation
+            backgroundColor: '#ffffff',
+            width: width,
+            height: height,
+            canvasWidth: width * 2,
+            canvasHeight: height * 2,
+            filter: (node: any) => {
+              if (node.classList && node.classList.contains('no-print')) return false;
+              return true;
+            },
+            style: {
+              transform: 'none',
+              margin: '0',
+              position: 'relative',
+              left: '0',
+              top: '0',
+              overflow: 'visible'
+            }
+          });
+          
+          if (!imgData || imgData.length < 100) continue;
+
+          if (addedPagesCount > 0) {
+            pdf.addPage(
+              isA4 ? 'a4' : [mmWidth, mmHeight], 
+              isA4 ? 'portrait' : (mmWidth > mmHeight ? 'landscape' : 'portrait')
+            );
           }
-        });
-        
-        console.log(`Image data length for element ${i}: ${imgData.length}`);
-        
-        if (i > 0) {
-          pdf.addPage(isA4 ? 'a4' : [mmWidth, mmHeight], isA4 ? 'portrait' : (mmWidth > mmHeight ? 'landscape' : 'portrait'));
+          
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+          addedPagesCount++;
+        } catch (pageErr: any) {
+          console.warn(`[handleDownloadPdf] Warning: Failed to render page ${i + 1}:`, pageErr);
         }
-        
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        console.log(`Adding to PDF page ${i}, pdf dimensions: ${pdfWidth}x${pdfHeight}`);
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
       
+      if (addedPagesCount === 0) {
+        alert("Impossible de générer les images des cartes. Veuillez réessayer.");
+        return;
+      }
+
       pdf.save(`Badges_${localCompanyName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
     } catch (error: any) {
       console.error("Erreur génération PDF détails:", error);
