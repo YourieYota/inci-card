@@ -224,7 +224,43 @@ export async function saveTemplate({
   layoutConfig: any;
 }) {
   try {
-    const cleanCategoryId = categoryId || null;
+    let cleanCategoryId = categoryId || null;
+
+    if (cleanCategoryId) {
+      const cat = await prisma.cardCategory.findUnique({
+        where: { id: cleanCategoryId },
+      });
+      // If the category belongs to a DIFFERENT company, resolve or copy it for target company
+      if (cat && cat.companyId && cat.companyId !== companyId) {
+        let matchingCat = await prisma.cardCategory.findFirst({
+          where: {
+            OR: [
+              { companyId, slug: cat.slug },
+              { companyId: null, slug: cat.slug }
+            ]
+          }
+        });
+
+        if (!matchingCat) {
+          matchingCat = await prisma.cardCategory.create({
+            data: {
+              name: cat.name,
+              slug: cat.slug,
+              color: cat.color,
+              description: cat.description,
+              validityUnit: cat.validityUnit,
+              validityValue: cat.validityValue,
+              formatId: cat.formatId,
+              cardCode: cat.cardCode,
+              documentTypeSlug: cat.documentTypeSlug,
+              companyId,
+            }
+          });
+        }
+        cleanCategoryId = matchingCat.id;
+      }
+    }
+
     const existing = await prisma.cardTemplate.findFirst({
       where: {
         companyId,
@@ -243,8 +279,8 @@ export async function saveTemplate({
           layoutConfig,
         },
       });
-    revalidatePath('/dashboard', 'layout');
-    return result;
+      revalidatePath('/dashboard', 'layout');
+      return result;
     } else {
       const result = await prisma.cardTemplate.create({
         data: {
@@ -257,12 +293,12 @@ export async function saveTemplate({
           layoutConfig,
         },
       });
-    revalidatePath('/dashboard', 'layout');
-    return result;
+      revalidatePath('/dashboard', 'layout');
+      return result;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Error saving template:', error);
-    throw new Error('Impossible de sauvegarder le modèle de carte');
+    throw new Error(`Impossible de sauvegarder le modèle de carte: ${error?.message || error}`);
   }
 }
 

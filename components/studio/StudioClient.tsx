@@ -520,7 +520,34 @@ export default function StudioClient({
   const [transferTargetCompany, setTransferTargetCompany] = useState<string>('');
   const [transferTargetType, setTransferTargetType] = useState<string>('');
   const [transferTargetCategory, setTransferTargetCategory] = useState<string>('');
+  const [targetCompanyCategories, setTargetCompanyCategories] = useState<any[]>([]);
   const [isTransferring, setIsTransferring] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!showTransferModal || !transferTargetCompany) return;
+    
+    const loadTargetCategories = async () => {
+      try {
+        const targetCats = await getCardCategories(transferTargetCompany);
+        setTargetCompanyCategories(targetCats);
+
+        // Auto-match current selected category by slug if possible
+        if (selectedCategoryId) {
+          const currentCat = categories.find((c) => c.id === selectedCategoryId);
+          if (currentCat) {
+            const matchingCat = targetCats.find((tc) => tc.slug === currentCat.slug || tc.name.toLowerCase() === currentCat.name.toLowerCase());
+            if (matchingCat) {
+              setTransferTargetCategory(matchingCat.id);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load target company categories:", err);
+      }
+    };
+
+    loadTargetCategories();
+  }, [transferTargetCompany, showTransferModal]);
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -1833,7 +1860,7 @@ export default function StudioClient({
                   className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:ring-2 focus:ring-indigo-500/30 outline-none transition"
                 >
                   <option value="">(Générique / Par défaut)</option>
-                  {categories
+                  {(targetCompanyCategories.length > 0 ? targetCompanyCategories : categories)
                     .filter((cat) => !cat.documentTypeSlug || cat.documentTypeSlug === transferTargetType)
                     .map((cat) => (
                       <option key={cat.id} value={cat.id}>
