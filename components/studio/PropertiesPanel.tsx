@@ -309,6 +309,21 @@ export default function PropertiesPanel({
                     className="w-full h-8 px-2.5 text-xs border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
+                <div className="col-span-2 mt-1">
+                  <label className="block text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-1" title="Ajoute un espacement sous cet élément et pousse automatiquement tous les éléments suivants vers le bas !">
+                    Marge sous cet élément (px)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="200"
+                    value={(selectedElement as any).marginBottom ?? 0}
+                    onChange={(e) => onUpdateElement({ ...selectedElement, marginBottom: parseInt(e.target.value) || 0 })}
+                    className="w-full h-8 px-2.5 text-xs font-bold border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/50 dark:bg-indigo-950/30 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500"
+                    placeholder="Ex: 8"
+                  />
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1">Pousse automatiquement les champs suivants vers le bas sans décalages manuels.</p>
+                </div>
               </>
             )}
           </div>
