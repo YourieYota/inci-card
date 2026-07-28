@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Sparkles, Loader2 } from 'lucide-react';
+import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Sparkles, Loader2, RotateCcw } from 'lucide-react';
 // Dynamic import used inside handleRemoveBackground to avoid Turbopack bundling issues
 import { StudioElement } from './Canvas';
 
@@ -23,6 +23,7 @@ interface PropertiesPanelProps {
   onMoveElement?: (direction: 'front' | 'back' | 'up' | 'down') => void;
   availableGroups?: { id: string; name: string }[];
   onUpdateGroupChildren?: (groupId: string, childFlexMode: string) => void;
+  onResetGroupOffsets?: (groupId: string) => void;
 }
 
 interface DimensionInputProps {
@@ -110,6 +111,7 @@ export default function PropertiesPanel({
   onMoveElement,
   availableGroups = [],
   onUpdateGroupChildren,
+  onResetGroupOffsets,
 }: PropertiesPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -1018,6 +1020,18 @@ export default function PropertiesPanel({
                 <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1.5 leading-tight">
                   Cliquez sur "Ajuster" pour coller les textes les uns aux autres sans espaces inutiles.
                 </p>
+
+                {onResetGroupOffsets && (
+                  <button
+                    type="button"
+                    onClick={() => onResetGroupOffsets(selectedElement.id)}
+                    className="w-full mt-3 py-2 px-3 text-xs font-bold rounded-xl bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 transition flex items-center justify-center gap-2 shadow-sm"
+                    title="Remet le décalage (X=0, Y=0) à zéro pour tous les éléments de ce groupe"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Réaligner le groupe (Effacer les décalages X/Y)
+                  </button>
+                )}
               </div>
             </div>
           )}

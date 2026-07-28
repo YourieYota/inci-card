@@ -1743,6 +1743,15 @@ export default function StudioClient({
                 });
                 handleUpdateElements(updatedElements, true);
               }}
+              onResetGroupOffsets={(groupId) => {
+                const updatedElements = elements.map((el) => {
+                  if (el.parentId === groupId) {
+                    return { ...el, offsetX: 0, offsetY: 0 };
+                  }
+                  return el;
+                });
+                handleUpdateElements(updatedElements, true);
+              }}
             />
           </div>
         </div>
