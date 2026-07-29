@@ -241,6 +241,31 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     });
   };
 
+  useEffect(() => {
+    setMounted(true);
+    fetchStats();
+    loadAutoBackupData();
+    // Load local storage preferences if any
+    const savedLang = localStorage.getItem('pref_lang');
+    if (savedLang) setLang(savedLang);
+    const savedFormat = localStorage.getItem('pref_format');
+    if (savedFormat) setDefaultFormat(savedFormat);
+    const savedDpi = localStorage.getItem('pref_high_dpi');
+    if (savedDpi) setHighDpi(savedDpi === 'true');
+    const savedOffsetX = localStorage.getItem('pref_offset_x');
+    if (savedOffsetX) setOffsetX(parseFloat(savedOffsetX) || 0);
+    const savedOffsetY = localStorage.getItem('pref_offset_y');
+    if (savedOffsetY) setOffsetY(parseFloat(savedOffsetY) || 0);
+    const savedHelpers = localStorage.getItem('pref_align_helpers');
+    if (savedHelpers) setAlignHelpers(savedHelpers === 'true');
+    const savedEmail = localStorage.getItem('pref_notify_email');
+    if (savedEmail) setEmailNotify(savedEmail === 'true');
+    const savedAudio = localStorage.getItem('pref_notify_audio');
+    if (savedAudio) setAudioNotify(savedAudio === 'true');
+    const savedPush = localStorage.getItem('pref_notify_push');
+    if (savedPush) setPushNotify(savedPush === 'true');
+  }, []);
+
   const handleExportBackup = () => {
     requestAdminAuth('Exporter la base de données au format JSON', async (pass) => {
       setIsExporting(true);
@@ -368,7 +393,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
   if (!mounted) return null;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Title */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Paramètres</h1>
@@ -378,12 +403,12 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
       </div>
 
       {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar */}
-        <div className="md:col-span-4 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible">
+        <div className="lg:col-span-3 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap md:whitespace-normal ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap lg:whitespace-normal ${
               activeTab === 'profile'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
@@ -395,7 +420,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
           
           <button
             onClick={() => setActiveTab('preferences')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap md:whitespace-normal ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap lg:whitespace-normal ${
               activeTab === 'preferences'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
@@ -407,7 +432,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
 
           <button
             onClick={() => setActiveTab('printing')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap md:whitespace-normal ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap lg:whitespace-normal ${
               activeTab === 'printing'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
@@ -419,7 +444,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
 
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap md:whitespace-normal ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap lg:whitespace-normal ${
               activeTab === 'notifications'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
@@ -431,7 +456,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
 
           <button
             onClick={() => setActiveTab('backup')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap md:whitespace-normal ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap lg:whitespace-normal ${
               activeTab === 'backup'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
@@ -443,7 +468,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
         </div>
 
         {/* Form panel */}
-        <div className="md:col-span-8 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden min-h-[420px]">
+        <div className="lg:col-span-9 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden min-h-[420px]">
           {/* Notification Banner */}
           {message && (
             <div className={`flex items-center gap-2.5 px-6 py-4 border-b text-xs font-semibold ${
