@@ -7,7 +7,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import bcrypt from 'bcrypt';
 
-async function verifyAdminAndPassword(passwordConfirm?: string) {
+export async function verifyAdminAndPassword(passwordConfirm?: string) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user?.email) {
     throw new Error('Non autorisé. Session utilisateur invalide.');

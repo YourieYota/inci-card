@@ -332,11 +332,17 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
       setIsRestoring(true);
       setMessage(null);
       try {
-        const formData = new FormData();
-        formData.append('file', restoreFile);
-        formData.append('passwordConfirm', pass);
+        const response = await fetch('/api/backup/restore', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain',
+            'x-password-confirm': pass,
+            'x-file-name': restoreFile.name,
+          },
+          body: restoreFile,
+        });
 
-        const res = await uploadAndRestoreBackup(formData);
+        const res = await response.json();
         if (res.success) {
           setMessage({ type: 'success', text: 'Restauration réussie ! Les données ont été mises à jour dans la base.' });
           setRestoreFile(null);
@@ -344,6 +350,8 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
         } else {
           throw new Error(res.error || 'Erreur lors de la restauration');
         }
+      } catch (err: any) {
+        throw new Error(err.message || 'Erreur lors de la restauration');
       } finally {
         setIsRestoring(false);
       }
