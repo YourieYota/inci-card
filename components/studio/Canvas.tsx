@@ -290,7 +290,7 @@ export default function Canvas({
               fontStyle: el.fontStyle || 'normal',
               textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
               textAlign: el.alignment || 'left',
-              display: 'flex',
+              display: 'flex', 
               alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
               justifyContent: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
               lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',

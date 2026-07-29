@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "interval": "weekly",
+  "maxBackups": 7,
+  "rotationStrategy": "keep_all",
+  "format": "both",
+  "lastBackupAt": "2026-07-29T20:15:32.103Z"
+}

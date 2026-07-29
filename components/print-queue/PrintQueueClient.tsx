@@ -15,7 +15,12 @@ import {
   AlertCircle,
   Image as ImageIcon,
   Users,
-  RotateCcw
+  RotateCcw,
+  Columns,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { getEmployees, requestReprint } from '@/app/actions/employees';
 import { getCardDocumentTypes, getCardCategories } from '@/app/actions/cards';
@@ -56,6 +61,76 @@ export default function PrintQueueClient({
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+
+  // Column visibility & ordering states
+  const [hiddenFields, setHiddenFields] = useState<string[]>([]);
+  const [customFieldOrder, setCustomFieldOrder] = useState<string[]>([]);
+  const [showColumnDropdown, setShowColumnDropdown] = useState<boolean>(false);
+
+  // Sync hidden fields & ordering preferences from localStorage per company
+  useEffect(() => {
+    if (!selectedCompanyId) {
+      setHiddenFields([]);
+      setCustomFieldOrder([]);
+      return;
+    }
+    try {
+      const savedHidden = localStorage.getItem(`printQueue_hiddenFields_${selectedCompanyId}`);
+      if (savedHidden) setHiddenFields(JSON.parse(savedHidden));
+      else setHiddenFields([]);
+
+      const savedOrder = localStorage.getItem(`printQueue_fieldOrder_${selectedCompanyId}`);
+      if (savedOrder) setCustomFieldOrder(JSON.parse(savedOrder));
+      else setCustomFieldOrder([]);
+    } catch (e) {
+      console.error("Error loading column preferences:", e);
+    }
+  }, [selectedCompanyId]);
+
+  const toggleFieldVisibility = (key: string) => {
+    setHiddenFields((prev) => {
+      const updated = prev.includes(key)
+        ? prev.filter((k) => k !== key)
+        : [...prev, key];
+      if (selectedCompanyId) {
+        try {
+          localStorage.setItem(`printQueue_hiddenFields_${selectedCompanyId}`, JSON.stringify(updated));
+        } catch (e) {}
+      }
+      return updated;
+    });
+  };
+
+  const moveField = (key: string, direction: 'up' | 'down') => {
+    const currentList = [...orderedAllKeys];
+    const index = currentList.indexOf(key);
+    if (index === -1) return;
+    
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
+
+    const temp = currentList[index];
+    currentList[index] = currentList[targetIndex];
+    currentList[targetIndex] = temp;
+
+    setCustomFieldOrder(currentList);
+    if (selectedCompanyId) {
+      try {
+        localStorage.setItem(`printQueue_fieldOrder_${selectedCompanyId}`, JSON.stringify(currentList));
+      } catch (e) {}
+    }
+  };
+
+  const resetColumnPreferences = () => {
+    setHiddenFields([]);
+    setCustomFieldOrder([]);
+    if (selectedCompanyId) {
+      try {
+        localStorage.removeItem(`printQueue_hiddenFields_${selectedCompanyId}`);
+        localStorage.removeItem(`printQueue_fieldOrder_${selectedCompanyId}`);
+      } catch (e) {}
+    }
+  };
 
   // Load print queue when company changes
   useEffect(() => {
@@ -192,12 +267,130 @@ export default function PrintQueueClient({
     }
   };
 
-  const filteredEmployees = getActiveList().filter((emp) => {
-    const name = getEmployeeName(emp).toLowerCase();
-    const id = (emp.enrollmentNumber || '').toLowerCase();
-    const query = searchTerm.toLowerCase();
-    return name.includes(query) || id.includes(query) || emp.uniqueIdentifier.toLowerCase().includes(query);
-  });
+  // Extract all unique dynamic keys from employees of the selected company
+  const dynamicKeys = React.useMemo(() => {
+    const excludeKeys = ['id', 'photo', 'photourl', 'status', 'printedat', 'createdat', 'updatedat', 'cardnumber', 'enrollmentnumber'];
+    const keysSet = new Set<string>();
+    employees.forEach((emp) => {
+      if (emp.dynamicData && typeof emp.dynamicData === 'object') {
+        const data = emp.dynamicData as Record<string, any>;
+        Object.keys(data).forEach((k) => {
+          if (k && k.trim() && !k.startsWith('_') && !excludeKeys.includes(k.toLowerCase().trim())) {
+            keysSet.add(k.trim());
+          }
+        });
+      }
+    });
+    return Array.from(keysSet);
+  }, [employees]);
+
+  // All dynamic keys ordered according to user preference (customFieldOrder)
+  const orderedAllKeys = React.useMemo(() => {
+    if (customFieldOrder.length === 0) return dynamicKeys;
+    const sorted = [...customFieldOrder.filter((k) => dynamicKeys.includes(k))];
+    dynamicKeys.forEach((k) => {
+      if (!sorted.includes(k)) sorted.push(k);
+    });
+    return sorted;
+  }, [dynamicKeys, customFieldOrder]);
+
+  // Filtered keys to display in table according to hiddenFields and custom ordering
+  const displayedDynamicKeys = React.useMemo(() => {
+    return orderedAllKeys.filter((key) => !hiddenFields.includes(key));
+  }, [orderedAllKeys, hiddenFields]);
+
+  // Sorting States (identical to Delivery Batches logic)
+  const [sortField, setSortField] = useState<string>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getDynField = (data: Record<string, any>, ...keys: string[]): string => {
+    if (!data || typeof data !== 'object') return '';
+    const dataLower = Object.fromEntries(Object.entries(data).map(([k, v]) => [k.toLowerCase(), v]));
+    for (const key of keys) {
+      const val = dataLower[key.toLowerCase()];
+      if (val !== undefined && val !== null && val !== '') return String(val);
+    }
+    return '';
+  };
+
+  const getEmployeeSortKey = (emp: any): string => {
+    const data = emp.dynamicData as Record<string, any>;
+    const n = getDynField(data, 'nom', 'noms', 'lastname', 'surname', 'familyname');
+    const p = getDynField(data, 'prenom', 'prenoms', 'prénom', 'prénoms', 'firstname');
+    return `${n} ${p}`.trim() || emp.uniqueIdentifier;
+  };
+
+  const filteredEmployees = React.useMemo(() => {
+    let result = getActiveList().filter((emp) => {
+      const query = searchTerm.toLowerCase().trim();
+      if (!query) return true;
+
+      const name = getEmployeeName(emp).toLowerCase();
+      const id = (emp.enrollmentNumber || '').toLowerCase();
+      if (name.includes(query) || id.includes(query) || emp.uniqueIdentifier.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      const data = emp.dynamicData as Record<string, any>;
+      if (data && typeof data === 'object') {
+        return Object.values(data).some((val) =>
+          val !== null && val !== undefined && String(val).toLowerCase().includes(query)
+        );
+      }
+
+      return false;
+    });
+
+    if (sortField) {
+      result = [...result].sort((a, b) => {
+        let valA: any = '';
+        let valB: any = '';
+
+        if (sortField === 'name' || sortField === 'Nom Complet') {
+          valA = getEmployeeSortKey(a);
+          valB = getEmployeeSortKey(b);
+        } else if (sortField === 'uniqueIdentifier' || sortField === 'Identifiant Unique') {
+          valA = a.uniqueIdentifier || '';
+          valB = b.uniqueIdentifier || '';
+        } else if (sortField === 'enrollmentNumber' || sortField === "N° d'enrôlement") {
+          valA = a.enrollmentNumber || '';
+          valB = b.enrollmentNumber || '';
+        } else if (sortField === 'status' || sortField === 'Statut / Détails') {
+          valA = a.status || '';
+          valB = b.status || '';
+        } else {
+          // Dynamic field lookup
+          const dataA = a.dynamicData as Record<string, any>;
+          const dataB = b.dynamicData as Record<string, any>;
+          valA = getDynField(dataA, sortField) || '';
+          valB = getDynField(dataB, sortField) || '';
+        }
+
+        const normalize = (v: any) => typeof v === 'string' ? v.trim() : v;
+        valA = normalize(valA);
+        valB = normalize(valB);
+
+        if (typeof valA === 'string') {
+          return sortDirection === 'asc'
+            ? valA.localeCompare(String(valB), 'fr', { numeric: true, sensitivity: 'base' })
+            : String(valB).localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
+        } else {
+          return sortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
+        }
+      });
+    }
+
+    return result;
+  }, [employees, activeTab, selectedTemplateType, searchTerm, sortField, sortDirection]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => 
@@ -467,6 +660,99 @@ export default function PrintQueueClient({
                   </>
                 )}
 
+                {/* Column Selection Dropdown */}
+                {dynamicKeys.length > 0 && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl text-xs font-bold text-neutral-700 dark:text-neutral-300 transition shadow-sm"
+                      title="Personnaliser les colonnes"
+                    >
+                      <Columns className="w-4 h-4 text-indigo-500" />
+                      <span>Colonnes</span>
+                      <span className="py-0.5 px-1.5 bg-indigo-100 dark:bg-indigo-950 text-[10px] font-mono text-indigo-600 dark:text-indigo-400 rounded-full font-bold">
+                        {displayedDynamicKeys.length}/{dynamicKeys.length}
+                      </span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform ${showColumnDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showColumnDropdown && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-40" 
+                          onClick={() => setShowColumnDropdown(false)} 
+                        />
+                        <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl shadow-xl z-50 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 pb-2 mb-2">
+                            <div>
+                              <h4 className="text-xs font-bold text-neutral-800 dark:text-neutral-200">Ordre & affichage</h4>
+                              <p className="text-[9px] text-neutral-400">Flèches pour déplacer les colonnes</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={resetColumnPreferences}
+                              className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                            >
+                              Réinitialiser
+                            </button>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                            {orderedAllKeys.map((key, index) => {
+                              const isVisible = !hiddenFields.includes(key);
+                              return (
+                                <div
+                                  key={key}
+                                  className="flex items-center justify-between p-1.5 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-lg text-xs transition group"
+                                >
+                                  {/* Reorder Up/Down */}
+                                  <div className="flex items-center gap-0.5 shrink-0 mr-1.5">
+                                    <button
+                                      type="button"
+                                      disabled={index === 0}
+                                      onClick={() => moveField(key, 'up')}
+                                      className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 disabled:opacity-20 disabled:hover:bg-transparent transition"
+                                      title="Déplacer vers la gauche"
+                                    >
+                                      <ArrowUp className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={index === orderedAllKeys.length - 1}
+                                      onClick={() => moveField(key, 'down')}
+                                      className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 disabled:opacity-20 disabled:hover:bg-transparent transition"
+                                      title="Déplacer vers la droite"
+                                    >
+                                      <ArrowDown className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
+                                  {/* Field label */}
+                                  <span 
+                                    className={`flex-1 font-medium truncate mr-2 cursor-pointer ${isVisible ? 'text-neutral-800 dark:text-neutral-200' : 'text-neutral-400 dark:text-neutral-500 line-through'}`} 
+                                    title={key}
+                                    onClick={() => toggleFieldVisibility(key)}
+                                  >
+                                    {key}
+                                  </span>
+
+                                  {/* Checkbox */}
+                                  <input
+                                    type="checkbox"
+                                    checked={isVisible}
+                                    onChange={() => toggleFieldVisibility(key)}
+                                    className="w-4 h-4 text-indigo-600 rounded border-neutral-300 dark:border-neutral-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={fetchQueue}
@@ -515,10 +801,88 @@ export default function PrintQueueClient({
                         )}
                       </th>
                       <th className="py-4 px-4 w-16">Photo</th>
-                      <th className="py-4 px-4">Nom Complet</th>
-                      <th className="py-4 px-4">Identifiant Unique</th>
-                      <th className="py-4 px-4">N° d&apos;enrôlement</th>
-                      <th className="py-4 px-4">Statut / Détails</th>
+                      {dynamicKeys.length > 0 ? (
+                        displayedDynamicKeys.map((key) => (
+                          <th 
+                            key={key} 
+                            onClick={() => handleSort(key)}
+                            className="py-4 px-4 whitespace-nowrap cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition select-none"
+                            title={`Trier par ${key}`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span>{key}</span>
+                              {sortField === key ? (
+                                sortDirection === 'asc' ? (
+                                  <ArrowUp className="w-3.5 h-3.5 text-indigo-500" />
+                                ) : (
+                                  <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                        ))
+                      ) : (
+                        <>
+                          <th 
+                            onClick={() => handleSort('Nom Complet')}
+                            className="py-4 px-4 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition select-none"
+                            title="Trier par Nom Complet"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span>Nom Complet</span>
+                              {sortField === 'Nom Complet' || sortField === 'name' ? (
+                                sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />
+                              ) : (
+                                <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            onClick={() => handleSort('Identifiant Unique')}
+                            className="py-4 px-4 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition select-none"
+                            title="Trier par Identifiant Unique"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span>Identifiant Unique</span>
+                              {sortField === 'Identifiant Unique' || sortField === 'uniqueIdentifier' ? (
+                                sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />
+                              ) : (
+                                <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                        </>
+                      )}
+                      <th 
+                        onClick={() => handleSort("N° d'enrôlement")}
+                        className="py-4 px-4 whitespace-nowrap cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition select-none"
+                        title="Trier par N° d'enrôlement"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>N° d&apos;enrôlement</span>
+                          {sortField === "N° d'enrôlement" || sortField === 'enrollmentNumber' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600 opacity-60" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        onClick={() => handleSort('Statut / Détails')}
+                        className="py-4 px-4 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition select-none"
+                        title="Trier par Statut"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Statut / Détails</span>
+                          {sortField === 'Statut / Détails' || sortField === 'status' ? (
+                            sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-neutral-300 dark:text-neutral-600 opacity-60" />
+                          )}
+                        </div>
+                      </th>
                       <th className="py-4 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -563,12 +927,32 @@ export default function PrintQueueClient({
                               />
                             </div>
                           </td>
-                          <td className="py-4 px-4 font-semibold text-xs text-neutral-800 dark:text-neutral-200">
-                            {name}
-                          </td>
-                          <td className="py-4 px-4 text-xs text-neutral-500 dark:text-neutral-400">
-                            {emp.uniqueIdentifier}
-                          </td>
+                          {dynamicKeys.length > 0 ? (
+                            displayedDynamicKeys.map((key) => {
+                              const val = (emp.dynamicData as Record<string, any>)?.[key];
+                              const displayVal = typeof val === 'object' && val !== null 
+                                ? JSON.stringify(val) 
+                                : (val !== undefined && val !== null && String(val).trim() !== '' ? String(val) : '-');
+                              return (
+                                <td 
+                                  key={key} 
+                                  className="py-4 px-4 text-xs font-medium text-neutral-800 dark:text-neutral-200 whitespace-nowrap max-w-[200px] truncate" 
+                                  title={displayVal}
+                                >
+                                  {displayVal}
+                                </td>
+                              );
+                            })
+                          ) : (
+                            <>
+                              <td className="py-4 px-4 font-semibold text-xs text-neutral-800 dark:text-neutral-200">
+                                {name}
+                              </td>
+                              <td className="py-4 px-4 text-xs text-neutral-500 dark:text-neutral-400">
+                                {emp.uniqueIdentifier}
+                              </td>
+                            </>
+                          )}
                           <td className="py-4 px-4 font-mono text-xs font-bold text-neutral-800 dark:text-neutral-200">
                             {emp.enrollmentNumber || (
                               <span className="text-[10px] text-neutral-400 dark:text-neutral-500 italic font-normal">Non généré</span>

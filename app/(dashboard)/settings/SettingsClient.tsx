@@ -2,8 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
-import { User, Settings, Printer, Bell, Check, Save, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { 
+  User, Settings, Printer, Bell, Check, Save, AlertCircle, Eye, EyeOff, Loader2,
+  Database, Download, Upload, HardDrive, RefreshCw, FileJson, CheckCircle2,
+  Clock, ShieldAlert, Trash2, FolderArchive, Play
+} from 'lucide-react';
 import { updateUserProfile } from '@/app/actions/users';
+import { 
+  getDatabaseStats, exportDatabaseBackup, exportDatabaseSql, restoreDatabaseBackup, restoreDatabaseFromSql,
+  restoreFromSavedServerFile, uploadAndRestoreBackup,
+  getAutoBackupConfig, saveAutoBackupConfig, listLocalServerBackups,
+  deleteLocalServerBackup, readLocalServerBackup, executeAutoBackupNow,
+  checkAndRunAutoBackupIfNeeded, AutoBackupConfig
+} from '@/app/actions/backup';
 
 interface SettingsClientProps {
   initialUser: {
@@ -16,7 +27,7 @@ interface SettingsClientProps {
   } | null;
 }
 
-type TabType = 'profile' | 'preferences' | 'printing' | 'notifications';
+type TabType = 'profile' | 'preferences' | 'printing' | 'notifications' | 'backup';
 
 export default function SettingsClient({ initialUser }: SettingsClientProps) {
   const { theme, setTheme } = useTheme();
@@ -54,28 +65,265 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
   const [audioNotify, setAudioNotify] = useState(true);
   const [pushNotify, setPushNotify] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-    // Load local storage preferences if any
-    const savedLang = localStorage.getItem('pref_lang');
-    if (savedLang) setLang(savedLang);
-    const savedFormat = localStorage.getItem('pref_format');
-    if (savedFormat) setDefaultFormat(savedFormat);
-    const savedDpi = localStorage.getItem('pref_high_dpi');
-    if (savedDpi) setHighDpi(savedDpi === 'true');
-    const savedOffsetX = localStorage.getItem('pref_offset_x');
-    if (savedOffsetX) setOffsetX(parseFloat(savedOffsetX) || 0);
-    const savedOffsetY = localStorage.getItem('pref_offset_y');
-    if (savedOffsetY) setOffsetY(parseFloat(savedOffsetY) || 0);
-    const savedHelpers = localStorage.getItem('pref_align_helpers');
-    if (savedHelpers) setAlignHelpers(savedHelpers === 'true');
-    const savedEmail = localStorage.getItem('pref_notify_email');
-    if (savedEmail) setEmailNotify(savedEmail === 'true');
-    const savedAudio = localStorage.getItem('pref_notify_audio');
-    if (savedAudio) setAudioNotify(savedAudio === 'true');
-    const savedPush = localStorage.getItem('pref_notify_push');
-    if (savedPush) setPushNotify(savedPush === 'true');
-  }, []);
+  // Backup state
+  const [isExporting, setIsExporting] = useState(false);
+  const [isExportingSql, setIsExportingSql] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [dbStats, setDbStats] = useState<{ companies: number; employees: number; templates: number; deliveryBatches: number; users: number } | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restorePreview, setRestorePreview] = useState<any | null>(null);
+
+  // Auto Backup configuration state
+  const [autoConfig, setAutoConfig] = useState<AutoBackupConfig>({
+    enabled: false,
+    interval: 'daily',
+    maxBackups: 7,
+    rotationStrategy: 'delete_oldest',
+    format: 'both',
+    lastBackupAt: null,
+  });
+  const [serverBackups, setServerBackups] = useState<Array<{ filename: string; sizeBytes: number; createdAt: string; modifiedAt: string }>>([]);
+  const [loadingAutoConfig, setLoadingAutoConfig] = useState(false);
+  const [isExecutingNow, setIsExecutingNow] = useState(false);
+  const isAdmin = (initialUser?.role || '').toUpperCase() === 'ADMIN';
+
+  // Password modal state for Admin confirmation
+  const [passModalOpen, setPassModalOpen] = useState(false);
+  const [passModalInput, setPassModalInput] = useState('');
+  const [passModalError, setPassModalError] = useState<string | null>(null);
+  const [passModalTitle, setPassModalTitle] = useState('');
+  const [pendingAction, setPendingAction] = useState<((password: string) => Promise<void>) | null>(null);
+
+  const requestAdminAuth = (title: string, action: (password: string) => Promise<void>) => {
+    if (!isAdmin) {
+      setMessage({
+        type: 'error',
+        text: 'Accès refusé : Seuls les comptes possédant le rôle Administrateur peuvent effectuer des sauvegardes ou restaurations.',
+      });
+      return;
+    }
+    setPassModalTitle(title);
+    setPendingAction(() => action);
+    setPassModalInput('');
+    setPassModalError(null);
+    setPassModalOpen(true);
+  };
+
+  const handleConfirmPasswordModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passModalInput.trim()) {
+      setPassModalError('Veuillez saisir le mot de passe de votre compte.');
+      return;
+    }
+    if (!pendingAction) return;
+
+    setPassModalError(null);
+    try {
+      await pendingAction(passModalInput.trim());
+      setPassModalOpen(false);
+      setPassModalInput('');
+    } catch (err: any) {
+      setPassModalError(err.message || 'Action échouée');
+    }
+  };
+
+  const fetchStats = async () => {
+    setLoadingStats(true);
+    try {
+      const res = await getDatabaseStats();
+      if (res.success && res.stats) setDbStats(res.stats);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  const loadAutoBackupData = async () => {
+    setLoadingAutoConfig(true);
+    try {
+      await checkAndRunAutoBackupIfNeeded();
+      const config = await getAutoBackupConfig();
+      setAutoConfig(config);
+
+      const filesRes = await listLocalServerBackups();
+      if (filesRes.success && filesRes.files) {
+        setServerBackups(filesRes.files);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAutoConfig(false);
+    }
+  };
+
+  const updateAutoConfig = async (newConfigPartial: Partial<AutoBackupConfig>) => {
+    requestAdminAuth('Modifier la configuration des sauvegardes automatiques', async (pass) => {
+      const res = await saveAutoBackupConfig(newConfigPartial, pass);
+      if (res.success && res.config) {
+        setAutoConfig(res.config);
+        setMessage({ type: 'success', text: 'Paramètres de sauvegarde automatique mis à jour !' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        throw new Error(res.error || 'Erreur lors de la mise à jour');
+      }
+    });
+  };
+
+  const handleRunAutoNow = () => {
+    requestAdminAuth('Exécuter une sauvegarde automatique immédiate', async (pass) => {
+      setIsExecutingNow(true);
+      setMessage(null);
+      try {
+        const res = await executeAutoBackupNow(pass, true);
+        if (res.success) {
+          setMessage({ type: 'success', text: `Sauvegarde automatique créée (${res.filename}) !` });
+          loadAutoBackupData();
+          fetchStats();
+        } else {
+          throw new Error(res.error || 'Erreur lors de l\'exécution');
+        }
+      } finally {
+        setIsExecutingNow(false);
+      }
+    });
+  };
+
+  const handleDeleteServerBackup = (filename: string) => {
+    requestAdminAuth(`Supprimer la sauvegarde serveur "${filename}"`, async (pass) => {
+      const res = await deleteLocalServerBackup(filename, pass);
+      if (res.success) {
+        setMessage({ type: 'success', text: 'Fichier de sauvegarde supprimé' });
+        loadAutoBackupData();
+      } else {
+        throw new Error(res.error || 'Impossible de supprimer');
+      }
+    });
+  };
+
+  const handleDownloadServerBackup = async (filename: string) => {
+    try {
+      const res = await readLocalServerBackup(filename);
+      if (res.success && res.jsonString) {
+        const blob = new Blob([res.jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        alert(res.error || 'Erreur lors du téléchargement');
+      }
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  const handleRestoreServerBackup = (filename: string) => {
+    requestAdminAuth(`Restaurer la base depuis "${filename}"`, async (pass) => {
+      setIsRestoring(true);
+      setMessage(null);
+      try {
+        const res = await restoreFromSavedServerFile(filename, pass);
+        if (res.success) {
+          setMessage({ type: 'success', text: `Base de données restaurée avec succès depuis ${filename} !` });
+          fetchStats();
+        } else {
+          throw new Error(res.error || 'Erreur lors de la restauration');
+        }
+      } finally {
+        setIsRestoring(false);
+      }
+    });
+  };
+
+  const handleExportBackup = () => {
+    requestAdminAuth('Exporter la base de données au format JSON', async (pass) => {
+      setIsExporting(true);
+      setMessage(null);
+      try {
+        const res = await exportDatabaseBackup(pass);
+        if (res.success && res.jsonString) {
+          const blob = new Blob([res.jsonString], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = res.filename || 'inci-card-backup.json';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          setMessage({ type: 'success', text: 'Sauvegarde JSON exportée et téléchargée avec succès !' });
+        } else {
+          throw new Error(res.error || 'Erreur lors de l\'exportation');
+        }
+      } finally {
+        setIsExporting(false);
+      }
+    });
+  };
+
+  const handleExportSql = () => {
+    requestAdminAuth('Générer et télécharger le Dump SQL', async (pass) => {
+      setIsExportingSql(true);
+      setMessage(null);
+      try {
+        const res = await exportDatabaseSql(pass);
+        if (res.success && res.sqlString) {
+          const blob = new Blob([res.sqlString], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = res.filename || 'inci-card-dump.sql';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          setMessage({ type: 'success', text: 'Script Dump SQL complet (.sql) exporté et téléchargé avec succès !' });
+        } else {
+          throw new Error(res.error || 'Erreur lors de l\'exportation SQL');
+        }
+      } finally {
+        setIsExportingSql(false);
+      }
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRestoreFile(file);
+  };
+
+  const handleRestoreBackup = () => {
+    if (!restoreFile) return;
+    requestAdminAuth(`Restaurer la base depuis le fichier "${restoreFile.name}"`, async (pass) => {
+      setIsRestoring(true);
+      setMessage(null);
+      try {
+        const formData = new FormData();
+        formData.append('file', restoreFile);
+        formData.append('passwordConfirm', pass);
+
+        const res = await uploadAndRestoreBackup(formData);
+        if (res.success) {
+          setMessage({ type: 'success', text: 'Restauration réussie ! Les données ont été mises à jour dans la base.' });
+          setRestoreFile(null);
+          fetchStats();
+        } else {
+          throw new Error(res.error || 'Erreur lors de la restauration');
+        }
+      } finally {
+        setIsRestoring(false);
+      }
+    });
+  };
 
   const saveLocalPreference = (key: string, value: string) => {
     localStorage.setItem(key, value);
@@ -179,6 +427,18 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
           >
             <Bell className="w-4 h-4 shrink-0" />
             <span>Notifications</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('backup')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap md:whitespace-normal ${
+              activeTab === 'backup'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
+            }`}
+          >
+            <Database className="w-4 h-4 shrink-0" />
+            <span>Sauvegarde & Base</span>
           </button>
         </div>
 
@@ -594,8 +854,402 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
               </div>
             </div>
           )}
+
+          {/* Tab 5: Backup & Database */}
+          {activeTab === 'backup' && (
+            <div className="p-6 space-y-6">
+              <div className="border-b border-neutral-100 dark:border-neutral-800 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Sauvegarde & Base de données</h3>
+                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">Exportez une copie de sécurité locale de l&apos;ensemble de vos données ou restaurez un fichier existant.</p>
+                </div>
+                <button
+                  onClick={fetchStats}
+                  disabled={loadingStats}
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl text-neutral-400 hover:text-neutral-600 transition"
+                  title="Rafraîchir les statistiques"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingStats ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              {/* Database Overview Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-neutral-50 dark:bg-neutral-900/60 rounded-xl border border-neutral-100 dark:border-neutral-800 text-center">
+                  <span className="block text-lg font-bold text-indigo-600 dark:text-indigo-400">{dbStats?.companies ?? 0}</span>
+                  <span className="text-[10px] font-semibold text-neutral-500 uppercase">Entreprises</span>
+                </div>
+                <div className="p-3 bg-neutral-50 dark:bg-neutral-900/60 rounded-xl border border-neutral-100 dark:border-neutral-800 text-center">
+                  <span className="block text-lg font-bold text-emerald-600 dark:text-emerald-400">{dbStats?.employees ?? 0}</span>
+                  <span className="text-[10px] font-semibold text-neutral-500 uppercase">Employés</span>
+                </div>
+                <div className="p-3 bg-neutral-50 dark:bg-neutral-900/60 rounded-xl border border-neutral-100 dark:border-neutral-800 text-center">
+                  <span className="block text-lg font-bold text-violet-600 dark:text-violet-400">{dbStats?.templates ?? 0}</span>
+                  <span className="text-[10px] font-semibold text-neutral-500 uppercase">Gabarits</span>
+                </div>
+                <div className="p-3 bg-neutral-50 dark:bg-neutral-900/60 rounded-xl border border-neutral-100 dark:border-neutral-800 text-center">
+                  <span className="block text-lg font-bold text-amber-600 dark:text-amber-400">{dbStats?.deliveryBatches ?? 0}</span>
+                  <span className="text-[10px] font-semibold text-neutral-500 uppercase">Lots de livraison</span>
+                </div>
+              </div>
+
+              {/* Manual Export & Restore Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Export Section */}
+                <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl space-y-3 flex flex-col justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0">
+                      <Download className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Exporter la base en local</h4>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        Génère et télécharge un fichier `.json` sécurisé contenant toutes les données sur votre ordinateur.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleExportBackup}
+                      disabled={isExporting}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                    >
+                      {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileJson className="w-3.5 h-3.5" />}
+                      <span>{isExporting ? 'Exportation...' : 'Télécharger (.json)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportSql}
+                      disabled={isExportingSql}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                    >
+                      {isExportingSql ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />}
+                      <span>{isExportingSql ? 'Génération...' : 'Dump SQL (.sql)'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Restore Section */}
+                <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Restaurer un fichier de sauvegarde</h4>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        Importez un fichier <code className="bg-emerald-100 dark:bg-emerald-900/60 px-1 py-0.2 rounded font-mono text-[10px]">.json</code> ou <code className="bg-emerald-100 dark:bg-emerald-900/60 px-1 py-0.2 rounded font-mono text-[10px]">.sql</code> pour restaurer vos données dans la base.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept=".json,.sql"
+                      onChange={handleFileChange}
+                      className="block w-full text-xs text-neutral-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-100 dark:file:bg-emerald-950 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-200 cursor-pointer"
+                    />
+
+                    {restoreFile && (
+                      <div className="p-2.5 bg-white dark:bg-neutral-800 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs space-y-1.5 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between font-bold text-emerald-600 dark:text-emerald-400">
+                          <div className="flex items-center gap-1.5 overflow-hidden">
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{restoreFile.name}</span>
+                          </div>
+                          <span className="font-mono text-[10px] text-neutral-400 shrink-0 ml-2">
+                            {(restoreFile.size / (1024 * 1024)).toFixed(2)} Mo
+                          </span>
+                        </div>
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={handleRestoreBackup}
+                            disabled={isRestoring}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                          >
+                            {isRestoring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                            <span>{isRestoring ? 'Restauration en cours...' : 'Lancer la restauration'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Automated Backups Settings Card */}
+              <div className="p-5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-2xl space-y-5 shadow-sm">
+                <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 rounded-xl">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Programmation & Automatisation des sauvegardes</h4>
+                      <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">
+                        Planifiez des sauvegardes régulières avec gestion automatique des quotas. Stockage automatique dans <code className="bg-violet-50 dark:bg-violet-950/60 px-1.5 py-0.5 rounded text-violet-600 dark:text-violet-400 font-mono font-bold">C:\inci-card\</code>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoConfig.enabled}
+                      onChange={(e) => updateAutoConfig({ enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-neutral-200 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+                  </label>
+                </div>
+
+                {autoConfig.enabled && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+                    {/* Format */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                        Format
+                      </label>
+                      <select
+                        value={autoConfig.format || 'both'}
+                        onChange={(e) => updateAutoConfig({ format: e.target.value as any })}
+                        className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200"
+                      >
+                        <option value="both">JSON + Dump SQL (Recommandé)</option>
+                        <option value="json">JSON uniquement</option>
+                        <option value="sql">Dump SQL (.sql) uniquement</option>
+                      </select>
+                    </div>
+
+                    {/* Interval */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                        Fréquence
+                      </label>
+                      <select
+                        value={autoConfig.interval}
+                        onChange={(e) => updateAutoConfig({ interval: e.target.value as any })}
+                        className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200"
+                      >
+                        <option value="hourly">Toutes les heures (1h)</option>
+                        <option value="daily">Quotidienne (Chaque jour)</option>
+                        <option value="weekly">Hebdomadaire (Semaine)</option>
+                        <option value="monthly">Mensuelle (Mois)</option>
+                      </select>
+                    </div>
+
+                    {/* Max Backups Quota N */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                        Quota Max (N)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={autoConfig.maxBackups}
+                        onChange={(e) => updateAutoConfig({ maxBackups: parseInt(e.target.value) || 1 })}
+                        className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200"
+                      />
+                    </div>
+
+                    {/* Rotation Strategy */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5">
+                        Règle d&apos;écrasement
+                      </label>
+                      <select
+                        value={autoConfig.rotationStrategy}
+                        onChange={(e) => updateAutoConfig({ rotationStrategy: e.target.value as any })}
+                        className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200"
+                      >
+                        <option value="delete_oldest">Supprimer les N plus anciennes (FIFO)</option>
+                        <option value="overwrite_latest">Toujours écraser la dernière</option>
+                        <option value="keep_all">Conserver tout l&apos;historique</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Auto Backup Status & Execution */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-neutral-100 dark:border-neutral-800 text-xs">
+                  <div className="text-neutral-500 dark:text-neutral-400">
+                    {autoConfig.lastBackupAt ? (
+                      <span>Dernière sauvegarde auto : <strong>{new Date(autoConfig.lastBackupAt).toLocaleString('fr-FR')}</strong></span>
+                    ) : (
+                      <span className="italic">Aucune sauvegarde automatique exécutée pour l&apos;instant.</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRunAutoNow}
+                    disabled={isExecutingNow}
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold transition disabled:opacity-50 self-start sm:self-auto shadow-sm text-xs"
+                  >
+                    {isExecutingNow ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                    <span>Exécuter une sauvegarde auto maintenant</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Local Server Backups List Table */}
+              <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-5 py-3.5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-neutral-800 dark:text-white uppercase tracking-wide flex items-center gap-2">
+                    <FolderArchive className="w-4 h-4 text-violet-500" />
+                    Sauvegardes automatiques stockées sur le serveur ({serverBackups.length})
+                  </h4>
+                  <button
+                    onClick={loadAutoBackupData}
+                    className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 rounded-lg transition text-xs flex items-center gap-1 font-bold"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingAutoConfig ? 'animate-spin' : ''}`} />
+                    <span>Actualiser</span>
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto max-h-60 overflow-y-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-neutral-50 dark:bg-neutral-800/60 sticky top-0 font-bold text-neutral-400 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-2.5">Fichier</th>
+                        <th className="px-4 py-2.5">Date & Heure</th>
+                        <th className="px-4 py-2.5">Taille</th>
+                        <th className="px-4 py-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                      {serverBackups.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-6 text-center text-neutral-400 italic">
+                            Aucune sauvegarde automatique stockée localement sur le serveur.
+                          </td>
+                        </tr>
+                      ) : (
+                        serverBackups.map((file) => (
+                          <tr key={file.filename} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition">
+                            <td className="px-4 py-2.5 font-mono font-semibold text-neutral-800 dark:text-neutral-200">
+                              {file.filename}
+                            </td>
+                            <td className="px-4 py-2.5 text-neutral-500">
+                              {new Date(file.modifiedAt).toLocaleString('fr-FR')}
+                            </td>
+                            <td className="px-4 py-2.5 font-mono text-neutral-500">
+                              {(file.sizeBytes / 1024).toFixed(1)} Ko
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadServerBackup(file.filename)}
+                                  className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-500 hover:text-violet-600 transition"
+                                  title="Télécharger"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRestoreServerBackup(file.filename)}
+                                  className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg text-neutral-500 hover:text-emerald-600 transition"
+                                  title="Restaurer directement dans la base"
+                                >
+                                  <Upload className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteServerBackup(file.filename)}
+                                  className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg text-neutral-500 hover:text-rose-600 transition"
+                                  title="Supprimer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Password Confirmation Modal */}
+      {passModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-xl shrink-0">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Confirmation Administrateur</h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{passModalTitle}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-600 dark:text-neutral-300">
+              Pour des raisons de sécurité, veuillez saisir le mot de passe de votre compte administrateur pour autoriser cette action.
+            </p>
+
+            <form onSubmit={handleConfirmPasswordModal} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mb-1">
+                  Mot de passe de votre compte
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPass ? 'text' : 'password'}
+                    value={passModalInput}
+                    onChange={(e) => setPassModalInput(e.target.value)}
+                    placeholder="Saisissez votre mot de passe"
+                    autoFocus
+                    required
+                    className="w-full px-3.5 py-2.5 pr-10 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-100 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPass(!showCurrentPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                  >
+                    {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {passModalError && (
+                <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{passModalError}</span>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setPassModalOpen(false)}
+                  className="px-4 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-xl text-xs font-bold transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                >
+                  Confirmer l&apos;action
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
