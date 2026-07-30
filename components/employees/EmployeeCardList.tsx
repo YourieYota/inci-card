@@ -28,7 +28,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
+  const [pageSize, setPageSize] = useState(24);
 
   // Auto-refresh when the operator returns from the print preview tab
   useEffect(() => {
@@ -495,7 +495,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                 pageSize={pageSize}
                 onPageChange={setCurrentPage}
                 onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
-                pageSizeOptions={[12, 24, 48, 96]}
+                pageSizeOptions={[12, 24, 48, 96, 200]}
                 itemLabel="employés"
               />
             </div>
