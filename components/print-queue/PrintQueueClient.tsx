@@ -62,7 +62,7 @@ export default function PrintQueueClient({
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Column visibility & ordering states
   const [hiddenFields, setHiddenFields] = useState<string[]>([]);
@@ -1127,7 +1127,7 @@ export default function PrintQueueClient({
                   pageSize={pageSize}
                   onPageChange={setCurrentPage}
                   onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
-                  pageSizeOptions={[10, 25, 50, 100]}
+                  pageSizeOptions={[10, 25, 50, 100, 250]}
                   itemLabel="employés"
                 />
               </div>

@@ -50,7 +50,7 @@ export default async function EmployeesPage({ searchParams }: PageProps) {
   }));
 
   return (
-    <div className="max-w-7xl mx-auto py-2">
+    <div className="w-full max-w-[1920px] mx-auto px-2 md:px-4 py-2">
       <EmployeesClient
         companies={serializedCompanies as any}
         initialCompanyId={companyId}
