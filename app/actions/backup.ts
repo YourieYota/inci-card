@@ -377,6 +377,19 @@ export async function restoreDatabaseBackup(backupJsonData: any, passwordConfirm
     const { data } = backupJsonData;
 
     await prisma.$transaction(async (tx) => {
+      // Clear data tables in reverse dependency order to restore exact database snapshot
+      await tx.$executeRawUnsafe(`
+        DELETE FROM "PrintJob";
+        DELETE FROM "Employee";
+        DELETE FROM "DeliveryBatch";
+        DELETE FROM "CardTemplate";
+        DELETE FROM "CardCategory";
+        DELETE FROM "CardDocumentType";
+        DELETE FROM "CardPhysicalType";
+        DELETE FROM "CardFormat";
+        DELETE FROM "Company";
+      `);
+
       // 1. CustomRole
       if (Array.isArray(data.customRoles)) {
         for (const r of data.customRoles) {
@@ -830,6 +843,19 @@ export async function restoreDatabaseFromSql(sqlContent: string, passwordConfirm
     });
 
     await prisma.$transaction(async (tx) => {
+      // Clear data tables in reverse dependency order to restore exact database snapshot
+      await tx.$executeRawUnsafe(`
+        DELETE FROM "PrintJob";
+        DELETE FROM "Employee";
+        DELETE FROM "DeliveryBatch";
+        DELETE FROM "CardTemplate";
+        DELETE FROM "CardCategory";
+        DELETE FROM "CardDocumentType";
+        DELETE FROM "CardPhysicalType";
+        DELETE FROM "CardFormat";
+        DELETE FROM "Company";
+      `);
+
       for (const statement of statements) {
         let cleaned = statement.trim();
         if (cleaned.length > 0) {
