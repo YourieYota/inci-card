@@ -54,6 +54,8 @@ export default function PrintQueueClient({
   const [reprintEmployeeId, setReprintEmployeeId] = useState<string>('');
   const [reprintReason, setReprintReason] = useState<string>('');
   const [reprintTemplateType, setReprintTemplateType] = useState<string>('BADGE');
+  const [reprintCardNumberOption, setReprintCardNumberOption] = useState<'KEEP' | 'GENERATE' | 'CUSTOM'>('KEEP');
+  const [reprintCustomCardNumber, setReprintCustomCardNumber] = useState<string>('');
   const [selectedTemplateType, setSelectedTemplateType] = useState<string>('BADGE');
   const [documentTypes, setDocumentTypes] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -1149,6 +1151,54 @@ export default function PrintQueueClient({
               </select>
             </div>
 
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Numéro de carte</label>
+              <div className="flex flex-col gap-2 bg-neutral-50 dark:bg-neutral-900 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-neutral-700 dark:text-neutral-300">
+                  <input
+                    type="radio"
+                    name="reprintCardOptionQueue"
+                    value="KEEP"
+                    checked={reprintCardNumberOption === 'KEEP'}
+                    onChange={() => setReprintCardNumberOption('KEEP')}
+                    className="text-violet-600 focus:ring-violet-500"
+                  />
+                  <span>Conserver le numéro actuel</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-neutral-700 dark:text-neutral-300">
+                  <input
+                    type="radio"
+                    name="reprintCardOptionQueue"
+                    value="GENERATE"
+                    checked={reprintCardNumberOption === 'GENERATE'}
+                    onChange={() => setReprintCardNumberOption('GENERATE')}
+                    className="text-violet-600 focus:ring-violet-500"
+                  />
+                  <span>Générer un nouveau numéro de carte automatique</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-neutral-700 dark:text-neutral-300">
+                  <input
+                    type="radio"
+                    name="reprintCardOptionQueue"
+                    value="CUSTOM"
+                    checked={reprintCardNumberOption === 'CUSTOM'}
+                    onChange={() => setReprintCardNumberOption('CUSTOM')}
+                    className="text-violet-600 focus:ring-violet-500"
+                  />
+                  <span>Modifier / Numéro de carte personnalisé</span>
+                </label>
+                {reprintCardNumberOption === 'CUSTOM' && (
+                  <input
+                    type="text"
+                    value={reprintCustomCardNumber}
+                    onChange={(e) => setReprintCustomCardNumber(e.target.value)}
+                    placeholder="Saisir un numéro de carte (ex: 225AGR260050)"
+                    className="mt-1 w-full px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 rounded-lg text-xs font-mono"
+                  />
+                )}
+              </div>
+            </div>
+
             <textarea
               value={reprintReason}
               onChange={(e) => setReprintReason(e.target.value)}
@@ -1158,11 +1208,17 @@ export default function PrintQueueClient({
             <div className="flex justify-end gap-2">
               <button onClick={() => { setShowReprintDialog(false); setReprintReason(''); }} className="px-4 py-2 text-xs font-bold text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition">Annuler</button>
               <button
-                disabled={!reprintReason.trim() || isSaving}
+                disabled={!reprintReason.trim() || isSaving || (reprintCardNumberOption === 'CUSTOM' && !reprintCustomCardNumber.trim())}
                 onClick={async () => {
                   setIsSaving(true);
                   try {
-                    await requestReprint(reprintEmployeeId, reprintReason.trim(), reprintTemplateType);
+                    await requestReprint(
+                      reprintEmployeeId, 
+                      reprintReason.trim(), 
+                      reprintTemplateType,
+                      reprintCardNumberOption,
+                      reprintCustomCardNumber.trim()
+                    );
                     setShowReprintDialog(false);
                     setReprintReason('');
                     // Refresh queue

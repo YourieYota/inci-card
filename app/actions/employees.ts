@@ -1303,7 +1303,13 @@ export async function confirmPrint(
  * Demande une réimpression : déverrouille temporairement la fiche
  * et enregistre le motif de réimpression.
  */
-export async function requestReprint(employeeId: string, reason: string, templateType: string) {
+export async function requestReprint(
+  employeeId: string, 
+  reason: string, 
+  templateType: string,
+  cardNumberOption: 'KEEP' | 'GENERATE' | 'CUSTOM' = 'KEEP',
+  customCardNumber?: string
+) {
   try {
     if (!reason || !reason.trim()) {
       throw new Error('Un motif de réimpression est obligatoire.');
@@ -1323,20 +1329,24 @@ export async function requestReprint(employeeId: string, reason: string, templat
       throw new Error('La réimpression ne peut être demandée que pour un badge déjà imprimé ou réimprimé.');
     }
 
-    // Generate a new card number immediately so it displays correctly on the print page preview!
-    const catId = extractCategoryFromDynamicData(emp.dynamicData);
+    let targetCardNumber: string;
 
-    // Extract existing prefix from current cardNumber to ensure we respect it!
-    let overridePrefix: string | undefined = undefined;
-    if (emp.cardNumber) {
-      // Extract prefix before trailing digits (works for alphanumeric prefixes like 225AGR26)
-      const match = emp.cardNumber.match(/^(.*?)(\d{4,})$/);
-      if (match && match[1]) {
-        overridePrefix = match[1];
+    if (cardNumberOption === 'CUSTOM' && customCardNumber && customCardNumber.trim() !== '') {
+      targetCardNumber = customCardNumber.trim();
+    } else if (cardNumberOption === 'KEEP' && emp.cardNumber && emp.cardNumber.trim() !== '') {
+      targetCardNumber = emp.cardNumber.trim();
+    } else {
+      // Option 'GENERATE' or fallback if no current number: Generate a new card number
+      const catId = extractCategoryFromDynamicData(emp.dynamicData);
+      let overridePrefix: string | undefined = undefined;
+      if (emp.cardNumber) {
+        const match = emp.cardNumber.match(/^(.*?)(\d{4,})$/);
+        if (match && match[1]) {
+          overridePrefix = match[1];
+        }
       }
+      targetCardNumber = await generateCardNumber(emp.companyId, templateType, catId, overridePrefix);
     }
-
-    const newCardNumber = await generateCardNumber(emp.companyId, templateType, catId, overridePrefix);
 
     // Create a PrintJob entry with the reprint reason (will be used during confirmPrint)
     const session = await getSafeSession();
@@ -1354,13 +1364,13 @@ export async function requestReprint(employeeId: string, reason: string, templat
       },
     });
 
-    // Unlock, set status to REIMPRESSION, and set new cardNumber
+    // Unlock, set status to REIMPRESSION, and set targetCardNumber
     const result = await prisma.employee.update({
       where: { id: employeeId },
       data: {
         status: 'REIMPRESSION',
         isLocked: false,
-        cardNumber: newCardNumber,
+        cardNumber: targetCardNumber,
       },
     });
     revalidatePath('/dashboard', 'layout');
