@@ -144,6 +144,17 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     }
   };
 
+  // Compute active PDF fields in exact selection order
+  const activeOrderedPdfFields = useMemo(() => {
+    const fields = pdfFieldsOrder.filter(f => pdfFields[f]);
+    Object.keys(pdfFields).forEach(f => {
+      if (pdfFields[f] && !fields.includes(f)) {
+        fields.push(f);
+      }
+    });
+    return fields;
+  }, [pdfFields, pdfFieldsOrder]);
+
   // Batch Details
   const [customBatchNumber, setCustomBatchNumber] = useState('');
 
@@ -727,24 +738,33 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           <table>
             <thead>
               <tr>
-                ${pdfFields.index ? '<th style="width: 50px;">#</th>' : ''}
-                ${pdfFields.cardType ? '<th>Type de carte</th>' : ''}
-                ${pdfFields.cardNumber ? '<th>N° de carte</th>' : ''}
-                ${pdfFields.enrollmentNumber ? "<th>N° d'enrôlement</th>" : ''}
-                ${pdfFields.printedAt ? "<th>Date d'impression</th>" : ''}
-                ${dynamicKeys.map(k => pdfFields[k] ? `<th>${k}</th>` : '').join('')}
+                ${activeOrderedPdfFields.map(f => {
+                  const labelMap: Record<string, string> = {
+                    index: '#',
+                    cardType: 'Type de carte',
+                    cardNumber: 'N° de carte',
+                    enrollmentNumber: "N° d'enrôlement",
+                    printedAt: "Date d'impression",
+                  };
+                  const label = labelMap[f] || f;
+                  const isIndex = f === 'index';
+                  return `<th${isIndex ? ' style="width: 50px;"' : ''}>${label}</th>`;
+                }).join('')}
               </tr>
             </thead>
             <tbody>
               ${printedCards.map((card, idx) => {
                 return `
                   <tr>
-                    ${pdfFields.index ? `<td>${idx + 1}</td>` : ''}
-                    ${pdfFields.cardType ? `<td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${card.cardType}</span></td>` : ''}
-                    ${pdfFields.cardNumber ? `<td style="font-family: monospace; font-weight: 600;">${card.cardNumber}</td>` : ''}
-                    ${pdfFields.enrollmentNumber ? `<td>${card.enrollmentNumber}</td>` : ''}
-                    ${pdfFields.printedAt ? `<td>${card.printedAt}</td>` : ''}
-                    ${dynamicKeys.map(k => pdfFields[k] ? `<td>${(card.dynamicData as any)?.[k] || '-'}</td>` : '').join('')}
+                    ${activeOrderedPdfFields.map(f => {
+                      if (f === 'index') return `<td>${idx + 1}</td>`;
+                      if (f === 'cardType') return `<td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${card.cardType}</span></td>`;
+                      if (f === 'cardNumber') return `<td style="font-family: monospace; font-weight: 600;">${card.cardNumber}</td>`;
+                      if (f === 'enrollmentNumber') return `<td>${card.enrollmentNumber || '-'}</td>`;
+                      if (f === 'printedAt') return `<td>${card.printedAt || '-'}</td>`;
+                      const val = getDynField(card.dynamicData as Record<string, any>, f) || '-';
+                      return `<td>${val}</td>`;
+                    }).join('')}
                   </tr>
                 `;
               }).join('')}
@@ -1731,7 +1751,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                             <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                               <tr>
                                 <th className="py-2.5 px-4 w-12">Photo</th>
-                                {pdfFieldsOrder.filter(f => pdfFields[f]).map(f => {
+                                {activeOrderedPdfFields.map(f => {
                                   const labelMap: Record<string, string> = {
                                     index: '#',
                                     cardType: 'Type de carte',
@@ -1775,10 +1795,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                       )}
                                     </div>
                                   </td>
-                                  {pdfFieldsOrder.filter(f => pdfFields[f]).map(f => {
+                                  {activeOrderedPdfFields.map(f => {
                                     if (f === 'index') return <td key={f} className="py-2.5 px-3 font-semibold text-neutral-500">{idx + 1}</td>;
-                                    if (f === 'name') return <td key={f} className="py-2.5 px-3 font-semibold">{getEmployeeName(emp)}</td>;
-                                    if (f === 'identifier') return <td key={f} className="py-2.5 px-3 font-mono text-neutral-500">{emp.uniqueIdentifier}</td>;
                                     if (f === 'cardType') return (
                                       <td key={f} className="py-2.5 px-3">
                                         <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">{cardType}</span>
@@ -1788,7 +1806,8 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                     if (f === 'enrollmentNumber') return <td key={f} className="py-2.5 px-3 font-mono">{emp.enrollmentNumber || '-'}</td>;
                                     if (f === 'printedAt') return <td key={f} className="py-2.5 px-3 text-right text-neutral-400">{printedAt ? new Date(printedAt).toLocaleDateString('fr-FR') : '-'}</td>;
                                     // dynamic Excel key
-                                    return <td key={f} className="py-2.5 px-3 text-neutral-600 dark:text-neutral-400">{(emp.dynamicData as any)?.[f] || '-'}</td>;
+                                    const val = getDynField(emp.dynamicData as Record<string, any>, f);
+                                    return <td key={f} className="py-2.5 px-3 text-neutral-600 dark:text-neutral-400">{val || '-'}</td>;
                                   })}
                                 </tr>
                               ))}
