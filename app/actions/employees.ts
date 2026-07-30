@@ -1383,6 +1383,90 @@ export async function requestReprint(
 }
 
 /**
+ * Demande une réimpression en lot pour plusieurs employés avec suivi anti-doublon d'exclusion mémoire.
+ */
+export async function requestReprintBatch(
+  employeeIds: string[],
+  reason: string,
+  templateType: string,
+  cardNumberOption: 'KEEP' | 'GENERATE' | 'CUSTOM' = 'KEEP',
+  customCardNumber?: string
+) {
+  try {
+    if (!employeeIds || employeeIds.length === 0) return { success: true, count: 0 };
+    
+    if (employeeIds.length === 1) {
+      const res = await requestReprint(employeeIds[0], reason, templateType, cardNumberOption, customCardNumber);
+      return { success: true, count: 1, results: [res] };
+    }
+
+    const batchExcludedNumbers = new Set<string>();
+    const results = [];
+
+    for (const empId of employeeIds) {
+      const emp = await prisma.employee.findUnique({
+        where: { id: empId },
+        select: { id: true, status: true, isLocked: true, isBlocked: true, companyId: true, dynamicData: true, cardNumber: true },
+      });
+
+      if (!emp || emp.isBlocked) continue;
+
+      let targetCardNumber: string;
+      const isObsoleteBadgeNumber = emp.cardNumber ? emp.cardNumber.toUpperCase().startsWith('BADGE') : false;
+
+      if (cardNumberOption === 'CUSTOM' && customCardNumber && customCardNumber.trim() !== '') {
+        targetCardNumber = customCardNumber.trim();
+      } else if (cardNumberOption === 'KEEP' && emp.cardNumber && emp.cardNumber.trim() !== '' && !isObsoleteBadgeNumber) {
+        targetCardNumber = emp.cardNumber.trim();
+      } else {
+        const catId = extractCategoryFromDynamicData(emp.dynamicData);
+        let overridePrefix: string | undefined = undefined;
+        if (emp.cardNumber && !isObsoleteBadgeNumber) {
+          const match = emp.cardNumber.match(/^(.*?)(\d{4,})$/);
+          if (match && match[1]) {
+            overridePrefix = match[1];
+          }
+        }
+        targetCardNumber = await generateCardNumber(emp.companyId, templateType, catId, overridePrefix, batchExcludedNumbers);
+      }
+
+      batchExcludedNumbers.add(targetCardNumber);
+
+      const session = await getSafeSession();
+      const operatorName = session?.user?.name || session?.user?.email || "Système";
+
+      await prisma.printJob.create({
+        data: {
+          employeeId: empId,
+          cardNumber: 'REIMPRESSION_DEMANDEE',
+          templateType: templateType,
+          isReprint: true,
+          reprintReason: reason.trim(),
+          printedBy: operatorName,
+        },
+      });
+
+      const updated = await prisma.employee.update({
+        where: { id: empId },
+        data: {
+          status: 'REIMPRESSION',
+          isLocked: false,
+          cardNumber: targetCardNumber,
+        },
+      });
+
+      results.push(updated);
+    }
+
+    revalidatePath('/dashboard', 'layout');
+    return { success: true, count: results.length, results };
+  } catch (error: any) {
+    console.warn('Error in requestReprintBatch:', error);
+    throw new Error(error.message || 'Impossible d\'effectuer les demandes de réimpression en lot');
+  }
+}
+
+/**
  * Bloque un badge (admin only).
  */
 export async function blockBadge(employeeId: string) {

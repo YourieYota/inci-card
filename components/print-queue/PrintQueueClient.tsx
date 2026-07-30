@@ -22,7 +22,7 @@ import {
   ArrowDown,
   ArrowUpDown
 } from 'lucide-react';
-import { getEmployees, requestReprint } from '@/app/actions/employees';
+import { getEmployees, requestReprint, requestReprintBatch } from '@/app/actions/employees';
 import { getCardDocumentTypes, getCardCategories } from '@/app/actions/cards';
 import { markAsPrinted } from '@/app/actions/batches';
 import Pagination from '@/components/ui/Pagination';
@@ -1212,8 +1212,9 @@ export default function PrintQueueClient({
                 onClick={async () => {
                   setIsSaving(true);
                   try {
-                    await requestReprint(
-                      reprintEmployeeId, 
+                    const targetIds = selectedIds.length > 0 ? selectedIds : (reprintEmployeeId ? [reprintEmployeeId] : []);
+                    await requestReprintBatch(
+                      targetIds, 
                       reprintReason.trim(), 
                       reprintTemplateType,
                       reprintCardNumberOption,
@@ -1221,6 +1222,7 @@ export default function PrintQueueClient({
                     );
                     setShowReprintDialog(false);
                     setReprintReason('');
+                    setSelectedIds([]);
                     // Refresh queue
                     fetchQueue();
                   } catch (err: any) {
