@@ -955,7 +955,13 @@ export async function restoreEmployees(employees: any[]) {
  * Génère un numéro de carte unique basé sur le cardCode du type de document ou de la catégorie.
  * Format: {cardCode}{séquence} (ex: BADGE0001, AGRAC0001)
  */
-async function generateCardNumber(companyId: string, templateType: string, categoryId?: string, overridePrefix?: string): Promise<string> {
+async function generateCardNumber(
+  companyId: string, 
+  templateType: string, 
+  categoryId?: string, 
+  overridePrefix?: string,
+  extraExcludedNumbers?: Set<string> | string[] | Array<string>
+): Promise<string> {
   let prefix = overridePrefix || templateType.toUpperCase();
 
   // 1. Try to find the cardCode from the category first
@@ -1019,40 +1025,66 @@ async function generateCardNumber(companyId: string, templateType: string, categ
     }
   }
 
-  // 3. Find all card numbers starting with this prefix in both Employee and PrintJob tables
+  // 3. Find all card numbers containing this prefix in Employee and PrintJob tables
   const employeeCardNumbers = await prisma.employee.findMany({
-    where: { companyId, cardNumber: { startsWith: prefix } },
+    where: { 
+      companyId, 
+      cardNumber: { contains: prefix } 
+    },
     select: { cardNumber: true }
   });
 
   const printJobCardNumbers = await prisma.printJob.findMany({
     where: { 
-      employee: { companyId }, 
-      cardNumber: { startsWith: prefix, not: 'REIMPRESSION_DEMANDEE' } 
+      OR: [
+        { employee: { companyId } },
+        { categoryId: categoryId || undefined }
+      ],
+      cardNumber: { contains: prefix, not: 'REIMPRESSION_DEMANDEE' } 
     },
     select: { cardNumber: true }
   });
 
   const allNumbers = new Set<string>();
   employeeCardNumbers.forEach(e => {
-    if (e.cardNumber) allNumbers.add(e.cardNumber);
+    if (e.cardNumber) allNumbers.add(e.cardNumber.trim());
   });
   printJobCardNumbers.forEach(p => {
-    if (p.cardNumber) allNumbers.add(p.cardNumber);
+    if (p.cardNumber) allNumbers.add(p.cardNumber.trim());
   });
+  if (extraExcludedNumbers) {
+    extraExcludedNumbers.forEach(n => {
+      if (n) allNumbers.add(n.trim());
+    });
+  }
 
   let maxSeq = 0;
+  const prefixUpper = prefix.toUpperCase();
+
   allNumbers.forEach(num => {
-    const seqStr = num.slice(prefix.length);
-    const seqVal = parseInt(seqStr, 10);
-    if (!isNaN(seqVal) && seqVal > maxSeq) {
-      maxSeq = seqVal;
+    const numUpper = num.toUpperCase();
+    if (!numUpper.includes(prefixUpper)) return;
+
+    // Robust extraction of trailing digits using regex
+    const digitMatches = num.match(/\d+/g);
+    if (digitMatches && digitMatches.length > 0) {
+      const lastDigits = digitMatches[digitMatches.length - 1];
+      const seqVal = parseInt(lastDigits, 10);
+      if (!isNaN(seqVal) && seqVal > maxSeq) {
+        maxSeq = seqVal;
+      }
     }
   });
 
   const nextSeq = maxSeq + 1;
   const seq = String(nextSeq).padStart(4, '0');
-  return `${prefix}${seq}`;
+  const resultCardNumber = `${prefix}${seq}`;
+
+  if (extraExcludedNumbers instanceof Set) {
+    extraExcludedNumbers.add(resultCardNumber);
+  }
+
+  return resultCardNumber;
 }
 
 /**
@@ -1153,6 +1185,7 @@ export async function confirmPrint(
     }
 
     const results = [];
+    const confirmPrintBatchNumbers = new Set<string>();
 
     for (const emp of eligible) {
       // Use existing card number if available, otherwise generate one
@@ -1160,8 +1193,9 @@ export async function confirmPrint(
       if (!cardNumber) {
         // Find category from dynamicData if not provided
         const catId = categoryId || extractCategoryFromDynamicData(emp.dynamicData);
-        cardNumber = await generateCardNumber(emp.companyId, templateType, catId);
+        cardNumber = await generateCardNumber(emp.companyId, templateType, catId, undefined, confirmPrintBatchNumbers);
       }
+      confirmPrintBatchNumbers.add(cardNumber);
 
       // Determine if this is a reprint
       const hasJob = emp.printJobs?.some((j: any) => 
@@ -1482,23 +1516,92 @@ export async function assignCardNumbersForCategory(employeeIds: string[], catego
     const updatedNumbers: Record<string, string> = {};
     if (employees.length === 0) return updatedNumbers;
 
+    const inBatchNumbers = new Set<string>();
+
     for (const emp of employees) {
-      if (targetPrefix && emp.cardNumber && emp.cardNumber.startsWith(targetPrefix)) {
-        updatedNumbers[emp.id] = emp.cardNumber;
+      // 1. NEVER overwrite card number for already printed, locked or printed-count employees!
+      if (emp.status === 'IMPRIME' || emp.status === 'REIMPRIME' || emp.isLocked || (emp.printCount && emp.printCount > 0)) {
+        if (emp.cardNumber) {
+          updatedNumbers[emp.id] = emp.cardNumber;
+          inBatchNumbers.add(emp.cardNumber);
+        }
         continue;
       }
-      const cardNumber = await generateCardNumber(emp.companyId, templateType, categoryId);
+
+      // 2. If employee already has a card number starting with the target prefix, preserve it!
+      if (targetPrefix && emp.cardNumber && emp.cardNumber.startsWith(targetPrefix)) {
+        updatedNumbers[emp.id] = emp.cardNumber;
+        inBatchNumbers.add(emp.cardNumber);
+        continue;
+      }
+
+      // 3. Otherwise generate a new guaranteed unique card number in batch
+      const cardNumber = await generateCardNumber(emp.companyId, templateType, categoryId, undefined, inBatchNumbers);
       console.log(`[assignCardNumbersForCategory] Generated card number "${cardNumber}" for employee ${emp.id}`);
+      
       await prisma.employee.update({
         where: { id: emp.id },
         data: { cardNumber }
       });
       updatedNumbers[emp.id] = cardNumber;
+      inBatchNumbers.add(cardNumber);
     }
     
     return updatedNumbers;
   } catch (err: any) {
     console.error(`[assignCardNumbersForCategory] ERROR: ${err.message}`, err.stack);
+    throw err;
+  }
+}
+
+/**
+ * Nettoie et ré-séquence les éventuels numéros de cartes en double dans la base de données.
+ */
+export async function fixDuplicateCardNumbers(companyId?: string) {
+  try {
+    console.log(`[fixDuplicateCardNumbers] Checking database for duplicate card numbers...`);
+    const employees = await prisma.employee.findMany({
+      where: companyId ? { companyId } : {},
+      select: { id: true, companyId: true, cardNumber: true, status: true, isLocked: true, dynamicData: true },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    const seenCardNumbers = new Map<string, string>(); // key -> employeeId
+    const duplicatesToFix: Array<{ employee: typeof employees[0] }> = [];
+
+    for (const emp of employees) {
+      if (!emp.cardNumber) continue;
+      const key = `${emp.companyId}_${emp.cardNumber.trim()}`;
+      if (seenCardNumbers.has(key)) {
+        // If employee is NOT printed/locked, we fix their card number to be unique
+        if (emp.status !== 'IMPRIME' && emp.status !== 'REIMPRIME' && !emp.isLocked) {
+          duplicatesToFix.push({ employee: emp });
+        }
+      } else {
+        seenCardNumbers.set(key, emp.id);
+      }
+    }
+
+    console.log(`[fixDuplicateCardNumbers] Found ${duplicatesToFix.length} duplicate card numbers to re-sequence.`);
+
+    const fixedResults: Record<string, string> = {};
+    const inBatch = new Set<string>();
+
+    for (const { employee: emp } of duplicatesToFix) {
+      const catId = extractCategoryFromDynamicData(emp.dynamicData);
+      const newCardNumber = await generateCardNumber(emp.companyId, 'BADGE', catId, undefined, inBatch);
+      await prisma.employee.update({
+        where: { id: emp.id },
+        data: { cardNumber: newCardNumber }
+      });
+      fixedResults[emp.id] = newCardNumber;
+      inBatch.add(newCardNumber);
+      console.log(`[fixDuplicateCardNumbers] Re-sequenced duplicate employee ${emp.id} to new unique number "${newCardNumber}"`);
+    }
+
+    return { success: true, fixedCount: duplicatesToFix.length, fixedResults };
+  } catch (err: any) {
+    console.error('[fixDuplicateCardNumbers] Error:', err);
     throw err;
   }
 }
