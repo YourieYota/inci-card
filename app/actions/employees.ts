@@ -1330,16 +1330,17 @@ export async function requestReprint(
     }
 
     let targetCardNumber: string;
+    const isObsoleteBadgeNumber = emp.cardNumber ? emp.cardNumber.toUpperCase().startsWith('BADGE') : false;
 
     if (cardNumberOption === 'CUSTOM' && customCardNumber && customCardNumber.trim() !== '') {
       targetCardNumber = customCardNumber.trim();
-    } else if (cardNumberOption === 'KEEP' && emp.cardNumber && emp.cardNumber.trim() !== '') {
+    } else if (cardNumberOption === 'KEEP' && emp.cardNumber && emp.cardNumber.trim() !== '' && !isObsoleteBadgeNumber) {
       targetCardNumber = emp.cardNumber.trim();
     } else {
-      // Option 'GENERATE' or fallback if no current number: Generate a new card number
+      // Option 'GENERATE' or fallback if obsolete BADGE number: Generate a new card number
       const catId = extractCategoryFromDynamicData(emp.dynamicData);
       let overridePrefix: string | undefined = undefined;
-      if (emp.cardNumber) {
+      if (emp.cardNumber && !isObsoleteBadgeNumber) {
         const match = emp.cardNumber.match(/^(.*?)(\d{4,})$/);
         if (match && match[1]) {
           overridePrefix = match[1];
