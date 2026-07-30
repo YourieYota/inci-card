@@ -1519,24 +1519,21 @@ export async function assignCardNumbersForCategory(employeeIds: string[], catego
     const inBatchNumbers = new Set<string>();
 
     for (const emp of employees) {
-      // 1. NEVER overwrite card number for already printed, locked or printed-count employees!
-      if (emp.status === 'IMPRIME' || emp.status === 'REIMPRIME' || emp.isLocked || (emp.printCount && emp.printCount > 0)) {
-        if (emp.cardNumber) {
-          updatedNumbers[emp.id] = emp.cardNumber;
-          inBatchNumbers.add(emp.cardNumber);
-        }
-        continue;
-      }
-
-      // 2. If employee already has a card number starting with the target prefix, preserve it!
-      if (targetPrefix && emp.cardNumber && emp.cardNumber.startsWith(targetPrefix)) {
+      // 1. PRESERVE EXISTING CARD NUMBERS: If employee already has a card number (printed, locked, or custom assigned like 225AGR260046), NEVER overwrite it!
+      if (emp.cardNumber && emp.cardNumber.trim() !== '') {
         updatedNumbers[emp.id] = emp.cardNumber;
         inBatchNumbers.add(emp.cardNumber);
         continue;
       }
 
-      // 3. Otherwise generate a new guaranteed unique card number in batch
-      const cardNumber = await generateCardNumber(emp.companyId, templateType, categoryId, undefined, inBatchNumbers);
+      // 2. Resolve employee category if not provided
+      let empCatId = categoryId;
+      if (!empCatId) {
+        empCatId = extractCategoryFromDynamicData(emp.dynamicData);
+      }
+
+      // 3. Generate a new guaranteed unique card number in batch
+      const cardNumber = await generateCardNumber(emp.companyId, templateType, empCatId, undefined, inBatchNumbers);
       console.log(`[assignCardNumbersForCategory] Generated card number "${cardNumber}" for employee ${emp.id}`);
       
       await prisma.employee.update({

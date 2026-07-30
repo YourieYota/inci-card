@@ -459,11 +459,7 @@ const getFieldValue = (
   }
 
   if (normalizedTarget === 'n° d\'enrolement' || normalizedTarget === 'numéro d\'enrôlement' || normalizedTarget === 'enrollmentnumber') {
-    return emp.cardNumber || emp.enrollmentNumber || 'En cours...';
-  }
-
-  if (normalizedTarget === 'matricule' || normalizedTarget === 'code' || normalizedTarget === 'identifiant') {
-    return emp.cardNumber || emp.uniqueIdentifier || '';
+    return emp.enrollmentNumber || 'En cours...';
   }
 
   if (normalizedTarget === 'date d\'emission' || normalizedTarget === 'date d\'émission' || normalizedTarget === 'date emission' || normalizedTarget === 'date émission') {
