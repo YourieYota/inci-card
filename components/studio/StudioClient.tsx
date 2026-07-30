@@ -432,7 +432,7 @@ export default function StudioClient({
   // System-level dynamic variables always available
   const SYSTEM_FIELDS = ["N° d'enrolement", "N° Carte", "Date d'émission", "Date d'expiration", "Entreprise", "Validité"];
 
-  const [dynamicFields, setDynamicFields] = useState<string[]>(['Nom', 'Prenom', 'Role', 'Matricule', ...SYSTEM_FIELDS]);
+  const [dynamicFields, setDynamicFields] = useState<string[]>(['Nom', 'Prenom', 'Role', ...SYSTEM_FIELDS]);
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(dbError);
   const [mounted, setMounted] = useState<boolean>(false);
 
@@ -1106,7 +1106,7 @@ export default function StudioClient({
       setCanvasBackgroundOpacity(1);
       setHistory([]);
       setHistoryIndex(-1);
-      setDynamicFields(['Nom', 'Prenom', 'Role', 'Matricule', ...SYSTEM_FIELDS]);
+      setDynamicFields(['Nom', 'Prenom', 'Role', ...SYSTEM_FIELDS]);
       return;
     }
 

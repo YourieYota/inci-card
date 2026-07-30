@@ -558,7 +558,6 @@ const getFieldValue = (
       nom: ['lastname', 'nom de famille', 'name', 'nom'],
       prenom: ['firstname', 'prénom', 'prenoms', 'prénoms', 'prenom'],
       role: ['fonction', 'poste', 'job', 'role', 'rôle', 'title', 'roles'],
-      matricule: ['id', 'uuid', 'code', 'identifiant', 'matricule', 'numéro', 'numero'],
     };
 
     const cleanField = normalizedTarget;

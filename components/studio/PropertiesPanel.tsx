@@ -106,7 +106,7 @@ export default function PropertiesPanel({
   selectedElement,
   onUpdateElement,
   onDeleteElement,
-  suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise'],
+  suggestedFields = ['Nom', 'Prenom', 'Role', 'Entreprise'],
   formats = [],
   onMoveElement,
   availableGroups = [],

@@ -15,7 +15,7 @@ export default function Toolbar({
   onAddElement,
   onApplyDefaultLayout,
   onClearCanvas,
-  suggestedFields = ['Nom', 'Prenom', 'Role', 'Matricule', 'Entreprise']
+  suggestedFields = ['Nom', 'Prenom', 'Role', 'Entreprise']
 }: ToolbarProps) {
   return (
     <div className="w-full bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col gap-6">
