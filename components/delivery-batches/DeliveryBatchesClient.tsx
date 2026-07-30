@@ -103,14 +103,12 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   // PDF column visibility preferences
   const [pdfFields, setPdfFields] = useState<Record<string, boolean>>({
     index: true,
-    name: true,
-    identifier: true,
     cardType: true,
     cardNumber: true,
     enrollmentNumber: true,
     printedAt: true,
   });
-  const [pdfFieldsOrder, setPdfFieldsOrder] = useState<string[]>(['index', 'name', 'identifier', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt']);
+  const [pdfFieldsOrder, setPdfFieldsOrder] = useState<string[]>(['index', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt']);
 
   // Load from localStorage on client side
   useEffect(() => {
@@ -730,8 +728,6 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
             <thead>
               <tr>
                 ${pdfFields.index ? '<th style="width: 50px;">#</th>' : ''}
-                ${pdfFields.name ? '<th>Nom Complet</th>' : ''}
-                ${pdfFields.identifier ? '<th>Matricule</th>' : ''}
                 ${pdfFields.cardType ? '<th>Type de carte</th>' : ''}
                 ${pdfFields.cardNumber ? '<th>N° de carte</th>' : ''}
                 ${pdfFields.enrollmentNumber ? "<th>N° d'enrôlement</th>" : ''}
@@ -744,8 +740,6 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                 return `
                   <tr>
                     ${pdfFields.index ? `<td>${idx + 1}</td>` : ''}
-                    ${pdfFields.name ? `<td style="font-weight: 600;">${card.name}</td>` : ''}
-                    ${pdfFields.identifier ? `<td style="font-family: monospace;">${card.uniqueIdentifier}</td>` : ''}
                     ${pdfFields.cardType ? `<td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${card.cardType}</span></td>` : ''}
                     ${pdfFields.cardNumber ? `<td style="font-family: monospace; font-weight: 600;">${card.cardNumber}</td>` : ''}
                     ${pdfFields.enrollmentNumber ? `<td>${card.enrollmentNumber}</td>` : ''}
@@ -1232,8 +1226,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                         <div className="space-y-2">
                           <span className="block text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">Champs standards</span>
                           {[
-                            { id: 'name', label: 'Nom Complet' },
-                            { id: 'identifier', label: 'Matricule' },
+                            { id: 'index', label: '#' },
                             { id: 'cardType', label: 'Type de carte' },
                             { id: 'cardNumber', label: 'N° de carte' },
                             { id: 'enrollmentNumber', label: "N° d'enrôlement" },
@@ -1653,7 +1646,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const standardIds = ['name', 'identifier', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt'];
+                                    const standardIds = ['index', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt'];
                                     const allOn = standardIds.every(id => pdfFields[id]);
                                     const next = { ...pdfFields };
                                     standardIds.forEach(id => { next[id] = !allOn; });
@@ -1662,13 +1655,12 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                   }}
                                   className="text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 transition"
                                 >
-                                  {['name', 'identifier', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt'].every(id => pdfFields[id]) ? 'Tout désélectionner' : 'Tout sélectionner'}
+                                  {['index', 'cardType', 'cardNumber', 'enrollmentNumber', 'printedAt'].every(id => pdfFields[id]) ? 'Tout désélectionner' : 'Tout sélectionner'}
                                 </button>
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 {[
-                                  { id: 'name', label: 'Nom Complet', icon: '👤' },
-                                  { id: 'identifier', label: 'Matricule', icon: '#' },
+                                  { id: 'index', label: '#', icon: '#' },
                                   { id: 'cardType', label: 'Type de carte', icon: '🪪' },
                                   { id: 'cardNumber', label: 'N° de carte', icon: '💳' },
                                   { id: 'enrollmentNumber', label: "N° d'enrôlement", icon: '📋' },
@@ -1742,8 +1734,6 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                 {pdfFieldsOrder.filter(f => pdfFields[f]).map(f => {
                                   const labelMap: Record<string, string> = {
                                     index: '#',
-                                    name: 'Nom',
-                                    identifier: 'Matricule',
                                     cardType: 'Type de carte',
                                     cardNumber: 'N° de carte',
                                     enrollmentNumber: "N° d'enrôlement",
