@@ -1008,6 +1008,19 @@ async function generateCardNumber(
     }
   }
 
+  // 1.5. If categoryId was missing or category has no code, try finding any company-specific category with cardCode
+  if (!overridePrefix && prefix === templateType.toUpperCase() && companyId) {
+    const compCategory = await prisma.cardCategory.findFirst({
+      where: {
+        companyId,
+        NOT: { cardCode: "" }
+      }
+    });
+    if (compCategory?.cardCode && compCategory.cardCode.trim() !== '') {
+      prefix = compCategory.cardCode.trim();
+    }
+  }
+
   // 2. Fallback to Document Type if category has no code
   if (prefix === templateType.toUpperCase() && !overridePrefix) {
     const docType = await prisma.cardDocumentType.findFirst({
@@ -1316,8 +1329,9 @@ export async function requestReprint(employeeId: string, reason: string, templat
     // Extract existing prefix from current cardNumber to ensure we respect it!
     let overridePrefix: string | undefined = undefined;
     if (emp.cardNumber) {
-      const match = emp.cardNumber.match(/^([A-Za-z_]+)\d+$/);
-      if (match) {
+      // Extract prefix before trailing digits (works for alphanumeric prefixes like 225AGR26)
+      const match = emp.cardNumber.match(/^(.*?)(\d{4,})$/);
+      if (match && match[1]) {
         overridePrefix = match[1];
       }
     }
