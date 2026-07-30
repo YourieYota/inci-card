@@ -213,8 +213,14 @@ export default function PrintQueueClient({
 
   // Categories Filtering
   const readyToPrintList = employees.filter((emp) => {
-    const isReady = emp.hasPhoto && !emp.isBlocked && (emp.status === 'PHOTO_VALIDEE' || emp.status === 'REIMPRESSION');
-    if (!isReady) return false;
+    const isEnrolledAndValid = emp.hasPhoto && !emp.isBlocked && emp.status !== 'A_ENROLER' && emp.status !== 'A_VERIFIER';
+    if (!isEnrolledAndValid) return false;
+    const hasReprintRequest = emp.printJobs?.some((j: any) => 
+      j.templateType === selectedTemplateType &&
+      j.cardNumber === 'REIMPRESSION_DEMANDEE'
+    );
+    if (hasReprintRequest) return false;
+
     const hasJob = emp.printJobs?.some((j: any) => 
       j.templateType === selectedTemplateType &&
       j.cardNumber !== 'REIMPRESSION_DEMANDEE'
@@ -961,92 +967,109 @@ export default function PrintQueueClient({
                             )}
                           </td>
                           <td className="py-4 px-4">
-                            {activeTab === 'ready' && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/25 dark:border-indigo-900/30">
-                                Prêt à imprimer
-                              </span>
-                            )}
-                            {activeTab === 'to-reprint' && (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-200/25 dark:border-violet-900/30 w-max">
-                                  À réimprimer
-                                </span>
-                                {(() => {
-                                  const reqJob = emp.printJobs?.find((j: any) => j.cardNumber === 'REIMPRESSION_DEMANDEE');
-                                  if (reqJob && reqJob.reprintReason) {
-                                    return (
+                            {(() => {
+                              const jobsForType = emp.printJobs?.filter((j: any) => j.templateType === selectedTemplateType) || [];
+                              const validJobs = jobsForType.filter((j: any) => j.cardNumber !== 'REIMPRESSION_DEMANDEE');
+                              const reqJob = jobsForType.find((j: any) => j.cardNumber === 'REIMPRESSION_DEMANDEE');
+                              const lastValidJob = validJobs[validJobs.length - 1];
+
+                              if (activeTab === 'ready') {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/25 dark:border-indigo-900/30">
+                                    Prêt à imprimer
+                                  </span>
+                                );
+                              }
+
+                              if (activeTab === 'to-reprint') {
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-200/25 dark:border-violet-900/30 w-max">
+                                      À réimprimer
+                                    </span>
+                                    {reqJob?.reprintReason && (
                                       <span className="text-[9px] text-neutral-500 dark:text-neutral-400 mt-1 max-w-[200px] truncate" title={reqJob.reprintReason}>
                                         Motif: {reqJob.reprintReason}
                                       </span>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                              </div>
-                            )}
-                            {activeTab === 'printed' && (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/25 dark:border-emerald-900/30 w-max">
-                                  Imprimé
-                                </span>
-                                {emp.printedAt && (
-                                  <span className="text-[9px] text-neutral-400 dark:text-neutral-500">
-                                    le {new Date(emp.printedAt).toLocaleDateString('fr-FR')}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            {activeTab === 'reprinted' && (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-200/25 dark:border-teal-900/30 w-max">
-                                  Réimprimé
-                                </span>
-                                {emp.printedAt && (
-                                  <span className="text-[9px] text-neutral-400 dark:text-neutral-500">
-                                    le {new Date(emp.printedAt).toLocaleDateString('fr-FR')}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            {activeTab === 'history' && (
-                              <div className="flex flex-col gap-0.5">
-                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold w-max ${
-                                  emp.status === 'IMPRIME'
-                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/25 dark:border-emerald-900/30'
-                                    : emp.status === 'REIMPRIME'
-                                    ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-200/25 dark:border-teal-900/30'
-                                    : emp.status === 'REIMPRESSION'
-                                    ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-200/25 dark:border-violet-900/30'
-                                    : emp.status === 'A_VERIFIER'
-                                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200/25 dark:border-rose-900/30'
-                                    : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/25 dark:border-indigo-900/30'
-                                }`}>
-                                  {emp.status === 'IMPRIME' && 'Imprimé'}
-                                  {emp.status === 'REIMPRIME' && 'Réimprimé'}
-                                  {emp.status === 'REIMPRESSION' && 'À réimprimer'}
-                                  {emp.status === 'A_ENROLER' && 'À enrôler'}
-                                  {emp.status === 'PHOTO_VALIDEE' && 'Validé (Prêt)'}
-                                  {emp.status === 'A_VERIFIER' && 'À vérifier'}
-                                </span>
-                                {emp.printedAt && (
-                                  <span className="text-[9px] text-neutral-400 dark:text-neutral-500 font-medium">
-                                    Dernière impression le {new Date(emp.printedAt).toLocaleDateString('fr-FR')}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            {activeTab === 'not-ready' && (
-                              <div className="flex flex-wrap gap-1 max-w-xs">
-                                {getNotReadyReasons(emp).map((reason) => (
-                                  <span 
-                                    key={reason}
-                                    className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/20 text-[9px] font-bold text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30"
-                                  >
-                                    {reason}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              if (activeTab === 'printed') {
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/25 dark:border-emerald-900/30 w-max">
+                                      Imprimé
+                                    </span>
+                                    {lastValidJob?.createdAt && (
+                                      <span className="text-[9px] text-neutral-400 dark:text-neutral-500">
+                                        le {new Date(lastValidJob.createdAt).toLocaleDateString('fr-FR')}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              if (activeTab === 'reprinted') {
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-200/25 dark:border-teal-900/30 w-max">
+                                      Réimprimé ({validJobs.length}x)
+                                    </span>
+                                    {lastValidJob?.createdAt && (
+                                      <span className="text-[9px] text-neutral-400 dark:text-neutral-500">
+                                        le {new Date(lastValidJob.createdAt).toLocaleDateString('fr-FR')}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              if (activeTab === 'history') {
+                                const isReprinted = validJobs.length > 1;
+                                const isPrinted = validJobs.length === 1;
+                                const isToReprint = !!reqJob;
+
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold w-max ${
+                                      isReprinted
+                                        ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-200/25 dark:border-teal-900/30'
+                                        : isPrinted
+                                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/25 dark:border-emerald-900/30'
+                                        : isToReprint
+                                        ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-200/25 dark:border-violet-900/30'
+                                        : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/25 dark:border-indigo-900/30'
+                                    }`}>
+                                      {isReprinted ? `Réimprimé (${validJobs.length}x)` : isPrinted ? 'Imprimé' : isToReprint ? 'À réimprimer' : 'Prêt à imprimer'}
+                                    </span>
+                                    {lastValidJob?.createdAt && (
+                                      <span className="text-[9px] text-neutral-400 dark:text-neutral-500 font-medium">
+                                        Dernière impression le {new Date(lastValidJob.createdAt).toLocaleDateString('fr-FR')}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              if (activeTab === 'not-ready') {
+                                return (
+                                  <div className="flex flex-wrap gap-1 max-w-xs">
+                                    {getNotReadyReasons(emp).map((reason) => (
+                                      <span 
+                                        key={reason}
+                                        className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/20 text-[9px] font-bold text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30"
+                                      >
+                                        {reason}
+                                      </span>
+                                    ))}
+                                  </div>
+                                );
+                              }
+
+                              return null;
+                            })()}
                           </td>
                           <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end items-center gap-1.5">

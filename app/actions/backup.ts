@@ -117,7 +117,8 @@ export async function exportDatabaseBackup(passwordConfirm?: string) {
       cardDocumentTypes,
       deliveryBatches,
       customRoles,
-      users
+      users,
+      printJobs
     ] = await Promise.all([
       prisma.company.findMany(),
       prisma.employee.findMany(),
@@ -128,18 +129,8 @@ export async function exportDatabaseBackup(passwordConfirm?: string) {
       prisma.cardDocumentType.findMany(),
       prisma.deliveryBatch.findMany(),
       prisma.customRole.findMany(),
-      prisma.user.findMany({
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          firstName: true,
-          login: true,
-          phone: true,
-          role: true,
-          createdAt: true,
-        }
-      }),
+      prisma.user.findMany(),
+      prisma.printJob.findMany(),
     ]);
 
     const backupData = {
@@ -153,6 +144,7 @@ export async function exportDatabaseBackup(passwordConfirm?: string) {
           cardTemplates: cardTemplates.length,
           deliveryBatches: deliveryBatches.length,
           users: users.length,
+          printJobs: printJobs.length,
         }
       },
       data: {
@@ -166,13 +158,30 @@ export async function exportDatabaseBackup(passwordConfirm?: string) {
         deliveryBatches,
         customRoles,
         users,
+        printJobs,
       }
     };
 
+    ensureBackupDir();
+    const formattedDate = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `inci-card-backup-${formattedDate}.json`;
+    const jsonString = JSON.stringify(backupData, null, 2);
+
+    const filePath = path.join(BACKUP_DIR, filename);
+    fs.writeFileSync(filePath, jsonString, 'utf-8');
+
+    try {
+      if (fs.existsSync(DRIVE_C_BACKUP_DIR)) {
+        fs.writeFileSync(path.join(DRIVE_C_BACKUP_DIR, filename), jsonString, 'utf-8');
+      }
+    } catch (e) {
+      console.warn('Error writing JSON backup copy to C drive backups folder:', e);
+    }
+
     return {
       success: true,
-      jsonString: JSON.stringify(backupData),
-      filename: `inci-card-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      jsonString,
+      filename,
     };
   } catch (error: any) {
     console.error('Error exporting database backup:', error);
@@ -303,7 +312,7 @@ export async function exportDatabaseSql(passwordConfirm?: string) {
 
       rows.forEach(row => {
         const values = cols.map(c => toSqlValue(row[c])).join(', ');
-        lines.push(`INSERT INTO "${tableName}" (${colList}) VALUES (${values});`);
+        lines.push(`INSERT INTO "${tableName}" (${colList}) VALUES (${values}) ON CONFLICT DO NOTHING;`);
       });
 
       return lines.join('\n') + '\n\n';
@@ -342,11 +351,8 @@ export async function exportDatabaseSql(passwordConfirm?: string) {
       if (fs.existsSync(DRIVE_C_DIR)) {
         fs.writeFileSync(path.join(DRIVE_C_DIR, filename), sqlContent, 'utf-8');
       }
-      if (fs.existsSync(DRIVE_C_BACKUP_DIR)) {
-        fs.writeFileSync(path.join(DRIVE_C_BACKUP_DIR, filename), sqlContent, 'utf-8');
-      }
     } catch (driveErr) {
-      console.warn('Error writing SQL copy to C drive:', driveErr);
+      console.warn('Error writing SQL dump copy to C drive:', driveErr);
     }
 
     return {
@@ -557,7 +563,71 @@ export async function restoreDatabaseBackup(backupJsonData: any, passwordConfirm
           });
         }
       }
-    });
+
+      // 10. Users
+      if (Array.isArray(data.users)) {
+        for (const u of data.users) {
+          const updateData: any = {
+            email: u.email,
+            name: u.name,
+            firstName: u.firstName,
+            login: u.login,
+            phone: u.phone,
+            role: u.role,
+          };
+          if (u.passwordHash) updateData.passwordHash = u.passwordHash;
+
+          await tx.user.upsert({
+            where: { id: u.id },
+            update: updateData,
+            create: {
+              id: u.id,
+              email: u.email,
+              passwordHash: u.passwordHash || '',
+              name: u.name,
+              firstName: u.firstName,
+              login: u.login,
+              phone: u.phone,
+              role: u.role ?? 'OPERATEUR',
+              createdAt: u.createdAt ? new Date(u.createdAt) : undefined,
+            },
+          });
+        }
+      }
+
+      // 11. PrintJobs
+      if (Array.isArray(data.printJobs)) {
+        for (const pj of data.printJobs) {
+          await tx.printJob.upsert({
+            where: { id: pj.id },
+            update: {
+              employeeId: pj.employeeId,
+              cardNumber: pj.cardNumber,
+              templateType: pj.templateType,
+              categoryId: pj.categoryId,
+              physicalTypeId: pj.physicalTypeId,
+              isReprint: pj.isReprint ?? false,
+              reprintReason: pj.reprintReason,
+              printedBy: pj.printedBy,
+              printedAt: pj.printedAt ? new Date(pj.printedAt) : undefined,
+            },
+            create: {
+              id: pj.id,
+              employeeId: pj.employeeId,
+              cardNumber: pj.cardNumber,
+              templateType: pj.templateType,
+              categoryId: pj.categoryId,
+              physicalTypeId: pj.physicalTypeId,
+              isReprint: pj.isReprint ?? false,
+              reprintReason: pj.reprintReason,
+              printedBy: pj.printedBy,
+              printedAt: pj.printedAt ? new Date(pj.printedAt) : undefined,
+              createdAt: pj.createdAt ? new Date(pj.createdAt) : undefined,
+            },
+          });
+        }
+      }
+    }, { maxWait: 60000, timeout: 600000 });
 
     return { success: true, message: 'Sauvegarde restaurée avec succès !' };
   } catch (error: any) {
@@ -600,20 +670,38 @@ export async function saveAutoBackupConfig(newConfig: Partial<AutoBackupConfig>,
 export async function listLocalServerBackups() {
   try {
     ensureBackupDir();
-    const files = fs.readdirSync(BACKUP_DIR);
-    const backupFiles = files
-      .filter((f) => (f.endsWith('.json') || f.endsWith('.sql')) && f !== 'backup_config.json')
-      .map((filename) => {
-        const filePath = path.join(BACKUP_DIR, filename);
-        const stats = fs.statSync(filePath);
-        return {
-          filename,
-          sizeBytes: stats.size,
-          createdAt: stats.birthtime.toISOString(),
-          modifiedAt: stats.mtime.toISOString(),
-        };
-      })
-      .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+    const map = new Map<string, { filename: string; sizeBytes: number; createdAt: string; modifiedAt: string; path: string }>();
+
+    const dirsToScan = [
+      { dir: BACKUP_DIR, filter: (f: string) => f.endsWith('.json') || f.endsWith('.sql') },
+      { dir: DRIVE_C_DIR, filter: (f: string) => f.endsWith('.sql') },
+      { dir: DRIVE_C_BACKUP_DIR, filter: (f: string) => f.endsWith('.json') },
+    ];
+
+    for (const { dir, filter } of dirsToScan) {
+      if (!fs.existsSync(dir)) continue;
+      const files = fs.readdirSync(dir);
+      for (const filename of files) {
+        if (filename === 'backup_config.json' || !filter(filename)) continue;
+        const filePath = path.join(dir, filename);
+        try {
+          const stats = fs.statSync(filePath);
+          if (stats.isFile() && !map.has(filename)) {
+            map.set(filename, {
+              filename,
+              sizeBytes: stats.size,
+              createdAt: stats.birthtime.toISOString(),
+              modifiedAt: stats.mtime.toISOString(),
+              path: filePath,
+            });
+          }
+        } catch (e) {}
+      }
+    }
+
+    const backupFiles = Array.from(map.values()).sort(
+      (a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime()
+    );
 
     return { success: true, files: backupFiles };
   } catch (e: any) {
@@ -645,6 +733,83 @@ export async function deleteLocalServerBackup(filename: string, passwordConfirm?
   }
 }
 
+function parseSqlStatements(sql: string): string[] {
+  const statements: string[] = [];
+  let current = '';
+  let inString = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < sql.length; i++) {
+    const char = sql[i];
+    const nextChar = sql[i + 1];
+
+    if (inLineComment) {
+      if (char === '\n') {
+        inLineComment = false;
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (char === '*' && nextChar === '/') {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+
+    if (inString) {
+      current += char;
+      if (char === "'") {
+        if (nextChar === "'") {
+          current += nextChar;
+          i++;
+        } else {
+          inString = false;
+        }
+      }
+      continue;
+    }
+
+    if (char === '-' && nextChar === '-') {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+
+    if (char === '/' && nextChar === '*') {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+
+    if (char === "'") {
+      inString = true;
+      current += char;
+      continue;
+    }
+
+    if (char === ';') {
+      const stmt = current.trim();
+      if (stmt) {
+        statements.push(stmt);
+      }
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  const remaining = current.trim();
+  if (remaining) {
+    statements.push(remaining);
+  }
+
+  return statements;
+}
+
 export async function restoreDatabaseFromSql(sqlContent: string, passwordConfirm?: string) {
   try {
     await verifyAdminAndPassword(passwordConfirm);
@@ -653,35 +818,28 @@ export async function restoreDatabaseFromSql(sqlContent: string, passwordConfirm
       throw new Error('Fichier SQL vide ou invalide');
     }
 
-    const statements = sqlContent
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => {
-        if (!s) return false;
-        const upper = s.toUpperCase();
-        return !upper.startsWith('--') && upper !== 'BEGIN' && upper !== 'COMMIT';
-      });
+    const rawStatements = parseSqlStatements(sqlContent);
+    const statements = rawStatements.filter(s => {
+      if (!s) return false;
+      const upper = s.toUpperCase().trim();
+      return (
+        upper !== 'BEGIN' &&
+        upper !== 'COMMIT' &&
+        !upper.startsWith('SET SESSION_REPLICATION_ROLE')
+      );
+    });
 
     await prisma.$transaction(async (tx) => {
-      try {
-        await tx.$executeRawUnsafe("SET session_replication_role = 'replica';");
-      } catch (e) {}
-
       for (const statement of statements) {
-        const cleaned = statement
-          .split('\n')
-          .filter(line => !line.trim().startsWith('--'))
-          .join('\n')
-          .trim();
+        let cleaned = statement.trim();
         if (cleaned.length > 0) {
+          if (/^INSERT\s+INTO/i.test(cleaned) && !/ON\s+CONFLICT/i.test(cleaned)) {
+            cleaned += ' ON CONFLICT DO NOTHING';
+          }
           await tx.$executeRawUnsafe(cleaned);
         }
       }
-
-      try {
-        await tx.$executeRawUnsafe("SET session_replication_role = 'origin';");
-      } catch (e) {}
-    });
+    }, { maxWait: 60000, timeout: 600000 });
 
     return { success: true, message: 'Base de données restaurée avec succès depuis le fichier SQL !' };
   } catch (error: any) {
@@ -737,8 +895,9 @@ export async function executeAutoBackupNow(passwordConfirm?: string, isManualTri
 
         fs.writeFileSync(path.join(BACKUP_DIR, filename), exportRes.jsonString, 'utf-8');
         try {
-          if (fs.existsSync(DRIVE_C_DIR)) fs.writeFileSync(path.join(DRIVE_C_DIR, filename), exportRes.jsonString, 'utf-8');
-          if (fs.existsSync(DRIVE_C_BACKUP_DIR)) fs.writeFileSync(path.join(DRIVE_C_BACKUP_DIR, filename), exportRes.jsonString, 'utf-8');
+          if (fs.existsSync(DRIVE_C_BACKUP_DIR)) {
+            fs.writeFileSync(path.join(DRIVE_C_BACKUP_DIR, filename), exportRes.jsonString, 'utf-8');
+          }
         } catch (e) {}
 
         lastCreatedFilename = filename;

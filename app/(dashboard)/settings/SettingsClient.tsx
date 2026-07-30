@@ -93,6 +93,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
   const [passModalInput, setPassModalInput] = useState('');
   const [passModalError, setPassModalError] = useState<string | null>(null);
   const [passModalTitle, setPassModalTitle] = useState('');
+  const [passModalLoading, setPassModalLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<((password: string) => Promise<void>) | null>(null);
 
   const requestAdminAuth = (title: string, action: (password: string) => Promise<void>) => {
@@ -107,6 +108,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     setPendingAction(() => action);
     setPassModalInput('');
     setPassModalError(null);
+    setPassModalLoading(false);
     setPassModalOpen(true);
   };
 
@@ -116,15 +118,18 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
       setPassModalError('Veuillez saisir le mot de passe de votre compte.');
       return;
     }
-    if (!pendingAction) return;
+    if (!pendingAction || passModalLoading) return;
 
     setPassModalError(null);
+    setPassModalLoading(true);
     try {
       await pendingAction(passModalInput.trim());
       setPassModalOpen(false);
       setPassModalInput('');
     } catch (err: any) {
       setPassModalError(err.message || 'Action échouée');
+    } finally {
+      setPassModalLoading(false);
     }
   };
 
@@ -1244,20 +1249,29 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     onChange={(e) => setPassModalInput(e.target.value)}
                     placeholder="Saisissez votre mot de passe"
                     autoFocus
+                    disabled={passModalLoading}
                     required
-                    className="w-full px-3.5 py-2.5 pr-10 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-100 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 pr-10 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-100 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:opacity-50"
                   />
                   <button
                     type="button"
+                    disabled={passModalLoading}
                     onClick={() => setShowCurrentPass(!showCurrentPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 disabled:opacity-50"
                   >
                     {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              {passModalError && (
+              {passModalLoading && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl text-xs text-amber-700 dark:text-amber-300 font-medium flex items-center gap-2.5 animate-pulse">
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Traitement en cours... Veuillez patienter pendant l&apos;exécution.</span>
+                </div>
+              )}
+
+              {passModalError && !passModalLoading && (
                 <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{passModalError}</span>
@@ -1267,16 +1281,27 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
               <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
                 <button
                   type="button"
-                  onClick={() => setPassModalOpen(false)}
-                  className="px-4 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-xl text-xs font-bold transition"
+                  disabled={passModalLoading}
+                  onClick={() => {
+                    if (!passModalLoading) setPassModalOpen(false);
+                  }}
+                  className="px-4 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-xl text-xs font-bold transition disabled:opacity-50"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                  disabled={passModalLoading}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-2"
                 >
-                  Confirmer l&apos;action
+                  {passModalLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Traitement...</span>
+                    </>
+                  ) : (
+                    <span>Confirmer l&apos;action</span>
+                  )}
                 </button>
               </div>
             </form>
