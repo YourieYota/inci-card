@@ -443,12 +443,27 @@ const getFieldValue = (
     return selectedPhysicalTypeName || '';
   }
 
-  if (normalizedTarget === 'n° carte' || normalizedTarget === 'numero carte' || normalizedTarget === 'numéro carte' || normalizedTarget === 'cardnumber' || normalizedTarget === 'numero de carte' || normalizedTarget === 'numéro de carte') {
+  if (
+    normalizedTarget === 'n° carte' || 
+    normalizedTarget === 'numero carte' || 
+    normalizedTarget === 'numéro carte' || 
+    normalizedTarget === 'cardnumber' || 
+    normalizedTarget === 'numero de carte' || 
+    normalizedTarget === 'numéro de carte' ||
+    normalizedTarget === 'no carte' ||
+    normalizedTarget === 'carte' ||
+    normalizedTarget === 'code carte' ||
+    normalizedTarget === 'n° de carte'
+  ) {
     return emp.cardNumber || (categoryCardCode ? `${categoryCardCode}XXXX` : 'En attente...');
   }
 
   if (normalizedTarget === 'n° d\'enrolement' || normalizedTarget === 'numéro d\'enrôlement' || normalizedTarget === 'enrollmentnumber') {
-    return emp.enrollmentNumber || 'En cours...';
+    return emp.cardNumber || emp.enrollmentNumber || 'En cours...';
+  }
+
+  if (normalizedTarget === 'matricule' || normalizedTarget === 'code' || normalizedTarget === 'identifiant') {
+    return emp.cardNumber || emp.uniqueIdentifier || '';
   }
 
   if (normalizedTarget === 'date d\'emission' || normalizedTarget === 'date d\'émission' || normalizedTarget === 'date emission' || normalizedTarget === 'date émission') {
