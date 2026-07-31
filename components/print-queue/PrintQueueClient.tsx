@@ -416,7 +416,10 @@ export default function PrintQueueClient({
 
   const handlePrintSelected = () => {
     if (selectedIds.length === 0) return;
-    window.open(`/dashboard/employees/print?ids=${encodeURIComponent(selectedIds.join(','))}&type=${selectedTemplateType}`, '_blank');
+    const orderedSelectedIds = filteredEmployees
+      .filter(emp => selectedIds.includes(emp.id))
+      .map(emp => emp.id);
+    window.open(`/dashboard/employees/print?ids=${encodeURIComponent(orderedSelectedIds.join(','))}&type=${selectedTemplateType}`, '_blank');
   };
 
   const handleMarkPrintedSelected = async () => {
