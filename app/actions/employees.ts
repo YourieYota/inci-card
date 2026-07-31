@@ -1106,13 +1106,17 @@ async function generateCardNumber(
  */
 export async function validatePrintEligibility(employeeIds: string[], templateType?: string) {
   try {
-    const employees = await prisma.employee.findMany({
+    const fetchedEmployees = await prisma.employee.findMany({
       where: { id: { in: employeeIds } },
       include: {
         company: { select: { name: true } },
         printJobs: true,
       },
     });
+
+    // Re-order fetched employees to match the EXACT selection sequence from `employeeIds` parameter
+    const empMap = new Map(fetchedEmployees.map(e => [e.id, e]));
+    const employees = employeeIds.map(id => empMap.get(id)).filter(Boolean) as typeof fetchedEmployees;
 
     const eligible: typeof employees = [];
     const ineligible: { employee: typeof employees[0]; reasons: string[] }[] = [];
