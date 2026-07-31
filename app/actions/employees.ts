@@ -1633,11 +1633,15 @@ export async function assignCardNumbersForCategory(employeeIds: string[], catego
       }
     }
 
-    const employees = await prisma.employee.findMany({
+    const fetchedEmployees = await prisma.employee.findMany({
       where: {
         id: { in: employeeIds },
       },
     });
+    
+    // Re-order fetched employees to match the EXACT selection sequence from `employeeIds` parameter
+    const empMap = new Map(fetchedEmployees.map(e => [e.id, e]));
+    const employees = employeeIds.map(id => empMap.get(id)).filter(Boolean) as typeof fetchedEmployees;
     
     console.log(`[assignCardNumbersForCategory] Found ${employees.length} employees to check/assign`);
     
