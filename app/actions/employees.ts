@@ -962,41 +962,68 @@ async function generateCardNumber(
   overridePrefix?: string,
   extraExcludedNumbers?: Set<string> | string[] | Array<string>
 ): Promise<string> {
-  let prefix = overridePrefix || templateType.toUpperCase();
+  let prefix = overridePrefix || '';
 
-  // 1. Try to find the cardCode from the category first
-  if (!overridePrefix && categoryId) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
-    let category = null;
-    if (isUuid) {
-      category = await prisma.cardCategory.findUnique({
-        where: { id: categoryId },
-      });
+  if (!prefix) {
+    let category: any = null;
+
+    // 1. Try finding company-specific category first if categoryId is provided
+    if (categoryId && companyId) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
+      if (isUuid) {
+        category = await prisma.cardCategory.findFirst({
+          where: { id: categoryId, companyId },
+        });
+      }
+      if (!category) {
+        category = await prisma.cardCategory.findFirst({
+          where: {
+            companyId,
+            OR: [
+              { id: categoryId },
+              { name: { equals: categoryId, mode: 'insensitive' } },
+              { slug: { equals: categoryId, mode: 'insensitive' } },
+              { cardCode: { equals: categoryId, mode: 'insensitive' } },
+              { documentTypeSlug: { equals: templateType, mode: 'insensitive' } }
+            ]
+          }
+        });
+      }
     }
-    
-    if (!category) {
+
+    // 2. If no specific category matched yet, find ANY company-specific category with a cardCode for this company
+    if (!category && companyId) {
       category = await prisma.cardCategory.findFirst({
         where: {
-          AND: [
-            {
-              OR: [
-                { companyId },
-                { companyId: null }
-              ]
-            },
-            {
-              OR: [
-                { id: categoryId },
-                { name: { equals: categoryId, mode: 'insensitive' } },
-                { slug: { equals: categoryId, mode: 'insensitive' } },
-                { cardCode: { equals: categoryId, mode: 'insensitive' } }
-              ]
-            }
-          ]
-        }
+          companyId,
+          NOT: { cardCode: "" }
+        },
+        orderBy: { updatedAt: 'desc' }
       });
     }
 
+    // 3. Fallback to global category (companyId = null) only if no company category exists
+    if (!category && categoryId) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
+      if (isUuid) {
+        category = await prisma.cardCategory.findUnique({
+          where: { id: categoryId },
+        });
+      } else {
+        category = await prisma.cardCategory.findFirst({
+          where: {
+            companyId: null,
+            OR: [
+              { name: { equals: categoryId, mode: 'insensitive' } },
+              { slug: { equals: categoryId, mode: 'insensitive' } },
+              { cardCode: { equals: categoryId, mode: 'insensitive' } }
+            ]
+          }
+        });
+      }
+    }
+
+    // Extract prefix from resolved category
     if (category) {
       if (category.cardCode && category.cardCode.trim() !== '') {
         prefix = category.cardCode.trim();
@@ -1006,35 +1033,23 @@ async function generateCardNumber(
         prefix = category.name.toUpperCase().replace(/[^A-Z0-9]/g, '');
       }
     }
-  }
 
-  // 1.5. If categoryId was missing or category has no code, try finding any company-specific category with cardCode
-  if (!overridePrefix && prefix === templateType.toUpperCase() && companyId) {
-    const compCategory = await prisma.cardCategory.findFirst({
-      where: {
-        companyId,
-        NOT: { cardCode: "" }
+    // 4. Fallback to Document Type if category has no code
+    if (!prefix) {
+      const docType = await prisma.cardDocumentType.findFirst({
+        where: {
+          slug: templateType,
+          companyId,
+        },
+      });
+      if (docType?.cardCode && docType.cardCode.trim() !== '') {
+        prefix = docType.cardCode.trim();
       }
-    });
-    if (compCategory?.cardCode && compCategory.cardCode.trim() !== '') {
-      prefix = compCategory.cardCode.trim();
     }
-  }
 
-  // 2. Fallback to Document Type if category has no code
-  if (prefix === templateType.toUpperCase() && !overridePrefix) {
-    const docType = await prisma.cardDocumentType.findFirst({
-      where: {
-        slug: templateType,
-        OR: [
-          { companyId },
-          { companyId: null }
-        ]
-      },
-    });
-
-    if (docType?.cardCode && docType.cardCode.trim() !== '') {
-      prefix = docType.cardCode.trim();
+    // 5. Ultimate fallback to templateType
+    if (!prefix) {
+      prefix = templateType.toUpperCase();
     }
   }
 
