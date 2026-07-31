@@ -46,7 +46,7 @@ export default async function PrintPage({ searchParams }: PageProps) {
 
   try {
     // Fetch employees
-    employees = await prisma.employee.findMany({
+    const fetchedEmployees = await prisma.employee.findMany({
       where: {
         id: { in: ids },
       },
@@ -54,6 +54,10 @@ export default async function PrintPage({ searchParams }: PageProps) {
         company: true,
       },
     });
+
+    // Re-order fetched employees to match the EXACT selection sequence from `ids` parameter
+    const empMap = new Map(fetchedEmployees.map(e => [e.id, e]));
+    employees = ids.map(id => empMap.get(id)).filter(Boolean);
 
     if (employees.length > 0) {
       // Fetch templates for the company of the first employee

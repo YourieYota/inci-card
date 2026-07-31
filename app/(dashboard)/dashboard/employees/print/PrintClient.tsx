@@ -982,7 +982,11 @@ export default function PrintClient({ employees, templates, companyName, documen
         }
       }
 
-      const matched = cachedEmployees.filter((emp) => ids.includes(emp.id));
+      const cachedMap = new Map<string, any>();
+      cachedEmployees.forEach(emp => {
+        if (emp && emp.id) cachedMap.set(emp.id, emp);
+      });
+      const matched = ids.map(id => cachedMap.get(id)).filter(Boolean);
       
       if (matched.length > 0) {
         const firstCoId = matched[0].companyId;
