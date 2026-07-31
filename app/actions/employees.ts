@@ -1090,14 +1090,16 @@ async function generateCardNumber(
   const prefixUpper = prefix.toUpperCase();
 
   allNumbers.forEach(num => {
-    const numUpper = num.toUpperCase();
-    if (!numUpper.includes(prefixUpper)) return;
+    if (!num) return;
+    const numUpper = num.toUpperCase().trim();
+    const idx = numUpper.indexOf(prefixUpper);
+    if (idx === -1) return;
 
-    // Robust extraction of trailing digits using regex
-    const digitMatches = num.match(/\d+/g);
-    if (digitMatches && digitMatches.length > 0) {
-      const lastDigits = digitMatches[digitMatches.length - 1];
-      const seqVal = parseInt(lastDigits, 10);
+    // Extract the portion strictly AFTER prefixUpper
+    const suffix = numUpper.slice(idx + prefixUpper.length);
+    const seqMatch = suffix.match(/^\d+/);
+    if (seqMatch) {
+      const seqVal = parseInt(seqMatch[0], 10);
       if (!isNaN(seqVal) && seqVal > maxSeq) {
         maxSeq = seqVal;
       }
