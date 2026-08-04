@@ -48,8 +48,12 @@ export interface AutoBackupConfig {
 }
 
 const BACKUP_DIR = path.join(process.cwd(), 'backups');
-const DRIVE_C_DIR = 'C:\\inci-card';
-const DRIVE_C_BACKUP_DIR = 'C:\\inci-card\\backups';
+
+const isWindows = process.platform === 'win32';
+const EXTERNAL_BASE_DIR = process.env.EXTERNAL_BACKUP_DIR || (isWindows ? 'C:\\inci-card' : '/home/inci-card');
+const DRIVE_C_DIR = EXTERNAL_BASE_DIR;
+const DRIVE_C_BACKUP_DIR = path.join(EXTERNAL_BASE_DIR, 'backups');
+
 const CONFIG_FILE = path.join(BACKUP_DIR, 'backup_config.json');
 
 const DEFAULT_CONFIG: AutoBackupConfig = {
