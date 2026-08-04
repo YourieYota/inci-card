@@ -104,11 +104,19 @@ export async function getEmployees(companyId: string) {
     });
 
     return list.map(emp => {
-      const { photoUrl, ...rest } = emp;
+      const { photoUrl, createdAt, updatedAt, printedAt, printJobs, ...rest } = emp;
       return {
         ...rest,
         photoUrl: null,
         hasPhoto: photoUrl !== null && photoUrl !== '',
+        createdAt: createdAt ? createdAt.toISOString() : null,
+        updatedAt: updatedAt ? updatedAt.toISOString() : null,
+        printedAt: printedAt ? printedAt.toISOString() : null,
+        printJobs: (printJobs || []).map(j => ({
+          ...j,
+          createdAt: j.createdAt ? j.createdAt.toISOString() : null,
+          printedAt: j.printedAt ? j.printedAt.toISOString() : null,
+        })),
       };
     });
   } catch (error) {
