@@ -163,12 +163,27 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     }
   };
 
-  const updateAutoConfig = async (newConfigPartial: Partial<AutoBackupConfig>) => {
-    requestAdminAuth('Modifier la configuration des sauvegardes automatiques', async (pass) => {
+  const updateAutoConfigDirect = async (newConfigPartial: Partial<AutoBackupConfig>) => {
+    try {
+      const res = await saveAutoBackupConfig(newConfigPartial);
+      if (res.success && res.config) {
+        setAutoConfig(res.config);
+        setMessage({ type: 'success', text: 'Paramètres de sauvegarde mis à jour !' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: res.error || 'Erreur lors de la mise à jour' });
+      }
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e.message || 'Erreur de mise à jour' });
+    }
+  };
+
+  const updateAutoConfigWithAuth = async (newConfigPartial: Partial<AutoBackupConfig>) => {
+    requestAdminAuth('Modifier l\'activation de la sauvegarde automatique', async (pass) => {
       const res = await saveAutoBackupConfig(newConfigPartial, pass);
       if (res.success && res.config) {
         setAutoConfig(res.config);
-        setMessage({ type: 'success', text: 'Paramètres de sauvegarde automatique mis à jour !' });
+        setMessage({ type: 'success', text: 'Statut de la sauvegarde automatique mis à jour !' });
         setTimeout(() => setMessage(null), 3000);
       } else {
         throw new Error(res.error || 'Erreur lors de la mise à jour');
@@ -1038,7 +1053,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     <input
                       type="checkbox"
                       checked={autoConfig.enabled}
-                      onChange={(e) => updateAutoConfig({ enabled: e.target.checked })}
+                      onChange={(e) => updateAutoConfigWithAuth({ enabled: e.target.checked })}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-neutral-200 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
@@ -1054,7 +1069,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                       </label>
                       <select
                         value={autoConfig.format || 'both'}
-                        onChange={(e) => updateAutoConfig({ format: e.target.value as any })}
+                        onChange={(e) => updateAutoConfigDirect({ format: e.target.value as any })}
                         className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200"
                       >
                         <option value="both">JSON + Dump SQL (Recommandé)</option>
@@ -1070,7 +1085,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                       </label>
                       <select
                         value={autoConfig.interval}
-                        onChange={(e) => updateAutoConfig({ interval: e.target.value as any })}
+                        onChange={(e) => updateAutoConfigDirect({ interval: e.target.value as any })}
                         className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200"
                       >
                         <option value="hourly">Toutes les heures (1h)</option>
@@ -1090,7 +1105,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                         min="1"
                         max="100"
                         value={autoConfig.maxBackups}
-                        onChange={(e) => updateAutoConfig({ maxBackups: parseInt(e.target.value) || 1 })}
+                        onChange={(e) => updateAutoConfigDirect({ maxBackups: parseInt(e.target.value) || 1 })}
                         className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200"
                       />
                     </div>
@@ -1102,7 +1117,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                       </label>
                       <select
                         value={autoConfig.rotationStrategy}
-                        onChange={(e) => updateAutoConfig({ rotationStrategy: e.target.value as any })}
+                        onChange={(e) => updateAutoConfigDirect({ rotationStrategy: e.target.value as any })}
                         className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold text-neutral-800 dark:text-neutral-200"
                       >
                         <option value="delete_oldest">Supprimer les N plus anciennes (FIFO)</option>
