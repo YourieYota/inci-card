@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { removeBackground } from '@imgly/background-removal-node';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { imageUrl, imageData } = await request.json();

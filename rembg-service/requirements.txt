@@ -1,4 +1,4 @@
-onnxruntime-cpu
+onnxruntime
 fastapi
 uvicorn
 pillow
