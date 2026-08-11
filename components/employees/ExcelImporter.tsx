@@ -70,12 +70,33 @@ export default function ExcelImporter({
       const trimmed = val.trim();
       if (!trimmed) return val;
 
-      // Match French format dd/mm/yyyy or dd-mm-yyyy
-      const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      // Match French format dd/mm/yyyy or dd-mm-yyyy or US m/d/yyyy
+      const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
       if (dmyMatch) {
-        const day = String(parseInt(dmyMatch[1], 10)).padStart(2, '0');
-        const month = String(parseInt(dmyMatch[2], 10)).padStart(2, '0');
-        const year = dmyMatch[3];
+        const part1 = parseInt(dmyMatch[1], 10);
+        const part2 = parseInt(dmyMatch[2], 10);
+        let year = dmyMatch[3];
+        if (year.length === 2) {
+          year = (parseInt(year, 10) > 30 ? '19' : '20') + year;
+        }
+
+        // If part1 > 12, part1 MUST be Day and part2 MUST be Month (e.g. 26/01/1977)
+        if (part1 > 12) {
+          const day = String(part1).padStart(2, '0');
+          const month = String(part2).padStart(2, '0');
+          return `${day}/${month}/${year}`;
+        }
+
+        // If part2 > 12, part2 MUST be Day and part1 MUST be Month (e.g. 01/26/1977 -> US format from Excel)
+        if (part2 > 12) {
+          const day = String(part2).padStart(2, '0');
+          const month = String(part1).padStart(2, '0');
+          return `${day}/${month}/${year}`;
+        }
+
+        // Default French convention: part1 is Day, part2 is Month
+        const day = String(part1).padStart(2, '0');
+        const month = String(part2).padStart(2, '0');
         return `${day}/${month}/${year}`;
       }
 
@@ -131,7 +152,7 @@ export default function ExcelImporter({
         const data = e.target?.result;
         if (!data) throw new Error('Impossible de lire le fichier.');
 
-        const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
@@ -201,7 +222,7 @@ export default function ExcelImporter({
       setIsProcessing(false);
     };
 
-    reader.readAsBinaryString(excelFile);
+    reader.readAsArrayBuffer(excelFile);
   };
 
   // Read and parse ZIP archive containing Excel and photos
