@@ -285,11 +285,42 @@ export async function importEmployees({
           const newData = { ...oldData };
           let hasChanges = false;
 
+          const parseDateForComp = (dStr: string) => {
+            if (!dStr) return '';
+            if (dStr.includes('/')) {
+              const parts = dStr.split('/');
+              if (parts.length === 3) {
+                return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+              }
+            }
+            if (dStr.includes('T')) {
+              const dateObj = new Date(dStr);
+              if (!isNaN(dateObj.getTime())) {
+                const day = String(dateObj.getUTCDate()).padStart(2, '0');
+                const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+                const year = dateObj.getUTCFullYear();
+                return `${day}/${month}/${year}`;
+              }
+            }
+            return dStr;
+          };
+
           Object.entries(cleanedRow).forEach(([key, value]) => {
-            const oldValStr = oldData[key] !== undefined && oldData[key] !== null ? String(oldData[key]).trim() : '';
+            const trimmedKey = key.trim().toLowerCase();
+            const existingOldKey = Object.keys(oldData).find(k => k.trim().toLowerCase() === trimmedKey) || key;
+            const rawOldVal = oldData[existingOldKey];
+
+            const oldValStr = rawOldVal !== undefined && rawOldVal !== null ? String(rawOldVal).trim() : '';
             const newValStr = value !== undefined && value !== null ? String(value).trim() : '';
 
-            if (oldValStr !== newValStr) {
+            const isDateKey = trimmedKey.includes('date') || trimmedKey.includes('naiss');
+            const compOld = isDateKey ? parseDateForComp(oldValStr) : oldValStr;
+            const compNew = isDateKey ? parseDateForComp(newValStr) : newValStr;
+
+            if (compOld !== compNew) {
+              if (existingOldKey !== key && existingOldKey in newData) {
+                delete newData[existingOldKey];
+              }
               newData[key] = value;
               hasChanges = true;
             }

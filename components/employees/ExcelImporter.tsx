@@ -421,15 +421,27 @@ export default function ExcelImporter({
     setError(null);
 
     try {
+      // Helper for fuzzy key lookup to handle trailing spaces or case differences in headers
+      const getRowVal = (r: Record<string, any>, targetKey: string) => {
+        if (r[targetKey] !== undefined && r[targetKey] !== null) return r[targetKey];
+        const trimmedTarget = targetKey.trim().toLowerCase();
+        const foundKey = Object.keys(r).find(k => k.trim().toLowerCase() === trimmedTarget);
+        return (foundKey && r[foundKey] !== undefined && r[foundKey] !== null) ? r[foundKey] : undefined;
+      };
+
       // Build clean row objects containing only selected columns (always keeping keys with empty string fallbacks)
       const cleanRows = await Promise.all(
         rows.map(async (row) => {
           const filteredRow: Record<string, any> = {};
+          
           // Always include uniqueField
-          filteredRow[uniqueField] = (row[uniqueField] !== undefined && row[uniqueField] !== null) ? String(row[uniqueField]).trim() : "";
+          const uniqueRaw = getRowVal(row, uniqueField);
+          filteredRow[uniqueField] = (uniqueRaw !== undefined && uniqueRaw !== null) ? String(uniqueRaw).trim() : "";
+
           // Include selected columns
           selectedHeaders.forEach((h) => {
-            filteredRow[h] = (row[h] !== undefined && row[h] !== null) ? row[h] : "";
+            const val = getRowVal(row, h);
+            filteredRow[h.trim()] = (val !== undefined && val !== null) ? val : "";
           });
 
           // Fetch photo from ZIP if ZIP import type is active
