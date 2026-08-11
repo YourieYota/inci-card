@@ -164,7 +164,50 @@ export async function importEmployees({
     const existingEmployees = await prisma.employee.findMany({
       where: { companyId },
     });
-    const existingMap = new Map(existingEmployees.map(emp => [emp.uniqueIdentifier, emp]));
+
+    // Build smart lookup index maps for fast matching by uniqueIdentifier and dynamicData fields (NNI, MATRICULE, N° d'ordre, etc.)
+    const lookupMap = new Map<string, typeof existingEmployees[0]>();
+    existingEmployees.forEach(emp => {
+      if (emp.uniqueIdentifier) {
+        lookupMap.set(String(emp.uniqueIdentifier).trim().toLowerCase(), emp);
+      }
+      const dyn = (emp.dynamicData as Record<string, any>) || {};
+      Object.entries(dyn).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v).trim()) {
+          const valKey = `${k.trim().toLowerCase()}::${String(v).trim().toLowerCase()}`;
+          if (!lookupMap.has(valKey)) {
+            lookupMap.set(valKey, emp);
+          }
+        }
+      });
+    });
+
+    const findExistingEmployee = (fieldKey: string, fieldVal: string) => {
+      const valTrim = String(fieldVal).trim().toLowerCase();
+      if (!valTrim) return undefined;
+
+      // 1. Direct match on lookupMap by uniqueIdentifier
+      if (lookupMap.has(valTrim)) {
+        return lookupMap.get(valTrim);
+      }
+
+      // 2. Match by exact fieldKey::fieldVal
+      const exactKey = `${fieldKey.trim().toLowerCase()}::${valTrim}`;
+      if (lookupMap.has(exactKey)) {
+        return lookupMap.get(exactKey);
+      }
+
+      // 3. Fallback match by common identifier field names (NNI, MATRICULE, N° d'ordre)
+      const commonFields = ['nni', 'n.n.i', 'matricule', "n° d'ordre", 'n° ordre', 'n°ordre', 'identifiant'];
+      for (const field of commonFields) {
+        const key = `${field}::${valTrim}`;
+        if (lookupMap.has(key)) {
+          return lookupMap.get(key);
+        }
+      }
+
+      return undefined;
+    };
 
     let addedCount = 0;
     let updatedCount = 0;
@@ -181,7 +224,7 @@ export async function importEmployees({
       }
 
       const uniqueIdentifier = String(uniqueVal).trim();
-      const existingEmployee = existingMap.get(uniqueIdentifier);
+      const existingEmployee = findExistingEmployee(uniqueField, uniqueIdentifier);
 
       // Process photo if present
       let photoData: any = {};
