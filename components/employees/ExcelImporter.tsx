@@ -177,9 +177,13 @@ export default function ExcelImporter({
         setRows(processedRows);
         setSelectedHeaders(new Set(sheetHeaders));
 
-        // Pre-select first column as unique identifier
+        // Auto-detect unique identifier column (prioritize NNI, MATRICULE, etc., fallback to first column)
         if (sheetHeaders.length > 0) {
-          setUniqueField(sheetHeaders[0]);
+          const foundUnique = sheetHeaders.find(h => {
+            const l = h.toLowerCase().trim();
+            return l === 'nni' || l.includes('nni') || l.includes('matricule') || l.includes('identifiant') || l.includes('ordre');
+          });
+          setUniqueField(foundUnique || sheetHeaders[0]);
         }
       } catch (err: any) {
         setError(err.message || 'Erreur lors de la lecture du fichier Excel.');
@@ -303,7 +307,11 @@ export default function ExcelImporter({
 
       // Pre-select columns
       if (sheetHeaders.length > 0) {
-        setUniqueField(sheetHeaders[0]);
+        const foundUnique = sheetHeaders.find(h => {
+          const l = h.toLowerCase().trim();
+          return l === 'nni' || l.includes('nni') || l.includes('matricule') || l.includes('identifiant') || l.includes('ordre');
+        });
+        setUniqueField(foundUnique || sheetHeaders[0]);
         // Auto-detect a photo/image column
         const foundPhoto = sheetHeaders.find(h => {
           const l = h.toLowerCase();
