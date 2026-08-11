@@ -213,12 +213,32 @@ export async function importEmployees({
     let updatedCount = 0;
     let skippedProtectedCount = 0;
 
+    // Helper for robust identifier extraction from row data
+    const getCleanedRowVal = (r: Record<string, any>, targetKey: string) => {
+      if (r[targetKey] !== undefined && r[targetKey] !== null && String(r[targetKey]).trim() !== '') return r[targetKey];
+      const trimmedTarget = targetKey.trim().toLowerCase();
+      const foundKey = Object.keys(r).find(k => k.trim().toLowerCase() === trimmedTarget);
+      if (foundKey && r[foundKey] !== undefined && r[foundKey] !== null && String(r[foundKey]).trim() !== '') return r[foundKey];
+      
+      // Fallback: if selected targetKey is missing in row, check common identifier headers present in row
+      const commonIdKeys = ['nni', 'n.n.i', 'matricule', "n° d'ordre", 'n° ordre', 'n°ordre', 'identifiant'];
+      for (const idKey of commonIdKeys) {
+        const kMatch = Object.keys(r).find(k => k.trim().toLowerCase() === idKey);
+        if (kMatch && r[kMatch] !== undefined && r[kMatch] !== null && String(r[kMatch]).trim() !== '') {
+          return r[kMatch];
+        }
+      }
+      // Ultimate fallback: first non-photo, non-empty key in row
+      const firstKey = Object.keys(r).find(k => !k.startsWith('_') && r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '');
+      return firstKey ? r[firstKey] : undefined;
+    };
+
     // 3. Process rows
     const importPromises = rows.map(async (row) => {
       // Extract photo if present and remove it from row data to prevent DB JSON bloat
       const { _photoBase64, ...cleanedRow } = row;
 
-      const uniqueVal = cleanedRow[uniqueField];
+      const uniqueVal = getCleanedRowVal(cleanedRow, uniqueField);
       if (uniqueVal === undefined || uniqueVal === null || uniqueVal === '') {
         return; // skip rows without unique identifiers
       }
