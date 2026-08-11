@@ -1,11 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import OfflineBanner from "@/components/ui/OfflineBanner";
 import ServiceWorkerRegister from "@/components/ui/ServiceWorkerRegister";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Imprimerie Pro — Plateforme Multi-tenant",
@@ -47,7 +44,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body
-        className={`${inter.className} bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100`}
+        className="font-sans bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100"
         suppressHydrationWarning
       >
         <Providers>
