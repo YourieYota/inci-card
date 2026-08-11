@@ -40,60 +40,83 @@ export default function ExcelImporter({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper to format values for display in the preview table
-  const formatCellValue = (key: string, val: any): string => {
-    if (val === undefined || val === null || val === '') return '-';
+  // Helper to parse values into standardized DD/MM/YYYY date strings
+  const parseDateValue = (val: any): any => {
+    if (val === undefined || val === null || val === '') return val;
 
-    // Check if key starts with "date" or val is a Date object
-    const isDateKey = key.toLowerCase().trim().startsWith('date');
+    // 1. JS Date object (e.g. from XLSX cellDates: true)
     if (val instanceof Date) {
-      const day = String(val.getDate()).padStart(2, '0');
-      const month = String(val.getMonth() + 1).padStart(2, '0');
-      const year = val.getFullYear();
+      if (isNaN(val.getTime())) return val;
+      const day = String(val.getUTCDate()).padStart(2, '0');
+      const month = String(val.getUTCMonth() + 1).padStart(2, '0');
+      const year = val.getUTCFullYear();
       return `${day}/${month}/${year}`;
     }
 
-    if (isDateKey) {
-      const dateObj = new Date(val);
-      if (!isNaN(dateObj.getTime())) {
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const year = dateObj.getFullYear();
+    // 2. Excel serial number timestamp (e.g. 27889 or 44927)
+    if (typeof val === 'number') {
+      const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+      if (!isNaN(date.getTime())) {
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}/${month}/${year}`;
+      }
+      return val;
+    }
+
+    // 3. String date format (dd/mm/yyyy, dd-mm-yyyy, or ISO yyyy-mm-dd)
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (!trimmed) return val;
+
+      // Match French format dd/mm/yyyy or dd-mm-yyyy
+      const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (dmyMatch) {
+        const day = String(parseInt(dmyMatch[1], 10)).padStart(2, '0');
+        const month = String(parseInt(dmyMatch[2], 10)).padStart(2, '0');
+        const year = dmyMatch[3];
+        return `${day}/${month}/${year}`;
+      }
+
+      // Match ISO format yyyy-mm-dd or yyyy/mm/dd (e.g. 1996-10-20T00:00:00.000Z)
+      const isoMatch = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      if (isoMatch) {
+        const year = isoMatch[1];
+        const month = String(parseInt(isoMatch[2], 10)).padStart(2, '0');
+        const day = String(parseInt(isoMatch[3], 10)).padStart(2, '0');
+        return `${day}/${month}/${year}`;
+      }
+
+      const date = new Date(trimmed);
+      if (!isNaN(date.getTime())) {
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
         return `${day}/${month}/${year}`;
       }
     }
 
-    return String(val);
+    return val;
   };
 
-  // Helper to parse values into JS Date objects
-  const parseDateValue = (val: any): any => {
-    if (val === undefined || val === null || val === '') return val;
-    if (val instanceof Date) return val;
+  // Helper to format values for display in the preview table
+  const formatCellValue = (key: string, val: any): string => {
+    if (val === undefined || val === null || val === '') return '-';
 
-    // Excel serial number timestamp
-    if (typeof val === 'number') {
-      const date = new Date((val - 25569) * 86400 * 1000);
-      if (!isNaN(date.getTime())) return date;
+    const isDateKey = key.toLowerCase().trim().includes('date') || key.toLowerCase().trim().includes('naiss');
+    if (val instanceof Date) {
+      const day = String(val.getUTCDate()).padStart(2, '0');
+      const month = String(val.getUTCMonth() + 1).padStart(2, '0');
+      const year = val.getUTCFullYear();
+      return `${day}/${month}/${year}`;
     }
 
-    // String date format dd/mm/yyyy or standard ISO
-    if (typeof val === 'string') {
-      const trimmed = val.trim();
-      const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-      if (dmyMatch) {
-        const day = parseInt(dmyMatch[1], 10);
-        const month = parseInt(dmyMatch[2], 10) - 1;
-        const year = parseInt(dmyMatch[3], 10);
-        const date = new Date(year, month, day);
-        if (!isNaN(date.getTime())) return date;
-      }
-
-      const date = new Date(trimmed);
-      if (!isNaN(date.getTime())) return date;
+    if (isDateKey) {
+      return parseDateValue(val);
     }
 
-    return val;
+    return String(val);
   };
 
   // Read and parse Excel file (helper)
@@ -140,7 +163,8 @@ export default function ExcelImporter({
             if (trimmedKey in newRow && (newRow[trimmedKey] !== undefined && newRow[trimmedKey] !== null && newRow[trimmedKey] !== '')) {
               return;
             }
-            if (trimmedKey.toLowerCase().startsWith('date')) {
+            const lowerKey = trimmedKey.toLowerCase();
+            if (lowerKey.includes('date') || lowerKey.includes('naiss')) {
               newRow[trimmedKey] = parseDateValue(val);
             } else {
               newRow[trimmedKey] = val;
@@ -263,7 +287,8 @@ export default function ExcelImporter({
           if (trimmedKey in newRow && (newRow[trimmedKey] !== undefined && newRow[trimmedKey] !== null && newRow[trimmedKey] !== '')) {
             return;
           }
-          if (trimmedKey.toLowerCase().startsWith('date')) {
+          const lowerKey = trimmedKey.toLowerCase();
+          if (lowerKey.includes('date') || lowerKey.includes('naiss')) {
             newRow[trimmedKey] = parseDateValue(val);
           } else {
             newRow[trimmedKey] = val;

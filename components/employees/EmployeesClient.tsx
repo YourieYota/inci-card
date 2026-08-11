@@ -27,7 +27,7 @@ export default function EmployeesClient({
   dbError,
 }: EmployeesClientProps) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(initialCompanyId);
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+  const [employees, setEmployees] = useState<any[]>(initialEmployees as any[]);
   const [localCompanies, setLocalCompanies] = useState<Company[]>(companies);
   const [mounted, setMounted] = useState<boolean>(false);
 
