@@ -185,11 +185,23 @@ export async function exportLaserBioQR(
     if (data && typeof data === 'object') {
       Object.entries(data).forEach(([key, val]) => {
         if (selectedFields.includes(key)) {
-          // Date formatting if applicable
-          const isDateKey = key.toLowerCase().trim().startsWith('date');
-          const isDateVal = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val);
-          if ((isDateKey || isDateVal) && val) {
-            const dObj = new Date(val);
+          const strVal = val !== undefined && val !== null ? String(val).trim() : '';
+          const dmyMatch = strVal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+          if (dmyMatch) {
+            const day = dmyMatch[1].padStart(2, '0');
+            const month = dmyMatch[2].padStart(2, '0');
+            let year = dmyMatch[3];
+            if (year.length === 2) {
+              year = (parseInt(year, 10) > 30 ? '19' : '20') + year;
+            }
+            row[key] = `${day}/${month}/${year}`;
+            return;
+          }
+
+          const isDateKey = key.toLowerCase().trim().includes('date') || key.toLowerCase().trim().includes('naiss');
+          const isDateVal = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val);
+          if ((isDateKey || isDateVal) && strVal) {
+            const dObj = new Date(strVal);
             if (!isNaN(dObj.getTime())) {
               const day = String(dObj.getUTCDate()).padStart(2, '0');
               const month = String(dObj.getUTCMonth() + 1).padStart(2, '0');
