@@ -44,7 +44,7 @@ export default function ExcelImporter({
   const parseDateValue = (val: any): any => {
     if (val === undefined || val === null || val === '') return val;
 
-    // 1. JS Date object (e.g. from XLSX cellDates: true)
+    // 1. JS Date object (e.g. from XLSX native Excel Date cells with cellDates: true)
     if (val instanceof Date) {
       if (isNaN(val.getTime())) return val;
       const day = String(val.getUTCDate()).padStart(2, '0');
@@ -53,8 +53,18 @@ export default function ExcelImporter({
       return `${day}/${month}/${year}`;
     }
 
-    // 2. Excel serial number timestamp (e.g. 27889 or 44927)
+    // 2. Excel numeric serial timestamp (e.g. 34068 or 28151) using native SheetJS SSF engine
     if (typeof val === 'number') {
+      try {
+        const parsed = XLSX.SSF.parse_date_code(val);
+        if (parsed && parsed.y && parsed.m && parsed.d) {
+          const day = String(parsed.d).padStart(2, '0');
+          const month = String(parsed.m).padStart(2, '0');
+          const year = String(parsed.y);
+          return `${day}/${month}/${year}`;
+        }
+      } catch (e) {}
+
       const date = new Date(Math.round((val - 25569) * 86400 * 1000));
       if (!isNaN(date.getTime())) {
         const day = String(date.getUTCDate()).padStart(2, '0');
@@ -65,42 +75,24 @@ export default function ExcelImporter({
       return val;
     }
 
-    // 3. String date format (dd/mm/yyyy, dd-mm-yyyy, or ISO yyyy-mm-dd)
+    // 3. String date (ALWAYS strict French JJ/MM/AAAA: 1st number = Day, 2nd number = Month)
     if (typeof val === 'string') {
       const trimmed = val.trim();
       if (!trimmed) return val;
 
-      // Match French format dd/mm/yyyy or dd-mm-yyyy or US m/d/yyyy
+      // Strict French format JJ/MM/AAAA or JJ-MM-AAAA (Group 1 = Day, Group 2 = Month)
       const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
       if (dmyMatch) {
-        const part1 = parseInt(dmyMatch[1], 10);
-        const part2 = parseInt(dmyMatch[2], 10);
+        const day = String(parseInt(dmyMatch[1], 10)).padStart(2, '0');
+        const month = String(parseInt(dmyMatch[2], 10)).padStart(2, '0');
         let year = dmyMatch[3];
         if (year.length === 2) {
           year = (parseInt(year, 10) > 30 ? '19' : '20') + year;
         }
-
-        // If part1 > 12, part1 MUST be Day and part2 MUST be Month (e.g. 26/01/1977)
-        if (part1 > 12) {
-          const day = String(part1).padStart(2, '0');
-          const month = String(part2).padStart(2, '0');
-          return `${day}/${month}/${year}`;
-        }
-
-        // If part2 > 12, part2 MUST be Day and part1 MUST be Month (e.g. 01/26/1977 -> US format from Excel)
-        if (part2 > 12) {
-          const day = String(part2).padStart(2, '0');
-          const month = String(part1).padStart(2, '0');
-          return `${day}/${month}/${year}`;
-        }
-
-        // Default French convention: part1 is Day, part2 is Month
-        const day = String(part1).padStart(2, '0');
-        const month = String(part2).padStart(2, '0');
         return `${day}/${month}/${year}`;
       }
 
-      // Match ISO format yyyy-mm-dd or yyyy/mm/dd (e.g. 1996-10-20T00:00:00.000Z)
+      // ISO format YYYY-MM-DD (Group 1 = Year, Group 2 = Month, Group 3 = Day)
       const isoMatch = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
       if (isoMatch) {
         const year = isoMatch[1];
