@@ -45,19 +45,32 @@ export default function EmployeeDetailModal({
         if (!trimmedKey) return;
         // Skip if we already have a non-empty value for this trimmed key (from a previous iteration)
         if (trimmedKey in initialForm && initialForm[trimmedKey] !== '') return;
-        const isDateKey = trimmedKey.toLowerCase().startsWith('date');
-        const isDateVal = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val);
-        if ((isDateKey || isDateVal) && val) {
-          const dateObj = new Date(val);
+        const strVal = val !== null && val !== undefined ? String(val).trim() : '';
+        const dmyMatch = strVal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+        if (dmyMatch) {
+          const day = dmyMatch[1].padStart(2, '0');
+          const month = dmyMatch[2].padStart(2, '0');
+          let year = dmyMatch[3];
+          if (year.length === 2) {
+            year = (parseInt(year, 10) > 30 ? '19' : '20') + year;
+          }
+          initialForm[trimmedKey] = `${day}/${month}/${year}`;
+          return;
+        }
+
+        const isDateKey = trimmedKey.toLowerCase().includes('date') || trimmedKey.toLowerCase().includes('naiss');
+        const isDateVal = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val);
+        if ((isDateKey || isDateVal) && strVal) {
+          const dateObj = new Date(strVal);
           if (!isNaN(dateObj.getTime())) {
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const year = dateObj.getFullYear();
+            const day = String(dateObj.getUTCDate()).padStart(2, '0');
+            const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+            const year = dateObj.getUTCFullYear();
             initialForm[trimmedKey] = `${day}/${month}/${year}`;
             return;
           }
         }
-        initialForm[trimmedKey] = val !== null && val !== undefined ? String(val) : '';
+        initialForm[trimmedKey] = strVal;
       });
     }
     return initialForm;
@@ -263,18 +276,18 @@ export default function EmployeeDetailModal({
     Object.entries(formData).forEach(([key, val]) => {
       const trimmedKey = key.trim();
       if (!trimmedKey) return;
-      if (trimmedKey.toLowerCase().startsWith('date') && typeof val === 'string') {
+      if (typeof val === 'string') {
         const trimmedVal = val.trim();
-        const dmyMatch = trimmedVal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        const dmyMatch = trimmedVal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
         if (dmyMatch) {
-          const day = parseInt(dmyMatch[1], 10);
-          const month = parseInt(dmyMatch[2], 10) - 1;
-          const year = parseInt(dmyMatch[3], 10);
-          const date = new Date(year, month, day);
-          if (!isNaN(date.getTime())) {
-            processedData[trimmedKey] = date;
-            return;
+          const day = dmyMatch[1].padStart(2, '0');
+          const month = dmyMatch[2].padStart(2, '0');
+          let year = dmyMatch[3];
+          if (year.length === 2) {
+            year = (parseInt(year, 10) > 30 ? '19' : '20') + year;
           }
+          processedData[trimmedKey] = `${day}/${month}/${year}`;
+          return;
         }
       }
       processedData[trimmedKey] = val;
@@ -621,18 +634,18 @@ export default function EmployeeDetailModal({
                       // Construct an updated employee object to pass to onTriggerWebcam
                       const processedData: Record<string, any> = {};
                       Object.entries(formData).forEach(([key, val]) => {
-                        if (key.toLowerCase().trim().startsWith('date') && typeof val === 'string') {
+                        if (typeof val === 'string') {
                           const trimmed = val.trim();
-                          const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+                          const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
                           if (dmyMatch) {
-                            const day = parseInt(dmyMatch[1], 10);
-                            const month = parseInt(dmyMatch[2], 10) - 1;
-                            const year = parseInt(dmyMatch[3], 10);
-                            const date = new Date(year, month, day);
-                            if (!isNaN(date.getTime())) {
-                              processedData[key] = date;
-                              return;
+                            const day = dmyMatch[1].padStart(2, '0');
+                            const month = dmyMatch[2].padStart(2, '0');
+                            let year = dmyMatch[3];
+                            if (year.length === 2) {
+                              year = (parseInt(year, 10) > 30 ? '19' : '20') + year;
                             }
+                            processedData[key] = `${day}/${month}/${year}`;
+                            return;
                           }
                         }
                         processedData[key] = val;
