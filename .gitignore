@@ -47,8 +47,11 @@ next-env.d.ts
 
 local-photos/
 
-# backups & database dumps (Security protection)
+# backups, Excel data & database dumps (Security protection)
 backups/
 *.sql
 *.json
+*.xlsx
+*.xls
+*.csv
 scratch/
