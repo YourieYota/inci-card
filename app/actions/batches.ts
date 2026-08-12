@@ -132,13 +132,18 @@ export async function markAsPrinted(employeeIds: string[], templateType?: string
 
 export async function getUnassignedPrintedEmployees(companyId: string) {
   try {
-    return await prisma.employee.findMany({
+    const employees = await prisma.employee.findMany({
       where: {
         companyId,
         status: { in: ['IMPRIME', 'REIMPRIME'] },
-        deliveryBatchId: null
       },
       include: {
+        deliveryBatch: {
+          select: { id: true, createdAt: true }
+        },
+        company: {
+          select: { name: true }
+        },
         printJobs: {
           where: {
             cardNumber: { not: 'REIMPRESSION_DEMANDEE' },
@@ -148,6 +153,23 @@ export async function getUnassignedPrintedEmployees(companyId: string) {
         }
       },
       orderBy: { printedAt: 'desc' }
+    });
+
+    // Filter to employees that are unassigned or whose current batch was created before their latest print (reprint)
+    return employees.filter(emp => {
+      // 1. If not attached to any delivery batch, it's unassigned and available
+      if (!emp.deliveryBatchId || !emp.deliveryBatch) return true;
+
+      // 2. If status is REIMPRIME (or has a reprint job), check if batch was created BEFORE the latest print date (printedAt)
+      if (emp.status === 'REIMPRIME' && emp.printedAt) {
+        const lastPrintTime = new Date(emp.printedAt).getTime();
+        const batchTime = new Date(emp.deliveryBatch.createdAt).getTime();
+        if (lastPrintTime > batchTime) {
+          return true;
+        }
+      }
+
+      return false;
     });
   } catch (error) {
     console.warn('Error fetching unassigned printed employees:', error);
@@ -160,6 +182,9 @@ export async function getBatchEmployees(batchId: string) {
     return await prisma.employee.findMany({
       where: { deliveryBatchId: batchId },
       include: {
+        deliveryBatch: {
+          select: { id: true, createdAt: true }
+        },
         company: {
           select: { name: true }
         },

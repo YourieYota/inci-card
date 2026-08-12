@@ -168,6 +168,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
   const [manualSearch, setManualSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [filterPrintStatus, setFilterPrintStatus] = useState<'all' | 'reprint' | 'first'>('all');
 
   // View batch details state (read-only modal)
   const [selectedBatchDetails, setSelectedBatchDetails] = useState<any | null>(null);
@@ -427,6 +428,13 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       }
     }
 
+    // Filter by print status (reprint vs first print)
+    if (filterPrintStatus === 'reprint') {
+      result = result.filter(emp => emp.status === 'REIMPRIME' || emp.printJobs?.some((j: any) => j.isReprint));
+    } else if (filterPrintStatus === 'first') {
+      result = result.filter(emp => emp.status !== 'REIMPRIME' && !emp.printJobs?.some((j: any) => j.isReprint));
+    }
+
     // Apply Sorting
     if (sortField) {
       result = [...result].sort((a, b) => {
@@ -465,7 +473,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     }
 
     return result;
-  }, [availableEmployees, manualSearch, selectedGrouping, selectedFieldKey, filterValues, startDate, endDate, selectedCompanyId, selectedCardType, sortField, sortDirection]);
+  }, [availableEmployees, manualSearch, selectedGrouping, selectedFieldKey, filterValues, startDate, endDate, selectedCompanyId, selectedCardType, sortField, sortDirection, filterPrintStatus]);
 
   const handleToggleSelectAllFiltered = () => {
     if (filteredEmployees.length === 0) return;
@@ -1283,6 +1291,32 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                       </div>
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
+                        Tirage / Réimpressions
+                      </label>
+                      <div className="grid grid-cols-3 gap-1 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                        {[
+                          { id: 'all', label: 'Tous' },
+                          { id: 'reprint', label: 'Réimprimés' },
+                          { id: 'first', label: '1er Tirage' },
+                        ].map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setFilterPrintStatus(t.id as any)}
+                            className={`py-1.5 text-[11px] font-bold rounded-lg transition text-center ${
+                              filterPrintStatus === t.id
+                                ? 'bg-white dark:bg-neutral-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="h-px bg-neutral-200 dark:bg-neutral-800 my-2" />
 
                     <div>
@@ -1474,7 +1508,14 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
                                     </button>
                                   </td>
                                   <td className="py-2.5 px-3 font-semibold text-neutral-800 dark:text-neutral-200">
-                                    {getEmployeeName(emp)}
+                                    <div className="flex items-center gap-2">
+                                      <span>{getEmployeeName(emp)}</span>
+                                      {(emp.status === 'REIMPRIME' || emp.printJobs?.some((j: any) => j.isReprint)) && (
+                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40">
+                                          Réimprimé
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="py-2.5 px-3 font-mono text-neutral-500">
                                     {emp.uniqueIdentifier}

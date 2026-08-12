@@ -1396,7 +1396,7 @@ export async function confirmPrint(
 
       const allPrinted = requiredTypes.every(t => printedTypes.has(t));
 
-      // Update employee: lock only if allPrinted is true, update cardNumber, increment printCount
+      // Update employee: lock only if allPrinted is true, update cardNumber, increment printCount, reset deliveryBatchId if reprint
       const updated = await prisma.employee.update({
         where: { id: emp.id },
         data: {
@@ -1406,6 +1406,7 @@ export async function confirmPrint(
           printCount: { increment: 1 },
           printedAt: new Date(),
           printedBy: operatorName,
+          ...(isReprint ? { deliveryBatchId: null } : {}),
         },
       });
 
@@ -1488,13 +1489,14 @@ export async function requestReprint(
       },
     });
 
-    // Unlock, set status to REIMPRESSION, and set targetCardNumber
+    // Unlock, set status to REIMPRESSION, set targetCardNumber, and reset deliveryBatchId
     const result = await prisma.employee.update({
       where: { id: employeeId },
       data: {
         status: 'REIMPRESSION',
         isLocked: false,
         cardNumber: targetCardNumber,
+        deliveryBatchId: null,
       },
     });
     revalidatePath('/dashboard', 'layout');
@@ -1575,6 +1577,7 @@ export async function requestReprintBatch(
           status: 'REIMPRESSION',
           isLocked: false,
           cardNumber: targetCardNumber,
+          deliveryBatchId: null,
         },
       });
 
