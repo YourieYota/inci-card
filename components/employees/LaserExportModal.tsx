@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Employee } from '@prisma/client';
 import { X, Search, CheckSquare, Square, Download, Loader2, AlertCircle, Users, Columns } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 
 interface LaserExportModalProps {
   companyId: string;
@@ -12,6 +13,7 @@ interface LaserExportModalProps {
 }
 
 export default function LaserExportModal({ companyId, companyName, employees, onClose }: LaserExportModalProps) {
+  const { toast } = useToast();
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
@@ -171,11 +173,11 @@ export default function LaserExportModal({ companyId, companyName, employees, on
   const handleExport = async () => {
     const employeesToExport = filteredEmployees.filter((emp) => selectedEmployeeIds.has(emp.id));
     if (employeesToExport.length === 0) {
-      alert("Veuillez sélectionner au moins un employé à exporter.");
+      toast({ title: "Sélection requise", message: "Veuillez sélectionner au moins un employé à exporter.", variant: "warning" });
       return;
     }
     if (selectedFields.size === 0) {
-      alert("Veuillez sélectionner au moins une colonne pour le fichier Excel.");
+      toast({ title: "Colonnes requises", message: "Veuillez sélectionner au moins une colonne pour le fichier Excel.", variant: "warning" });
       return;
     }
 

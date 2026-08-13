@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { createCompany, updateCompany, deleteCompany, toggleCompanyLock } from '@/app/actions/templates';
 import { safeSetItem, safeGetItem } from '@/lib/storage';
 import { addOfflineMutation } from '@/lib/offlineQueue';
+import { useToast } from '@/components/ui/Toast';
 
 interface CompanyWithCounts extends Company {
   _count: {
@@ -23,6 +24,7 @@ interface CompaniesClientProps {
 }
 
 export default function CompaniesClient({ initialCompanies, dbError, globalCategories = [] }: CompaniesClientProps) {
+  const { toast } = useToast();
   const [companies, setCompanies] = useState<CompanyWithCounts[]>(initialCompanies);
   const [search, setSearch] = useState<string>('');
   const [mounted, setMounted] = useState<boolean>(false);
@@ -73,7 +75,7 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
 
   const handleToggleLock = async (company: CompanyWithCounts) => {
     if (dbError) {
-      alert("La modification du verrouillage d'entreprise est indisponible en mode hors-ligne.");
+      toast({ title: "Mode hors-ligne", message: "La modification du verrouillage d'entreprise est indisponible en mode hors-ligne.", variant: 'warning' });
       return;
     }
     setIsSubmitting(true);
@@ -98,7 +100,7 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
       );
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
-      alert(err.message || "Impossible de modifier le verrouillage de l'entreprise.");
+      toast({ title: "Erreur", message: err.message || "Impossible de modifier le verrouillage de l'entreprise.", variant: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -106,7 +108,7 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
 
   const handleDeleteClick = (company: CompanyWithCounts) => {
     if (company.isLocked) {
-      alert("Cette entreprise est verrouillée. Veuillez d'abord la déverrouiller pour pouvoir la supprimer.");
+      toast({ title: "Entreprise verrouillée", message: "Veuillez d'abord la déverrouiller pour pouvoir la supprimer.", variant: 'warning' });
       return;
     }
     setDeletingCompany(company);
@@ -116,12 +118,12 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
   const handleDeleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (dbError) {
-      alert("La suppression d'entreprise est indisponible en mode hors-ligne.");
+      toast({ title: "Mode hors-ligne", message: "La suppression d'entreprise est indisponible en mode hors-ligne.", variant: 'warning' });
       return;
     }
     if (!deletingCompany) return;
     if (confirmNameInput.trim() !== deletingCompany.name) {
-      alert("Le nom saisi ne correspond pas. Veuillez saisir exactement le nom de l'entreprise pour confirmer la suppression.");
+      toast({ title: "Nom incorrect", message: "Le nom saisi ne correspond pas. Veuillez saisir exactement le nom de l'entreprise.", variant: 'error' });
       return;
     }
 
@@ -234,7 +236,7 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (dbError) {
-      alert("La modification d'entreprise est indisponible en mode hors-ligne.");
+      toast({ title: "Mode hors-ligne", message: "La modification d'entreprise est indisponible en mode hors-ligne.", variant: 'warning' });
       return;
     }
     if (!editingCompany || !editCompanyName.trim()) return;

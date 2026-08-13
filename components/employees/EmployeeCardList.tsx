@@ -6,6 +6,7 @@ import { Camera, Search, UserCheck, Check, Printer, AlertCircle, RefreshCw } fro
 import { updateEmployeeStatus } from '@/app/actions/employees';
 import Pagination from '@/components/ui/Pagination';
 import EmployeePhoto from './EmployeePhoto';
+import { useToast } from '@/components/ui/Toast';
 
 interface EmployeeCardListProps {
   employees: Employee[];
@@ -20,6 +21,7 @@ type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME' | 'A_VERIF
 type SortOption = 'RECENT' | 'OLD' | 'ALPHABETIC_AZ' | 'ALPHABETIC_ZA';
 
 export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh, onOpenDetail, isOfflineMode = false }: EmployeeCardListProps) {
+  const { toast } = useToast();
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
@@ -462,7 +464,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                       <button
                         onClick={() => {
                           if (isOfflineMode) {
-                            alert("La capture photo est indisponible en mode hors-ligne.");
+                            toast({ title: "Mode hors-ligne", message: "La capture photo est indisponible en mode hors-ligne.", variant: "warning" });
                             return;
                           }
                           onTriggerWebcam(emp);

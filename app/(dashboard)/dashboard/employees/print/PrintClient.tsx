@@ -6,6 +6,8 @@ import { Printer, Check, ArrowLeft, Loader2, LayoutGrid, Layers, RefreshCw, Aler
 import { useRouter } from 'next/navigation';
 import { confirmPrint, validatePrintEligibility, deleteEmployeesByIds, assignCardNumbersForCategory } from '@/app/actions/employees';
 import { StudioElement } from '@/components/studio/Canvas';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
 import BlendedImage from '@/components/studio/BlendedImage';
@@ -946,9 +948,11 @@ function CardRender({ emp, template, side, selectedCategoryName, selectedPhysica
 }
 
 export default function PrintClient({ employees, templates, companyName, documentTypes, categories, physicalTypes, dbError, employeeIds, initialType, initialCategoryId }: PrintClientProps) {
+  const { toast } = useToast();
+  const { confirm } = useConfirmDialog();
+  const router = useRouter();
   const [localEmployees, setLocalEmployees] = useState<typeof employees>(employees);
   const [localTemplates, setLocalTemplates] = useState<typeof templates>(templates);
-  const router = useRouter();
   const [localCompanyName, setLocalCompanyName] = useState<string>(companyName);
 
   useEffect(() => {
@@ -1353,7 +1357,7 @@ export default function PrintClient({ employees, templates, companyName, documen
       const elements = Array.from(document.querySelectorAll(isA4 ? '.print-page-preview' : '.print-page-card-preview')) as HTMLElement[];
       
       if (elements.length === 0) {
-        alert("Aucune carte à télécharger.");
+        toast({ title: "Avertissement", message: "Aucune carte à télécharger.", variant: "warning" });
         return;
       }
 
@@ -1414,7 +1418,7 @@ export default function PrintClient({ employees, templates, companyName, documen
       }
       
       if (addedPagesCount === 0) {
-        alert("Impossible de générer les images des cartes. Veuillez réessayer.");
+        toast({ title: "Erreur", message: "Impossible de générer les images des cartes. Veuillez réessayer.", variant: "error" });
         return;
       }
 
@@ -1423,7 +1427,7 @@ export default function PrintClient({ employees, templates, companyName, documen
       console.error("Erreur génération PDF détails:", error);
       if (error && error.message) console.error(error.message);
       if (error && error.stack) console.error(error.stack);
-      alert("Une erreur est survenue lors de la génération du PDF: " + (error?.message || 'Erreur inconnue'));
+      toast({ title: "Erreur PDF", message: "Une erreur est survenue lors de la génération du PDF: " + (error?.message || 'Erreur inconnue'), variant: "error" });
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -1434,7 +1438,7 @@ export default function PrintClient({ employees, templates, companyName, documen
     try {
       const ids = eligibleEmployees.map((emp) => emp.id);
       if (ids.length === 0) {
-        alert('Aucun employé éligible à l\'impression.');
+        toast({ title: "Avertissement", message: "Aucun employé éligible à l'impression.", variant: "warning" });
         return;
       }
 
@@ -1481,7 +1485,7 @@ export default function PrintClient({ employees, templates, companyName, documen
           safeSetItem(`inci-cache:employees:${firstCoId}`, JSON.stringify(cleanEmployeesForCache(updatedList)));
         }
 
-        alert(`Validation d'impression effectuée localement pour ${ids.length} badge(s) ! Ils seront synchronisés au retour en ligne.`);
+        toast({ title: "Impression locale", message: `Validation d'impression effectuée localement pour ${ids.length} badge(s) ! Ils seront synchronisés au retour en ligne.`, variant: "success" });
         window.close();
         return;
       }
@@ -1496,12 +1500,12 @@ export default function PrintClient({ employees, templates, companyName, documen
       const skippedCount = result.skipped?.length || 0;
       let message = `${printedCount} badge(s) imprimé(s) et verrouillé(s) avec succès.`;
       if (skippedCount > 0) {
-        message += `\n${skippedCount} employé(s) non éligible(s) ignoré(s).`;
+        message += ` ${skippedCount} employé(s) non éligible(s) ignoré(s).`;
       }
-      alert(message);
+      toast({ title: "Impression validée", message, variant: "success" });
       window.close();
     } catch (err: any) {
-      alert(err.message || 'Erreur lors de la confirmation d\'impression.');
+      toast({ title: "Erreur", message: err.message || 'Erreur lors de la confirmation d\'impression.', variant: "error" });
     } finally {
       setIsSaving(false);
     }
@@ -1510,10 +1514,13 @@ export default function PrintClient({ employees, templates, companyName, documen
   const handleBulkDeleteEmployees = async () => {
     if (eligibleEmployees.length === 0) return;
 
-    const confirmDelete = window.confirm(
-      `Êtes-vous sûr de vouloir supprimer définitivement ces ${eligibleEmployees.length} employé(s) ? Cette action est irréversible.`
-    );
-    if (!confirmDelete) return;
+    const ok = await confirm({
+      title: "Suppression groupée",
+      message: `Êtes-vous sûr de vouloir supprimer définitivement ces ${eligibleEmployees.length} employé(s) ? Cette action est irréversible.`,
+      variant: "danger",
+      confirmText: "Supprimer"
+    });
+    if (!ok) return;
 
     setIsDeleting(true);
     try {

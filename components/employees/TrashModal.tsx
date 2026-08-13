@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, RotateCcw, X, Loader2, Search, AlertTriangle } from 'lucide-react';
 import { restoreEmployees } from '@/app/actions/employees';
 import { safeSetItem, safeGetItem, cleanEmployeesForCache } from '@/lib/storage';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface TrashModalProps {
   companyId: string;
@@ -20,6 +21,7 @@ export default function TrashModal({
   onRefresh,
   isOfflineMode = false,
 }: TrashModalProps) {
+  const { confirm } = useConfirmDialog();
   const [trashList, setTrashList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRestoring, setIsRestoring] = useState(false);
@@ -139,11 +141,14 @@ export default function TrashModal({
     }
   };
 
-  const handleClearTrash = () => {
-    const confirmClear = window.confirm(
-      "Êtes-vous sûr de vouloir vider définitivement la corbeille ? Cette action supprimera définitivement ces données de restauration."
-    );
-    if (!confirmClear) return;
+  const handleClearTrash = async () => {
+    const ok = await confirm({
+      title: "Vider la corbeille",
+      message: "Êtes-vous sûr de vouloir vider définitivement la corbeille ? Cette action supprimera définitivement ces données de restauration.",
+      variant: "danger",
+      confirmText: "Vider la corbeille"
+    });
+    if (!ok) return;
 
     localStorage.removeItem(`inci-trash:${companyId}`);
     setTrashList([]);

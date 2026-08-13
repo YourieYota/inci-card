@@ -6,6 +6,8 @@ import { X, Camera, Upload, Printer, Check, Loader2, AlertCircle, Trash2, Lock, 
 import { updateEmployeeStatus, saveEmployeePhoto, updateEmployeeData, deleteEmployee, requestReprint, blockBadge, unblockBadge, getEmployeePrintHistory, getEmployeePhoto } from '@/app/actions/employees';
 import { addOfflineMutation } from '@/lib/offlineQueue';
 import { safeSetItem, safeGetItem, cleanEmployeesForCache } from '@/lib/storage';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface EmployeeDetailModalProps {
   employee: Employee;
@@ -26,6 +28,8 @@ export default function EmployeeDetailModal({
   isCompanyLocked = false,
   companyFields = [],
 }: EmployeeDetailModalProps) {
+  const { toast } = useToast();
+  const { confirm } = useConfirmDialog();
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [status, setStatus] = useState<string>(employee.status);
   const [formData, setFormData] = useState<Record<string, string>>(() => {
@@ -229,13 +233,17 @@ export default function EmployeeDetailModal({
 
   const handleDelete = async () => {
     if (isCompanyLocked) {
-      alert("Cette entreprise est verrouillée, vous ne pouvez pas supprimer cet employé.");
+      toast({ title: "Entreprise verrouillée", message: "Cette entreprise est verrouillée, vous ne pouvez pas supprimer cet employé.", variant: 'warning' });
       return;
     }
 
-    if (!confirm("Êtes-vous sûr de vouloir supprimer définitivement cet employé ? Cette action est irréversible.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Supprimer l'employé",
+      message: "Êtes-vous sûr de vouloir supprimer définitivement cet employé ? Cette action est irréversible.",
+      variant: "danger",
+      confirmText: "Supprimer"
+    });
+    if (!ok) return;
 
     setIsDeleting(true);
     try {
@@ -402,15 +410,15 @@ export default function EmployeeDetailModal({
         setLocalOfflineMode(true);
         try {
           await saveDataOnly(true);
-          alert("Connexion base de données perdue. Les modifications ont été enregistrées localement en mode hors-ligne.");
+          toast({ title: "Sauvegarde locale", message: "Connexion base de données perdue. Les modifications ont été enregistrées localement en mode hors-ligne.", variant: 'warning' });
           onRefresh();
           onClose();
           return;
         } catch (offlineErr: any) {
-          alert("Erreur lors de la sauvegarde hors-ligne : " + offlineErr.message);
+          toast({ title: "Erreur sauvegarde locale", message: offlineErr.message, variant: 'error' });
         }
       } else {
-        alert(err.message || 'Erreur lors de la mise à jour des informations.');
+        toast({ title: "Erreur", message: err.message || 'Erreur lors de la mise à jour des informations.', variant: 'error' });
       }
     } finally {
       setIsSaving(false);
@@ -434,14 +442,14 @@ export default function EmployeeDetailModal({
             await saveDataOnly(true);
             onRefresh();
           }
-          alert("Connexion réseau perdue. Modifications sauvegardées localement. Génération du reçu...");
+          toast({ title: "Mode hors-ligne", message: "Connexion réseau perdue. Modifications sauvegardées localement. Génération du reçu...", variant: 'warning' });
           window.open(`/receipt?id=${employee.id}`, '_blank');
           return;
         } catch (offlineErr: any) {
-          alert("Erreur de sauvegarde locale : " + offlineErr.message);
+          toast({ title: "Erreur", message: "Erreur de sauvegarde locale : " + offlineErr.message, variant: 'error' });
         }
       } else {
-        alert(err.message || 'Erreur lors de l\'enregistrement des modifications avant impression.');
+        toast({ title: "Erreur", message: err.message || 'Erreur lors de l\'enregistrement des modifications avant impression.', variant: 'error' });
       }
     } finally {
       setIsSaving(false);
@@ -465,14 +473,14 @@ export default function EmployeeDetailModal({
             await saveDataOnly(true);
             onRefresh();
           }
-          alert("Connexion réseau perdue. Modifications sauvegardées localement. Génération de l'aperçu...");
+          toast({ title: "Mode hors-ligne", message: "Connexion réseau perdue. Modifications sauvegardées localement. Génération de l'aperçu...", variant: 'warning' });
           window.open(`/dashboard/employees/print?ids=${encodeURIComponent(employee.id)}`, '_blank');
           return;
         } catch (offlineErr: any) {
-          alert("Erreur de sauvegarde locale : " + offlineErr.message);
+          toast({ title: "Erreur", message: "Erreur de sauvegarde locale : " + offlineErr.message, variant: 'error' });
         }
       } else {
-        alert(err.message || 'Erreur lors de l\'enregistrement des modifications avant impression.');
+        toast({ title: "Erreur", message: err.message || 'Erreur lors de l\'enregistrement des modifications avant impression.', variant: 'error' });
       }
     } finally {
       setIsSaving(false);
@@ -819,7 +827,7 @@ export default function EmployeeDetailModal({
                 type="button"
                 onClick={() => {
                   if (isOfflineMode) {
-                    alert("La demande de réimpression est indisponible en mode hors-ligne.");
+                    toast({ title: "Mode hors-ligne", message: "La demande de réimpression est indisponible en mode hors-ligne.", variant: 'warning' });
                     return;
                   }
                   setShowReprintDialog(true);
@@ -837,16 +845,22 @@ export default function EmployeeDetailModal({
                 type="button"
                 onClick={async () => {
                   if (isOfflineMode) {
-                    alert("Le blocage de badge est indisponible en mode hors-ligne.");
+                    toast({ title: "Mode hors-ligne", message: "Le blocage de badge est indisponible en mode hors-ligne.", variant: 'warning' });
                     return;
                   }
-                  if (!confirm('Bloquer ce badge ? Il ne pourra plus être imprimé ni réimprimé.')) return;
+                  const ok = await confirm({
+                    title: "Bloquer le badge",
+                    message: "Bloquer ce badge ? Il ne pourra plus être imprimé ni réimprimé.",
+                    variant: "warning",
+                    confirmText: "Bloquer"
+                  });
+                  if (!ok) return;
                   try {
                     await blockBadge(employee.id);
                     onRefresh();
                     onClose();
                   } catch (err: any) {
-                    alert(err.message || 'Erreur lors du blocage du badge.');
+                    toast({ title: "Erreur", message: err.message || 'Erreur lors du blocage du badge.', variant: 'error' });
                   }
                 }}
                 className="flex items-center gap-1.5 py-2 px-4 border border-rose-200 dark:border-rose-900 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-bold transition shadow-sm"
@@ -860,7 +874,7 @@ export default function EmployeeDetailModal({
                 type="button"
                 onClick={() => {
                   if (isOfflineMode) {
-                    alert("Le déblocage de badge est indisponible en mode hors-ligne.");
+                    toast({ title: "Mode hors-ligne", message: "Le déblocage de badge est indisponible en mode hors-ligne.", variant: 'warning' });
                     return;
                   }
                   setShowUnblockDialog(true);

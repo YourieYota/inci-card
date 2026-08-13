@@ -4,10 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { WifiOff, Wifi, X, RefreshCw, Loader2 } from 'lucide-react';
 import { getOfflineQueue, clearOfflineQueue, OfflineMutation } from '@/lib/offlineQueue';
 import { syncOfflineMutations } from '@/app/actions/sync';
+import { useToast } from '@/components/ui/Toast';
 import { fetchAllPreCacheData } from '@/app/actions/preCache';
 import { safeSetItem, cleanEmployeesForCache, cleanTemplateForCache } from '@/lib/storage';
 
 export default function OfflineBanner() {
+  const { toast } = useToast();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
   const [showReconnected, setShowReconnected] = useState(false);
@@ -132,7 +134,7 @@ export default function OfflineBanner() {
       const res = await syncOfflineMutations(queue);
       if (res.success) {
         clearOfflineQueue();
-        alert("Synchronisation terminée avec succès !");
+        toast({ title: "Synchronisation", message: "Synchronisation terminée avec succès !", variant: "success" });
         window.location.reload();
       } else {
         // Find if some mutations failed and keep them in queue

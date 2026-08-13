@@ -29,6 +29,8 @@ import {
   ArrowDown,
   ArrowUpDown
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { 
   createDeliveryBatch, 
   updateBatchStatus, 
@@ -62,6 +64,8 @@ interface AnalyzedFields {
 }
 
 export default function DeliveryBatchesClient({ initialCompanies, initialBatches, initialCardDocumentTypes, dbError }: DeliveryBatchesClientProps) {
+  const { toast } = useToast();
+  const { confirm } = useConfirmDialog();
   const [batches, setBatches] = useState<any[]>(initialBatches);
   const [companies] = useState<any[]>(initialCompanies);
   const [cardDocumentTypes] = useState(initialCardDocumentTypes);
@@ -521,20 +525,27 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
 
   const handleDeleteClick = async (batchId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Voulez-vous vraiment supprimer ce lot ? Les employés redeviendront non assignés.')) return;
+    const ok = await confirm({
+      title: "Supprimer le lot",
+      message: "Voulez-vous vraiment supprimer ce lot ? Les employés redeviendront non assignés.",
+      variant: "danger",
+      confirmText: "Supprimer le lot"
+    });
+    if (!ok) return;
     try {
       await deleteDeliveryBatch(batchId);
       setBatches(prev => prev.filter(b => b.id !== batchId));
       if (selectedBatchDetails?.id === batchId) setSelectedBatchDetails(null);
+      toast({ title: "Succès", message: "Le lot a été supprimé.", variant: "success" });
     } catch (error: any) {
-      alert(error.message);
+      toast({ title: "Erreur", message: error.message, variant: "error" });
     }
   };
 
   const handleSaveBatch = async () => {
     const employeeIds = Object.keys(selectedEmployeeIds).filter(id => selectedEmployeeIds[id]);
     if (employeeIds.length === 0) {
-      alert('Veuillez sélectionner au moins un employé.');
+      toast({ title: "Sélection requise", message: "Veuillez sélectionner au moins un employé.", variant: "warning" });
       return;
     }
 
@@ -591,7 +602,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
       setBatchEmployees(emps);
     } catch (err) {
       console.error("Failed to load batch employees:", err);
-      alert("Impossible de charger les employés de ce lot.");
+      toast({ title: "Erreur", message: "Impossible de charger les employés de ce lot.", variant: "error" });
     } finally {
       setLoadingBatchEmployees(false);
     }
@@ -824,7 +835,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("Le fichier est trop volumineux (maximum 5 Mo).");
+      toast({ title: "Fichier trop volumineux", message: "Le fichier est trop volumineux (maximum 5 Mo).", variant: "warning" });
       return;
     }
 
@@ -845,13 +856,13 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
             : b
         ));
       } catch (err: any) {
-        alert(err.message || "Erreur lors du chargement de la preuve.");
+        toast({ title: "Erreur", message: err.message || "Erreur lors du chargement de la preuve.", variant: "error" });
       } finally {
         setUploadingBatchId(null);
       }
     };
     reader.onerror = () => {
-      alert("Erreur lors de la lecture du fichier.");
+      toast({ title: "Erreur", message: "Erreur lors de la lecture du fichier.", variant: "error" });
       setUploadingBatchId(null);
     };
     reader.readAsDataURL(file);

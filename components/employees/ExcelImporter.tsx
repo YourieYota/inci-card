@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, Check, AlertTriangle, Loader2, CheckSquare, Square, Eye, Archive, Trash2 } from 'lucide-react';
 import JSZip from 'jszip';
 import { importEmployees, deleteEmployeesBulk, purgeEmployees } from '@/app/actions/employees';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface ExcelImporterProps {
   companyId: string;
@@ -21,6 +22,7 @@ export default function ExcelImporter({
   isOfflineMode = false,
   onImportOffline
 }: ExcelImporterProps) {
+  const { confirm } = useConfirmDialog();
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<any[]>([]);
@@ -504,10 +506,13 @@ export default function ExcelImporter({
   const handleBulkDelete = async () => {
     if (!file || !uniqueField || rows.length === 0) return;
 
-    const confirmDelete = window.confirm(
-      `Êtes-vous sûr de vouloir supprimer définitivement les employés correspondant aux identifiants de ce fichier ? Cette action est irréversible.`
-    );
-    if (!confirmDelete) return;
+    const ok = await confirm({
+      title: "Suppression groupée",
+      message: "Êtes-vous sûr de vouloir supprimer définitivement les employés correspondant aux identifiants de ce fichier ? Cette action est irréversible.",
+      variant: "danger",
+      confirmText: "Supprimer les employés"
+    });
+    if (!ok) return;
 
     setIsImporting(true);
     setError(null);
@@ -541,10 +546,13 @@ export default function ExcelImporter({
   const handlePurge = async () => {
     if (!file || !uniqueField || rows.length === 0) return;
 
-    const confirmPurge = window.confirm(
-      `ATTENTION : Cette action va supprimer définitivement TOUS les employés inscrits dans cette entreprise qui ne figurent PAS dans ce fichier Excel. Voulez-vous continuer ?`
-    );
-    if (!confirmPurge) return;
+    const ok = await confirm({
+      title: "Purger les employés non listés",
+      message: "ATTENTION : Cette action va supprimer définitivement TOUS les employés inscrits dans cette entreprise qui ne figurent PAS dans ce fichier Excel. Voulez-vous continuer ?",
+      variant: "danger",
+      confirmText: "Purger"
+    });
+    if (!ok) return;
 
     setIsImporting(true);
     setError(null);

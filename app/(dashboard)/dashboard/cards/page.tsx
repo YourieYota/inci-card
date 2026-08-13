@@ -18,6 +18,8 @@ import {
   deleteCardDocumentType
 } from '@/app/actions/cards';
 import { getCompanies } from '@/app/actions/templates';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface CardFormat {
   id: string;
@@ -64,7 +66,9 @@ interface CardDocumentType {
 }
 
 export default function CardsManagementPage() {
-  const [activeTab, setActiveTab] = useState<'categories' | 'formats' | 'types' | 'docTypes'>('categories');
+  const { toast } = useToast();
+  const { confirm } = useConfirmDialog();
+  const [activeTab, setActiveTab] = useState<'categories' | 'formats' | 'physical' | 'doctypes'>('doctypes');
   const [formats, setFormats] = useState<CardFormat[]>([]);
   const [categories, setCategories] = useState<CardCategory[]>([]);
   const [physicalTypes, setPhysicalTypes] = useState<CardPhysicalType[]>([]);
@@ -172,7 +176,7 @@ export default function CardsManagementPage() {
     }
 
     if (!categoryName.trim() || !finalFormatId) {
-      alert("Veuillez sélectionner ou créer un format de carte.");
+      toast({ title: "Champ requis", message: "Veuillez sélectionner ou créer un format de carte.", variant: "warning" });
       return;
     }
 
@@ -288,32 +292,53 @@ export default function CardsManagementPage() {
   };
 
   const handleDeleteCategory = async (id: string, name: string) => {
-    if (!confirm(`Voulez-vous vraiment supprimer la catégorie "${name}" ?`)) return;
+    const ok = await confirm({
+      title: "Supprimer la catégorie",
+      message: `Voulez-vous vraiment supprimer la catégorie "${name}" ?`,
+      variant: "danger",
+      confirmText: "Supprimer"
+    });
+    if (!ok) return;
     try {
       await deleteCardCategory(id);
       setCategories((prev) => prev.filter((c) => c.id !== id));
+      toast({ title: "Catégorie supprimée", variant: "success" });
     } catch (err: any) {
-      alert(err.message || 'Impossible de supprimer la catégorie.');
+      toast({ title: "Erreur", message: err.message || 'Impossible de supprimer la catégorie.', variant: "error" });
     }
   };
 
   const handleDeleteFormat = async (id: string, name: string) => {
-    if (!confirm(`Voulez-vous vraiment supprimer le format "${name}" ?`)) return;
+    const ok = await confirm({
+      title: "Supprimer le format",
+      message: `Voulez-vous vraiment supprimer le format "${name}" ?`,
+      variant: "danger",
+      confirmText: "Supprimer"
+    });
+    if (!ok) return;
     try {
       await deleteCardFormat(id);
       setFormats((prev) => prev.filter((f) => f.id !== id));
+      toast({ title: "Format supprimé", variant: "success" });
     } catch (err: any) {
-      alert(err.message || 'Impossible de supprimer le format.');
+      toast({ title: "Erreur", message: err.message || 'Impossible de supprimer le format.', variant: "error" });
     }
   };
 
   const handleDeletePhysicalType = async (id: string, name: string) => {
-    if (!confirm(`Voulez-vous vraiment supprimer le type de carte "${name}" ?`)) return;
+    const ok = await confirm({
+      title: "Supprimer le type de carte",
+      message: `Voulez-vous vraiment supprimer le type de carte "${name}" ?`,
+      variant: "danger",
+      confirmText: "Supprimer"
+    });
+    if (!ok) return;
     try {
       await deleteCardPhysicalType(id);
       setPhysicalTypes((prev) => prev.filter((t) => t.id !== id));
+      toast({ title: "Type de carte supprimé", variant: "success" });
     } catch (err: any) {
-      alert(err.message || 'Impossible de supprimer le type de carte.');
+      toast({ title: "Erreur", message: err.message || 'Impossible de supprimer le type de carte.', variant: "error" });
     }
   };
 
@@ -323,7 +348,7 @@ export default function CardsManagementPage() {
 
     const prefixCode = (codePart1.trim() + codePart2.trim()).toUpperCase();
     if (prefixCode.length < 6 || prefixCode.length > 11) {
-      alert(`Le préfixe (Partie 1 + Partie 2) doit faire entre 6 et 11 caractères pour que l'identifiant complet (avec le compteur de 4 chiffres) fasse entre 10 et 15 caractères (Actuellement: ${prefixCode.length} caractères).`);
+      toast({ title: "Longueur invalide", message: `Le préfixe (Partie 1 + Partie 2) doit faire entre 6 et 11 caractères (Actuellement: ${prefixCode.length} caractères).`, variant: "warning" });
       return;
     }
 
@@ -342,20 +367,28 @@ export default function CardsManagementPage() {
       setCodePart1('');
       setCodePart2('');
       setCodePart3('0001');
+      toast({ title: "Type de document créé", variant: "success" });
     } catch (err: any) {
-      alert(err.message || 'Impossible de créer le type de document.');
+      toast({ title: "Erreur", message: err.message || 'Impossible de créer le type de document.', variant: "error" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteDocumentType = async (id: string, name: string) => {
-    if (!confirm(`Voulez-vous vraiment supprimer le type de document "${name}" ?`)) return;
+    const ok = await confirm({
+      title: "Supprimer le type de document",
+      message: `Voulez-vous vraiment supprimer le type de document "${name}" ?`,
+      variant: "danger",
+      confirmText: "Supprimer"
+    });
+    if (!ok) return;
     try {
       await deleteCardDocumentType(id);
       setDocumentTypes((prev) => prev.filter((t) => t.id !== id));
+      toast({ title: "Type de document supprimé", variant: "success" });
     } catch (err: any) {
-      alert(err.message || 'Impossible de supprimer le type de document.');
+      toast({ title: "Erreur", message: err.message || 'Impossible de supprimer le type de document.', variant: "error" });
     }
   };
 

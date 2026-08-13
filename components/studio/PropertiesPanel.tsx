@@ -4,6 +4,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Trash2, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Upload, Type, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Sparkles, Loader2, RotateCcw } from 'lucide-react';
 // Dynamic import used inside handleRemoveBackground to avoid Turbopack bundling issues
 import { StudioElement } from './Canvas';
+import { useToast } from '@/components/ui/Toast';
 
 interface PropertiesPanelProps {
   // Canvas settings
@@ -106,13 +107,14 @@ export default function PropertiesPanel({
   selectedElement,
   onUpdateElement,
   onDeleteElement,
-  suggestedFields = ['Nom', 'Prenom', 'Role', 'Entreprise'],
+  suggestedFields = [],
   formats = [],
   onMoveElement,
   availableGroups = [],
   onUpdateGroupChildren,
   onResetGroupOffsets,
 }: PropertiesPanelProps) {
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [recentColors, setRecentColors] = useState<string[]>([]);
@@ -141,7 +143,7 @@ export default function PropertiesPanel({
       }
     } catch (err: any) {
       console.error("Erreur lors du détourage:", err);
-      alert("Une erreur est survenue lors du détourage de l'image.");
+      toast({ title: "Erreur détourage", message: "Une erreur est survenue lors du détourage de l'image.", variant: "error" });
     } finally {
       setIsRemovingBg(false);
     }

@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { getEmployeesQrStatus, saveExternalQrCodesBatch, deleteExternalQrCode } from '@/app/actions/qrcodes';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -73,6 +75,8 @@ interface Props {
 }
 
 export default function QrCodesClient({ initialCompanies, initialDocumentTypes }: Props) {
+  const { toast } = useToast();
+  const { confirm } = useConfirmDialog();
   // ── Step 1: configuration
   const [companyId, setCompanyId]     = useState('');
   const [docTypeSlug, setDocTypeSlug] = useState('');
@@ -208,7 +212,7 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
   // ─── Process ZIP file ────────────────────────────────────────────────────
   const processZip = useCallback(async (file: File) => {
     if (!matchingField) {
-      alert('Veuillez d\'abord sélectionner le champ de correspondance.');
+      toast({ title: "Champ requis", message: "Veuillez d'abord sélectionner le champ de correspondance.", variant: "warning" });
       return;
     }
     setIsProcessing(true);
@@ -257,7 +261,7 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
       setMatchResults(results);
     } catch (err) {
       console.error(err);
-      alert('Erreur lors de la lecture du fichier ZIP. Vérifiez que le fichier est valide.');
+      toast({ title: "Erreur lecture ZIP", message: "Erreur lors de la lecture du fichier ZIP. Vérifiez que le fichier est valide.", variant: "error" });
     } finally {
       setIsProcessing(false);
     }
@@ -284,8 +288,8 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file?.name.endsWith('.zip')) processZip(file);
-    else alert('Veuillez déposer un fichier .zip');
-  }, [processZip]);
+    else toast({ title: "Format invalide", message: "Veuillez déposer un fichier .zip", variant: "warning" });
+  }, [processZip, toast]);
 
   // ─── Save ────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -322,12 +326,19 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
 
   // ─── Delete a single employee's external QR ─────────────────────────────
   const handleDelete = async (employeeId: string) => {
-    if (!confirm('Supprimer le QR code externe de cet employé ?')) return;
+    const ok = await confirm({
+      title: "Supprimer le QR code",
+      message: "Supprimer le QR code externe de cet employé ?",
+      variant: "danger",
+      confirmText: "Supprimer"
+    });
+    if (!ok) return;
     try {
       await deleteExternalQrCode(employeeId);
       setEmployees(prev => prev.map(e => e.id === employeeId ? { ...e, hasExternalQr: false } : e));
+      toast({ title: "QR code supprimé", variant: "success" });
     } catch (e: any) {
-      alert(e.message);
+      toast({ title: "Erreur", message: e.message, variant: "error" });
     }
   };
 

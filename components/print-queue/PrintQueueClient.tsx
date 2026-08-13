@@ -23,6 +23,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { getEmployees, requestReprint, requestReprintBatch } from '@/app/actions/employees';
+import { useToast } from '@/components/ui/Toast';
 import { getCardDocumentTypes, getCardCategories } from '@/app/actions/cards';
 import { markAsPrinted } from '@/app/actions/batches';
 import Pagination from '@/components/ui/Pagination';
@@ -41,6 +42,7 @@ export default function PrintQueueClient({
   initialCompanyId = '',
   dbError = false,
 }: PrintQueueClientProps) {
+  const { toast } = useToast();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(initialCompanyId);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -456,9 +458,9 @@ export default function PrintQueueClient({
         return emp;
       }));
       setSelectedIds([]);
-      alert('Cartes marquées comme imprimées avec succès.');
+      toast({ title: "Impression", message: "Cartes marquées comme imprimées avec succès.", variant: "success" });
     } catch (error: any) {
-      alert(error.message || "Erreur lors du marquage des impressions.");
+      toast({ title: "Erreur", message: error.message || "Erreur lors du marquage des impressions.", variant: "error" });
     } finally {
       setIsSubmitting(false);
     }
