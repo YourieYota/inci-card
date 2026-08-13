@@ -1,36 +1,39 @@
 "use client";
 
-import { signIn, signOut } from "next-auth/react";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Printer, Loader2, AlertCircle } from "lucide-react";
+import { signIn } from "next-auth/react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2, AlertCircle } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Clear any stale/corrupted session cookies on login page load
   useEffect(() => {
-    // Force sign out to clear any corrupted JWT tokens
-    signOut({ redirect: false }).catch(() => {
-      // Silently ignore errors – we just want to clear cookies
-    });
+    // Show expired session message if redirected by proxy
+    if (searchParams.get('expired') === '1') {
+      setError("Votre session a expiré. Veuillez vous reconnecter.");
+    }
 
-    // Also manually delete known next-auth cookie names
-    const cookiesToClear = [
-      'next-auth.session-token',
-      '__Secure-next-auth.session-token',
-      'next-auth.csrf-token',
-      '__Host-next-auth.csrf-token',
-    ];
-    cookiesToClear.forEach((name) => {
-      document.cookie = `${name}=; Max-Age=0; path=/;`;
-      document.cookie = `${name}=; Max-Age=0; path=/; domain=${window.location.hostname};`;
-    });
-  }, []);
+    // Only clear cookies if arriving from an explicit logout action
+    const isLogout = searchParams.get('logout') === '1' || searchParams.get('callbackUrl');
+    if (isLogout) {
+      const cookiesToClear = [
+        'next-auth.session-token',
+        '__Secure-next-auth.session-token',
+        'next-auth.csrf-token',
+        '__Host-next-auth.csrf-token',
+      ];
+      cookiesToClear.forEach((name) => {
+        document.cookie = `${name}=; Max-Age=0; path=/;`;
+        document.cookie = `${name}=; Max-Age=0; path=/; domain=${window.location.hostname};`;
+      });
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,5 +122,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrap in Suspense boundary as required by Next.js for useSearchParams()
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

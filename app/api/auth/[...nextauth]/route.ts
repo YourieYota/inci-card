@@ -81,6 +81,10 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 8 hours — auto-logout after 8h of inactivity
+  },
+  jwt: {
+    maxAge: 8 * 60 * 60, // 8 hours — JWT token expires after 8h
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

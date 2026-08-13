@@ -1,13 +1,13 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, Settings, Users, Image as ImageIcon,
-  LogOut, UserCheck, UserCog, Shield, ChevronRight, Menu, X, CreditCard, Printer, Package, QrCode
+  LogOut, UserCheck, UserCog, Shield, ChevronRight, Menu, X, CreditCard, Printer, Package, QrCode, Loader2
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const navigation = [
   { name: "Dashboard",          href: "/dashboard",          icon: LayoutDashboard, roles: ['ADMIN', 'DESIGNER', 'OPERATEUR'] },
@@ -123,7 +123,7 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
 
             {/* Logout */}
             <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => signOut({ callbackUrl: "/login?logout=1" })}
               className="flex w-full items-center px-3 py-2.5 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-950/30 transition-colors"
             >
               <LogOut className="mr-3 flex-shrink-0" style={{ width: 16, height: 16 }} />
@@ -139,12 +139,32 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
 // --- Layout -------------------------------------------------------------------
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // ── Auth guard: redirect to login if unauthenticated ──
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/login');
+    }
+  }, [status, router]);
+
+  // Show loading screen while checking session
+  if (status === 'loading' || status === 'unauthenticated') {
+    return (
+      <div className="h-screen bg-slate-50 dark:bg-[#0b0f19] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Vérification de la session…</p>
+        </div>
+      </div>
+    );
+  }
+
   const role = (session?.user as any)?.role || 'OPERATEUR';
   const name = session?.user?.name || '';
-  const isLoading = status === 'loading';
+  const isLoading = false; // session is confirmed loaded at this point
 
   return (
     <div className="h-screen bg-slate-50/80 dark:bg-[#0b0f19] flex overflow-hidden">
