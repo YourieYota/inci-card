@@ -64,12 +64,12 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
       {/* Nav */}
       <nav className="flex-1 px-3 py-5 space-y-0.5 overflow-y-auto">
         {/* Group label */}
-        <p className="text-[9px] font-bold text-slate-400/80 uppercase tracking-widest px-3 mb-2">Navigation</p>
+        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-3 mb-2">Navigation</p>
 
         {isLoading ? (
           <div className="space-y-2.5 px-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-9 bg-slate-100 dark:bg-slate-700/60 animate-pulse rounded-xl" />
+              <div key={i} className="h-9 bg-slate-100 dark:bg-slate-800/60 animate-pulse rounded-xl" />
             ))}
           </div>
         ) : (
@@ -84,8 +84,8 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
               onClick={onClose}
               className={`flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                 isActive
-                  ? "bg-gradient-to-r from-blue-50 to-blue-50/50 text-blue-700 dark:from-blue-900/40 dark:to-blue-900/10 dark:text-blue-300 shadow-sm border border-blue-100/80 dark:border-blue-800/40"
-                  : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/40 dark:hover:text-white"
+                  ? "bg-gradient-to-r from-blue-50 to-blue-50/50 text-blue-700 dark:from-blue-600/20 dark:to-indigo-600/10 dark:text-blue-400 shadow-sm border border-blue-100/80 dark:border-blue-500/30 font-bold"
+                  : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200"
               }`}
             >
               <item.icon
@@ -95,7 +95,7 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
                 style={{ width: 17, height: 17 }}
               />
               <span className="flex-1">{item.name}</span>
-              {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-50 text-blue-500" />}
+              {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-60 text-blue-600 dark:text-blue-400" />}
             </Link>
           );
         })
@@ -103,13 +103,13 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
       </nav>
 
       {/* User card + logout */}
-      <div className="p-3 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1 shrink-0">
+      <div className="p-3 border-t border-slate-200/60 dark:border-slate-800/80 space-y-1 shrink-0">
         {isLoading ? (
-          <div className="h-14 bg-slate-50 dark:bg-slate-900/50 animate-pulse rounded-xl border border-slate-100/80 dark:border-slate-750/30" />
+          <div className="h-14 bg-slate-50 dark:bg-slate-900/50 animate-pulse rounded-xl border border-slate-100/80 dark:border-slate-800/40" />
         ) : (
           <>
             {/* User info */}
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-900/50 dark:to-slate-900/30 border border-slate-100/80 dark:border-slate-700/40 mb-1">
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-900/80 dark:to-slate-900/40 border border-slate-100/80 dark:border-slate-800/80 mb-1">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-sm ${ROLE_COLORS[role] || 'bg-slate-500/10 text-slate-600'}`}>
                 {initials}
               </div>
@@ -124,7 +124,7 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
             {/* Logout */}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="flex w-full items-center px-3 py-2.5 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+              className="flex w-full items-center px-3 py-2.5 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-950/30 transition-colors"
             >
               <LogOut className="mr-3 flex-shrink-0" style={{ width: 16, height: 16 }} />
               Déconnexion
