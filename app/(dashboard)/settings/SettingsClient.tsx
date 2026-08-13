@@ -54,7 +54,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
 
   // Simulated & LocalStorage Preferences
   const [lang, setLang] = useState('fr');
-  const [defaultFormat, setDefaultFormat] = useState('CR80_PAYSAGE');
+  const [defaultFormat, setDefaultFormat] = useState('CARD');
   const [photoQualityMode, setPhotoQualityMode] = useState<'standard' | 'hd'>('standard');
   const [cameraQualityMode, setCameraQualityMode] = useState<'standard' | 'hd'>('hd');
   const [highDpi, setHighDpi] = useState(true);
@@ -270,8 +270,8 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     // Load local storage preferences if any
     const savedLang = localStorage.getItem('pref_lang');
     if (savedLang) setLang(savedLang);
-    const savedFormat = localStorage.getItem('pref_format');
-    if (savedFormat) setDefaultFormat(savedFormat);
+    const savedFormat = localStorage.getItem('pref_print_format') || localStorage.getItem('pref_format');
+    if (savedFormat === 'CARD' || savedFormat === 'A4') setDefaultFormat(savedFormat);
     const savedPhotoMode = localStorage.getItem('inci-photo-quality-mode');
     if (savedPhotoMode === 'hd' || savedPhotoMode === 'standard') setPhotoQualityMode(savedPhotoMode);
     const savedCameraMode = localStorage.getItem('inci-camera-quality-mode');
@@ -784,23 +784,28 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                 </select>
               </div>
 
-              {/* Default template Format */}
+              {/* Default Print Format */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
                 <div>
-                  <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Gabarit par défaut</h4>
-                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">Format par défaut chargé lors de la création d&apos;un nouveau gabarit.</p>
+                  <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Format d&apos;impression par défaut</h4>
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">Format sélectionné par défaut sur la page d&apos;impression des badges.</p>
                 </div>
                 <select
                   value={defaultFormat}
                   onChange={(e) => {
-                    setDefaultFormat(e.target.value);
-                    localStorage.setItem('pref_format', e.target.value);
+                    const val = e.target.value;
+                    setDefaultFormat(val);
+                    localStorage.setItem('pref_print_format', val);
+                    localStorage.setItem('pref_format', val);
+                    setMessage({
+                      type: 'success',
+                      text: `Format d'impression par défaut : ${val === 'CARD' ? 'Imprimante à badges (Ex: CR80)' : 'Planche A4'}`,
+                    });
                   }}
-                  className="px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold min-w-[160px]"
+                  className="px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold min-w-[260px]"
                 >
-                  <option value="CR80_PAYSAGE">CR80 Paysage (324x204 px)</option>
-                  <option value="CR80_PORTRAIT">CR80 Portrait (204x324 px)</option>
-                  <option value="GRAND_BADGE">Grand Badge (700x450 px)</option>
+                  <option value="CARD">Imprimante à badges (Ex: CR80)</option>
+                  <option value="A4">Planche A4</option>
                 </select>
               </div>
             </div>

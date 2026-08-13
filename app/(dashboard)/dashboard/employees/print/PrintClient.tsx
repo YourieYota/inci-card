@@ -1099,8 +1099,20 @@ export default function PrintClient({ employees, templates, companyName, documen
     }
   }, [localEmployees, selectedCategoryId, selectedTemplateType, assignedFlag]);
 
-  const [printFormat, setPrintFormat] = useState<'A4' | 'CARD'>('A4');
-  const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>('side-by-side');
+  const [printFormat, setPrintFormat] = useState<'A4' | 'CARD'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pref_print_format') || localStorage.getItem('pref_format');
+      if (saved === 'CARD' || saved === 'A4') return saved;
+    }
+    return 'CARD';
+  });
+  const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pref_print_format') || localStorage.getItem('pref_format');
+      if (saved === 'CARD') return 'duplex';
+    }
+    return 'side-by-side';
+  });
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -1912,6 +1924,10 @@ export default function PrintClient({ employees, templates, companyName, documen
               onChange={(e) => {
                 const val = e.target.value as 'A4' | 'CARD';
                 setPrintFormat(val);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('pref_print_format', val);
+                  localStorage.setItem('pref_format', val);
+                }
                 if (val === 'CARD' && layoutMode === 'side-by-side') {
                   setLayoutMode('duplex');
                 }
