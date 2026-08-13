@@ -134,6 +134,9 @@ export default function Canvas({
     const aw = isDraggedRotated ? h : w;
     const ah = isDraggedRotated ? w : h;
 
+    // Check if snapping & guide lines are enabled in user settings
+    const isSnappingEnabled = typeof window === 'undefined' || localStorage.getItem('pref_align_helpers') !== 'false';
+
     // With the new Rnd logic, data.x and data.y are ALREADY the apparent top-left!
     const apparentX = data.x;
     const apparentY = data.y;
@@ -144,6 +147,21 @@ export default function Canvas({
     let snappedApparentY = apparentY;
     let guideX: number | undefined = undefined;
     let guideY: number | undefined = undefined;
+
+    if (!isSnappingEnabled) {
+      setActiveGuidelines({});
+      const dx = apparentX - (startPos.x + w / 2 - aw / 2);
+      const dy = apparentY - (startPos.y + h / 2 - ah / 2);
+      const updatedElements = elements.map((el) => {
+        const startElPos = dragStartPositions.current.get(el.id);
+        if (startElPos) {
+          return { ...el, x: Math.round(startElPos.x + dx), y: Math.round(startElPos.y + dy) };
+        }
+        return el;
+      });
+      onChangeElements(updatedElements, false);
+      return;
+    }
 
     const SNAP_THRESHOLD = 5;
 
