@@ -55,6 +55,7 @@ const DRIVE_C_DIR = EXTERNAL_BASE_DIR;
 const DRIVE_C_BACKUP_DIR = path.join(EXTERNAL_BASE_DIR, 'backups');
 
 function getPrimaryBackupDir(): string {
+  const fallback = path.join(os.tmpdir(), 'inci-card-backups');
   const preferred = process.env.BACKUP_DIR || path.join(process.cwd(), 'backups');
   try {
     if (!fs.existsSync(preferred)) {
@@ -67,7 +68,6 @@ function getPrimaryBackupDir(): string {
     return preferred;
   } catch (err) {
     console.warn(`Preferred backup directory (${preferred}) is not writable, falling back to temp dir:`, err);
-    const fallback = path.join(os.tmpdir(), 'inci-card-backups');
     try {
       if (!fs.existsSync(fallback)) {
         fs.mkdirSync(fallback, { recursive: true });
@@ -75,7 +75,7 @@ function getPrimaryBackupDir(): string {
       return fallback;
     } catch (fallbackErr) {
       console.error('Fallback backup directory creation failed:', fallbackErr);
-      return preferred;
+      return fallback;
     }
   }
 }
