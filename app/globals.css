@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
@@ -26,7 +26,53 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Custom smooth scrollbar for Dark mode */
+/* ──────────────────────────────────────────────────────
+   Smooth theme transition
+   ────────────────────────────────────────────────────── */
+html.dark *,
+html:not(.dark) * {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+}
+
+/* ──────────────────────────────────────────────────────
+   Dark Mode: Form Controls (inputs, selects, textareas)
+   ────────────────────────────────────────────────────── */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+html.dark select,
+html.dark textarea {
+  background-color: #131b2e;
+  border-color: #1e293b;
+  color: #e2e8f0;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  outline: none;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #475569;
+}
+
+/* Select dropdown arrow color */
+html.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 32px;
+}
+
+/* ──────────────────────────────────────────────────────
+   Dark Mode: Custom smooth scrollbar
+   ────────────────────────────────────────────────────── */
 html.dark ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -43,4 +89,18 @@ html.dark ::-webkit-scrollbar-thumb {
 
 html.dark ::-webkit-scrollbar-thumb:hover {
   background: #334155;
+}
+
+/* ──────────────────────────────────────────────────────
+   Dark Mode: Table row hover
+   ────────────────────────────────────────────────────── */
+html.dark tr:hover {
+  background-color: rgba(30, 41, 59, 0.4);
+}
+
+/* ──────────────────────────────────────────────────────
+   Dark Mode: HR / Dividers
+   ────────────────────────────────────────────────────── */
+html.dark hr {
+  border-color: #1e293b;
 }
