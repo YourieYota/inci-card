@@ -281,7 +281,7 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
   return (
     <div className="space-y-8">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900/90 p-6 rounded-2xl border border-neutral-200 dark:border-slate-800/80 shadow-sm transition-all duration-300">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Entreprises clientes</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -311,7 +311,7 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
       )}
 
       {/* FILTER BAR */}
-      <div className="flex bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+      <div className="flex bg-white dark:bg-slate-900/90 p-4 rounded-2xl border border-neutral-200 dark:border-slate-800/80 shadow-sm">
         <div className="relative flex-1 max-w-md">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
             <Search className="w-4 h-4" />
@@ -321,14 +321,14 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
             placeholder="Rechercher une entreprise..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-indigo-500/25"
+            className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-indigo-500/25"
           />
         </div>
       </div>
 
       {/* COMPANIES LISTING */}
       {filteredCompanies.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center shadow-sm">
+        <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-900/90 border border-neutral-200 dark:border-slate-800/80 rounded-2xl text-center shadow-sm">
           <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl flex items-center justify-center mb-4">
             <Building2 className="w-6 h-6" />
           </div>
@@ -342,7 +342,7 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
           {filteredCompanies.map((company) => (
             <div
               key={company.id}
-              className="group bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+              className="group bg-white dark:bg-slate-900/90 rounded-2xl border border-neutral-200 dark:border-slate-800/80 p-6 hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between">
@@ -484,7 +484,7 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
       {/* CREATE MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-250">
-          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 rounded-2xl shadow-xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-neutral-200 dark:border-slate-800 w-full max-w-md p-6 rounded-2xl shadow-xl animate-in zoom-in-95 duration-200">
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Ajouter une entreprise</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
               Créez le profil d&apos;une entreprise pour configurer son design et importer ses employés.

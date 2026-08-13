@@ -256,7 +256,7 @@ export default function DashboardClient({
         {stats.map((stat) => (
           <div
             key={stat.name}
-            className={`relative bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border ${stat.border} overflow-hidden group hover:shadow-md transition-shadow duration-300`}
+            className={`relative bg-white dark:bg-slate-900/90 rounded-2xl p-5 shadow-sm border ${stat.border} overflow-hidden group hover:shadow-md transition-shadow duration-300`}
           >
             <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${stat.gradient} opacity-80`} />
             <div className="flex items-start justify-between mt-1">
@@ -273,8 +273,8 @@ export default function DashboardClient({
       </div>
 
       {/* Activity Feed */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100/80 dark:border-slate-700/60 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/60 flex items-center gap-3">
+      <div className="bg-white dark:bg-slate-900/90 rounded-2xl shadow-sm border border-slate-100/80 dark:border-slate-800/80 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${isOfflineMode ? 'bg-orange-500' : 'bg-emerald-500 animate-pulse'}`} />
           <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wide">
             {isOfflineMode ? "Dernières activités (Enregistrées)" : "Dernières activités"}

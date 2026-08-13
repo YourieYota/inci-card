@@ -451,7 +451,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
           </div>
         </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-10 text-center py-16">
+        <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-10 text-center py-16">
           <Users className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
           <h3 className="font-bold text-slate-800 dark:text-white">Aucun compte trouvé</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
@@ -467,7 +467,7 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
               return (
                 <div 
                   key={user.id} 
-                  className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100/80 dark:border-slate-700/60 p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between relative overflow-hidden"
+                  className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-100/80 dark:border-slate-800/80 p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between relative overflow-hidden"
                 >
                   {/* Top gradient accent using role color */}
                   <div

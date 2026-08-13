@@ -388,7 +388,7 @@ export default function EmployeesClient({
   return (
     <div className="flex flex-col gap-6 min-h-screen">
       {/* HEADER BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-blue-100/60 dark:border-neutral-800 shadow-sm transition-all duration-300 relative overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900/90 p-6 rounded-2xl border border-blue-100/60 dark:border-slate-800/80 shadow-sm transition-all duration-300 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-orange-400 to-emerald-500" />
         <div className="flex items-center gap-3">
           <Link

@@ -439,7 +439,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar */}
-        <div className="lg:col-span-3 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
+        <div className="lg:col-span-3 bg-white dark:bg-slate-900/90 rounded-2xl border border-neutral-200 dark:border-slate-800/80 shadow-sm p-3 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
           <button
             onClick={() => setActiveTab('profile')}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap lg:whitespace-normal ${
@@ -502,7 +502,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
         </div>
 
         {/* Form panel */}
-        <div className="lg:col-span-9 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden min-h-[420px]">
+        <div className="lg:col-span-9 bg-white dark:bg-slate-900/90 rounded-2xl border border-neutral-200 dark:border-slate-800/80 shadow-sm overflow-hidden min-h-[420px]">
           {/* Notification Banner */}
           {message && (
             <div className={`flex items-center gap-2.5 px-6 py-4 border-b text-xs font-semibold ${

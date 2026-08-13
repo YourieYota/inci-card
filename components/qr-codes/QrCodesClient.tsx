@@ -593,7 +593,7 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
       </div>
 
       {/* ── Step 2: ZIP Import ── */}
-      <div className={`bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-4 transition-opacity ${!companyId || !matchingField ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white dark:bg-slate-900/90 rounded-2xl border border-neutral-200 dark:border-slate-800/80 p-6 space-y-4 transition-opacity ${!companyId || !matchingField ? 'opacity-50 pointer-events-none' : ''}`}>
         <h2 className="text-sm font-bold text-neutral-700 dark:text-neutral-200 uppercase tracking-wider flex items-center gap-2">
           <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs flex items-center justify-center font-bold">2</span>
           Import du fichier ZIP
@@ -650,7 +650,7 @@ export default function QrCodesClient({ initialCompanies, initialDocumentTypes }
 
       {/* ── Step 3: Matching results ── */}
       {matchResults.length > 0 && (
-        <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+        <div className="bg-white dark:bg-slate-900/90 rounded-2xl border border-neutral-200 dark:border-slate-800/80 overflow-hidden">
           {/* Header */}
           <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-700 flex flex-wrap items-center gap-4">
             <h2 className="text-sm font-bold text-neutral-700 dark:text-neutral-200 uppercase tracking-wider flex items-center gap-2">

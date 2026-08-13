@@ -899,9 +899,9 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     <div className="space-y-6">
       {view === 'list' ? (
         <>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900/90 p-6 rounded-2xl border border-neutral-200 dark:border-slate-800/80 shadow-sm transition-all duration-300">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-indigo-50 dark:bg-neutral-900 text-indigo-500 rounded-xl border border-indigo-100 dark:border-neutral-800 shadow-sm">
+              <div className="p-3 bg-indigo-50 dark:bg-slate-950 text-indigo-500 rounded-xl border border-indigo-100 dark:border-slate-800/80 shadow-sm">
                 <Package className="w-6 h-6" />
               </div>
               <div>
@@ -922,7 +922,7 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
           </div>
 
           {/* Filter bar */}
-          <div className="bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-slate-900/90 p-4 rounded-2xl border border-neutral-200 dark:border-slate-800/80 shadow-sm">
             <div className="flex flex-wrap items-center gap-3">
 
               {/* Search */}

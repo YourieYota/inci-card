@@ -426,8 +426,8 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
   // -- CREATE/EDIT form view -------------------------------------------------
   if (mode === 'create') {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
+      <div className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-3">
           <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30">
             <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
@@ -450,7 +450,7 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
 
   if (mode === 'edit' && editingRole) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
           <div className="p-2 rounded-xl" style={{ backgroundColor: editingRole.color + '20' }}>
             <Pencil className="w-4 h-4" style={{ color: editingRole.color }} />
@@ -556,7 +556,7 @@ export default function RolesClient({ currentUserSlug }: { currentUserSlug: stri
 
             return (
               <div key={role.id}
-                className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
+                className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
                 {/* Color stripe */}
                 <div className="h-1.5 w-full" style={{ backgroundColor: role.color }} />
 

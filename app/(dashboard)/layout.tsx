@@ -49,7 +49,7 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="h-16 flex items-center px-5 border-b border-blue-100/60 dark:border-slate-700/60 gap-2.5 shrink-0 bg-gradient-to-r from-blue-50/40 to-orange-50/20 dark:from-slate-800 dark:to-slate-800">
+      <div className="h-16 flex items-center px-5 border-b border-blue-100/60 dark:border-slate-800/80 gap-2.5 shrink-0 bg-gradient-to-r from-blue-50/40 to-orange-50/20 dark:from-[#111827] dark:to-[#111827]">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-orange-500 flex items-center justify-center shadow-sm shrink-0">
           <img src="/logo-imprimerie.png" className="h-6 object-contain" alt="Logo" />
         </div>
@@ -147,10 +147,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isLoading = status === 'loading';
 
   return (
-    <div className="h-screen bg-slate-50/80 dark:bg-slate-900 flex overflow-hidden">
+    <div className="h-screen bg-slate-50/80 dark:bg-[#0b0f19] flex overflow-hidden">
 
       {/* -- Desktop sidebar ------------------------------------------- */}
-      <div className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200/60 dark:border-slate-700/60 hidden md:flex flex-col h-full shadow-sm">
+      <div className="w-64 bg-white dark:bg-[#111827] border-r border-slate-200/60 dark:border-slate-800/80 hidden md:flex flex-col h-full shadow-sm">
         <SidebarContent pathname={pathname} role={role} name={name} isLoading={isLoading} />
       </div>
 
@@ -159,11 +159,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed inset-0 z-50 flex md:hidden">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
           {/* Drawer */}
-          <div className="relative w-64 bg-white dark:bg-slate-800 shadow-2xl flex flex-col h-full">
+          <div className="relative w-64 bg-white dark:bg-[#111827] shadow-2xl flex flex-col h-full">
             <SidebarContent
               pathname={pathname}
               role={role}
@@ -178,7 +178,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* -- Main content ----------------------------------------------- */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile top bar */}
-        <div className="h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 gap-3 md:hidden shrink-0">
+        <div className="h-14 bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-800/80 flex items-center px-4 gap-3 md:hidden shrink-0">
           <button
             onClick={() => setMobileOpen(true)}
             className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition"

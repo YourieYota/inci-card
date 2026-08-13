@@ -18,7 +18,7 @@ export default function Toolbar({
   suggestedFields = ['Nom', 'Prenom', 'Role', 'Entreprise']
 }: ToolbarProps) {
   return (
-    <div className="w-full bg-white dark:bg-neutral-800 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col gap-6">
+    <div className="w-full bg-white dark:bg-slate-900/90 p-6 rounded-2xl border border-neutral-200 dark:border-slate-800/80 shadow-sm flex flex-col gap-6">
       <div>
         <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Outils de création</h3>
         <p className="text-xs text-neutral-400 dark:text-neutral-500">Ajoutez des éléments sur votre canevas.</p>

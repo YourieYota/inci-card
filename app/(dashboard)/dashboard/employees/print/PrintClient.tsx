@@ -1830,9 +1830,9 @@ export default function PrintClient({ employees, templates, companyName, documen
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 pb-12">
+    <div className="min-h-screen bg-neutral-100 dark:bg-[#0b0f19] pb-12">
       {/* ON-SCREEN CONTROL BAR */}
-      <div className="no-print sticky top-0 z-50 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-800 shadow-sm px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="no-print sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-neutral-200 dark:border-slate-800 shadow-sm px-6 py-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400">
             <Printer className="w-5 h-5" />

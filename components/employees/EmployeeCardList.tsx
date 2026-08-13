@@ -309,7 +309,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   }
                   onOpenDetail(emp);
                 }}
-                className={`cursor-pointer group bg-white dark:bg-neutral-800 border rounded-2xl hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between ${
+                className={`cursor-pointer group bg-white dark:bg-slate-900/90 border rounded-2xl hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between ${
                   selectedIds.includes(emp.id)
                     ? 'border-indigo-400 ring-2 ring-indigo-500/15 shadow-sm'
                     : emp.status === 'A_VERIFIER' || (emp as any).photoConflict

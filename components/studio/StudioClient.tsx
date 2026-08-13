@@ -1426,7 +1426,7 @@ export default function StudioClient({
   return (
     <div className="flex flex-col gap-6 min-h-screen" id="studio-workspace">
       {/* HEADER BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-neutral-800 py-4 px-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900/90 py-4 px-6 rounded-2xl border border-neutral-200 dark:border-slate-800/80 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
