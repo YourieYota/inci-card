@@ -38,6 +38,8 @@ export async function verifyAdminAndPassword(passwordConfirm?: string) {
   return user;
 }
 
+import os from 'os';
+
 export interface AutoBackupConfig {
   enabled: boolean;
   interval: 'hourly' | 'daily' | 'weekly' | 'monthly';
@@ -47,28 +49,43 @@ export interface AutoBackupConfig {
   lastBackupAt?: string | null;
 }
 
-const BACKUP_DIR = path.join(process.cwd(), 'backups');
-
 const isWindows = process.platform === 'win32';
 const EXTERNAL_BASE_DIR = process.env.EXTERNAL_BACKUP_DIR || (isWindows ? 'C:\\inci-card' : '/home/inci-card');
 const DRIVE_C_DIR = EXTERNAL_BASE_DIR;
 const DRIVE_C_BACKUP_DIR = path.join(EXTERNAL_BASE_DIR, 'backups');
 
-const CONFIG_FILE = path.join(BACKUP_DIR, 'backup_config.json');
-
-const DEFAULT_CONFIG: AutoBackupConfig = {
-  enabled: false,
-  interval: 'daily',
-  maxBackups: 7,
-  rotationStrategy: 'delete_oldest',
-  format: 'both',
-  lastBackupAt: null,
-};
-
-function ensureBackupDir() {
-  if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+function getPrimaryBackupDir(): string {
+  const preferred = process.env.BACKUP_DIR || path.join(process.cwd(), 'backups');
+  try {
+    if (!fs.existsSync(preferred)) {
+      fs.mkdirSync(preferred, { recursive: true });
+    }
+    // Verify write permissions
+    const testFile = path.join(preferred, `.perm_test_${Date.now()}`);
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    return preferred;
+  } catch (err) {
+    console.warn(`Preferred backup directory (${preferred}) is not writable, falling back to temp dir:`, err);
+    const fallback = path.join(os.tmpdir(), 'inci-card-backups');
+    try {
+      if (!fs.existsSync(fallback)) {
+        fs.mkdirSync(fallback, { recursive: true });
+      }
+      return fallback;
+    } catch (fallbackErr) {
+      console.error('Fallback backup directory creation failed:', fallbackErr);
+      return preferred;
+    }
   }
+}
+
+let cachedBackupDir: string | null = null;
+
+function ensureBackupDir(): string {
+  const backupDir = getPrimaryBackupDir();
+  cachedBackupDir = backupDir;
+
   try {
     if (!fs.existsSync(DRIVE_C_DIR)) {
       fs.mkdirSync(DRIVE_C_DIR, { recursive: true });
@@ -77,8 +94,15 @@ function ensureBackupDir() {
       fs.mkdirSync(DRIVE_C_BACKUP_DIR, { recursive: true });
     }
   } catch (e) {
-    console.warn('Could not create directory on C drive:', e);
+    // Secondary location failure can be safely ignored
   }
+
+  return backupDir;
+}
+
+function getConfigFile(): string {
+  const dir = cachedBackupDir || ensureBackupDir();
+  return path.join(dir, 'backup_config.json');
 }
 
 export async function getDatabaseStats() {
@@ -166,13 +190,17 @@ export async function exportDatabaseBackup(passwordConfirm?: string) {
       }
     };
 
-    ensureBackupDir();
+    const primaryDir = ensureBackupDir();
     const formattedDate = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const filename = `inci-card-backup-${formattedDate}.json`;
     const jsonString = JSON.stringify(backupData, null, 2);
 
-    const filePath = path.join(BACKUP_DIR, filename);
-    fs.writeFileSync(filePath, jsonString, 'utf-8');
+    try {
+      const filePath = path.join(primaryDir, filename);
+      fs.writeFileSync(filePath, jsonString, 'utf-8');
+    } catch (writeErr) {
+      console.warn('Could not save JSON backup file to primary dir:', writeErr);
+    }
 
     try {
       if (fs.existsSync(DRIVE_C_BACKUP_DIR)) {
@@ -196,10 +224,10 @@ export async function exportDatabaseBackup(passwordConfirm?: string) {
 export async function restoreFromSavedServerFile(filename: string, passwordConfirm?: string) {
   try {
     await verifyAdminAndPassword(passwordConfirm);
-    ensureBackupDir();
+    const primaryDir = ensureBackupDir();
     const safeFilename = path.basename(filename);
 
-    let filePath = path.join(BACKUP_DIR, safeFilename);
+    let filePath = path.join(primaryDir, safeFilename);
     if (!fs.existsSync(filePath)) {
       filePath = path.join(DRIVE_C_DIR, safeFilename);
     }
@@ -345,11 +373,17 @@ export async function exportDatabaseSql(passwordConfirm?: string) {
       generateTableInserts('PrintJob', printJobs) +
       sqlFooter;
 
+    const primaryDir = ensureBackupDir();
+
     const formattedDate = nowIso.replace(/[:.]/g, '-').slice(0, 19);
     const filename = `inci-card-dump-${formattedDate}.sql`;
 
-    const filePath = path.join(BACKUP_DIR, filename);
-    fs.writeFileSync(filePath, sqlContent, 'utf-8');
+    try {
+      const filePath = path.join(primaryDir, filename);
+      fs.writeFileSync(filePath, sqlContent, 'utf-8');
+    } catch (writeErr) {
+      console.warn('Could not save SQL dump file to primary dir:', writeErr);
+    }
 
     try {
       if (fs.existsSync(DRIVE_C_DIR)) {

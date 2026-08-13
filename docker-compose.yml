@@ -46,6 +46,8 @@ services:
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost}
       - REMBG_SERVICE_URL=http://rembg-service:5000/remove-bg
       - NODE_ENV=production
+    volumes:
+      - backups_data:/app/backups
 
   # 4. Proxy Inverse Nginx
   nginx:
@@ -65,3 +67,4 @@ services:
 
 volumes:
   postgres_data:
+  backups_data:
