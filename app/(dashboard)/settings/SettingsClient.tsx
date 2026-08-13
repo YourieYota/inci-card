@@ -56,6 +56,7 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
   const [lang, setLang] = useState('fr');
   const [defaultFormat, setDefaultFormat] = useState('CR80_PAYSAGE');
   const [photoQualityMode, setPhotoQualityMode] = useState<'standard' | 'hd'>('standard');
+  const [cameraQualityMode, setCameraQualityMode] = useState<'standard' | 'hd'>('hd');
   const [highDpi, setHighDpi] = useState(true);
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
@@ -273,6 +274,8 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     if (savedFormat) setDefaultFormat(savedFormat);
     const savedPhotoMode = localStorage.getItem('inci-photo-quality-mode');
     if (savedPhotoMode === 'hd' || savedPhotoMode === 'standard') setPhotoQualityMode(savedPhotoMode);
+    const savedCameraMode = localStorage.getItem('inci-camera-quality-mode');
+    if (savedCameraMode === 'hd' || savedCameraMode === 'standard') setCameraQualityMode(savedCameraMode);
     const savedDpi = localStorage.getItem('pref_high_dpi');
     if (savedDpi) setHighDpi(savedDpi === 'true');
     const savedOffsetX = localStorage.getItem('pref_offset_x');
@@ -733,11 +736,11 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                 </select>
               </div>
 
-              {/* Photo Resolution Preference */}
+              {/* File Import Photo Quality Preference */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800 pb-4">
                 <div>
-                  <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Qualité des photos d&apos;employés</h4>
-                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">Résolution et compression appliquées lors du chargement des photos (fiches, webcam, import).</p>
+                  <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Qualité des fichiers photos importés</h4>
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">Résolution et compression appliquées lors du chargement manuel de fichiers images.</p>
                 </div>
                 <select
                   value={photoQualityMode}
@@ -747,13 +750,37 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                     localStorage.setItem('inci-photo-quality-mode', mode);
                     setMessage({
                       type: 'success',
-                      text: `Résolution des photos configurée sur : ${mode === 'hd' ? 'Haute Définition (800×960, 300 DPI)' : 'Standard (400×480)'}`,
+                      text: `Résolution des fichiers importés : ${mode === 'hd' ? 'Haute Définition (800×960, 300 DPI)' : 'Standard (400×480)'}`,
                     });
                   }}
                   className="px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold min-w-[260px]"
                 >
                   <option value="standard">Standard (400×480 px - Rapide & Léger)</option>
                   <option value="hd">Haute Définition (800×960 px - Optimal 300 DPI)</option>
+                </select>
+              </div>
+
+              {/* Camera / Webcam Capture Photo Quality Preference */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800 pb-4">
+                <div>
+                  <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Qualité de capture Appareil Photo / Webcam</h4>
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">Résolution conservée pour les clichés pris directement en direct (Canon EOS / Webcam).</p>
+                </div>
+                <select
+                  value={cameraQualityMode}
+                  onChange={(e) => {
+                    const mode = e.target.value as 'standard' | 'hd';
+                    setCameraQualityMode(mode);
+                    localStorage.setItem('inci-camera-quality-mode', mode);
+                    setMessage({
+                      type: 'success',
+                      text: `Qualité de capture Appareil Photo : ${mode === 'hd' ? 'Haute Définition (1250×1650, 300 DPI - Recommandé)' : 'Standard (625×825)'}`,
+                    });
+                  }}
+                  className="px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold min-w-[260px]"
+                >
+                  <option value="hd">Haute Définition (1250×1650 px - Recommandé)</option>
+                  <option value="standard">Standard (625×825 px - Format compact)</option>
                 </select>
               </div>
 

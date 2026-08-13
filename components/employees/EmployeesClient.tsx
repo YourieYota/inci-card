@@ -233,7 +233,7 @@ export default function EmployeesClient({
             img.crossOrigin = 'anonymous';
             img.onload = () => {
               const canvas = document.createElement('canvas');
-              const savedMode = typeof window !== 'undefined' ? localStorage.getItem('inci-photo-quality-mode') : 'standard';
+              const savedMode = typeof window !== 'undefined' ? (localStorage.getItem('inci-camera-quality-mode') || 'hd') : 'hd';
               const isHd = savedMode === 'hd';
               const MAX_WIDTH = isHd ? 1250 : 625;
               const MAX_HEIGHT = isHd ? 1650 : 825;
