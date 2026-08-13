@@ -169,8 +169,11 @@ export default function EmployeeDetailModal({
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 480;
+        const savedMode = typeof window !== 'undefined' ? localStorage.getItem('inci-photo-quality-mode') : 'standard';
+        const isHd = savedMode === 'hd';
+        const MAX_WIDTH = isHd ? 800 : 400;
+        const MAX_HEIGHT = isHd ? 960 : 480;
+        const jpegQuality = isHd ? 0.92 : 0.85;
         let width = img.width;
         let height = img.height;
 
@@ -203,7 +206,7 @@ export default function EmployeeDetailModal({
 
         ctx.drawImage(img, 0, 0, width, height);
         const exportFormat = isTransparentFormat ? 'image/png' : 'image/jpeg';
-        const compressedBase64 = canvas.toDataURL(exportFormat, isTransparentFormat ? undefined : 0.85);
+        const compressedBase64 = canvas.toDataURL(exportFormat, isTransparentFormat ? undefined : jpegQuality);
         setUploadedPhoto(compressedBase64);
       };
       img.onerror = () => {

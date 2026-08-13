@@ -96,9 +96,9 @@ async def health():
     }
 
 def process_background_removal(input_image: Image.Image, session: ort.InferenceSession) -> Image.Image:
-    # 1. Downscale input image to max 800px first to guarantee lightweight processing
-    if max(input_image.width, input_image.height) > 800:
-        input_image.thumbnail((800, 800), Image.Resampling.LANCZOS)
+    # 1. Downscale input image to max 1200px first to guarantee lightweight processing
+    if max(input_image.width, input_image.height) > 1200:
+        input_image.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
         
     target_w, target_h = input_image.size
     

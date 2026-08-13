@@ -233,8 +233,11 @@ export default function EmployeesClient({
             img.crossOrigin = 'anonymous';
             img.onload = () => {
               const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 1250;
-              const MAX_HEIGHT = 1650;
+              const savedMode = typeof window !== 'undefined' ? localStorage.getItem('inci-photo-quality-mode') : 'standard';
+              const isHd = savedMode === 'hd';
+              const MAX_WIDTH = isHd ? 1250 : 625;
+              const MAX_HEIGHT = isHd ? 1650 : 825;
+              const jpegQuality = isHd ? 0.92 : 0.80;
               let width = img.width;
               let height = img.height;
               
@@ -261,7 +264,7 @@ export default function EmployeesClient({
                 ctx.drawImage(img, 0, 0, width, height);
               }
               const exportFormat = isPngOrWebp ? 'image/png' : 'image/jpeg';
-              resolve(canvas.toDataURL(exportFormat, isPngOrWebp ? undefined : 0.8));
+              resolve(canvas.toDataURL(exportFormat, isPngOrWebp ? undefined : jpegQuality));
             };
             img.onerror = reject;
             img.src = URL.createObjectURL(blob);
