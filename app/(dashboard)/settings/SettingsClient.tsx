@@ -5,7 +5,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { 
   User, Settings, Printer, Bell, Check, Save, AlertCircle, Eye, EyeOff, Loader2,
   Database, Download, Upload, HardDrive, RefreshCw, FileJson, CheckCircle2,
-  Clock, ShieldAlert, Trash2, FolderArchive, Play
+  Clock, ShieldAlert, Trash2, FolderArchive, Play, Sun, Moon, Monitor
 } from 'lucide-react';
 import { updateUserProfile } from '@/app/actions/users';
 import { 
@@ -691,28 +691,49 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                 </div>
                 <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl border border-neutral-200 dark:border-neutral-800 shrink-0 self-start sm:self-auto">
                   <button
-                    onClick={() => setTheme('light')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                      theme === 'light' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                    type="button"
+                    onClick={() => {
+                      setTheme('light');
+                      setMessage({ type: 'success', text: 'Thème visuel appliqué : Mode Clair' });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      theme === 'light'
+                        ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
-                    Clair
+                    <Sun className="w-3.5 h-3.5" />
+                    <span>Clair</span>
                   </button>
                   <button
-                    onClick={() => setTheme('dark')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                      theme === 'dark' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                    type="button"
+                    onClick={() => {
+                      setTheme('dark');
+                      setMessage({ type: 'success', text: 'Thème visuel appliqué : Mode Sombre' });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      theme === 'dark'
+                        ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
-                    Sombre
+                    <Moon className="w-3.5 h-3.5" />
+                    <span>Sombre</span>
                   </button>
                   <button
-                    onClick={() => setTheme('system')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                      theme === 'system' ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                    type="button"
+                    onClick={() => {
+                      setTheme('system');
+                      setMessage({ type: 'success', text: 'Thème visuel appliqué : Mode Système (Auto)' });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      theme === 'system'
+                        ? 'bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
-                    Système
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span>Système</span>
                   </button>
                 </div>
               </div>
