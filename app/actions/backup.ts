@@ -49,6 +49,15 @@ export interface AutoBackupConfig {
   lastBackupAt?: string | null;
 }
 
+export const DEFAULT_CONFIG: AutoBackupConfig = {
+  enabled: false,
+  interval: 'daily',
+  maxBackups: 7,
+  rotationStrategy: 'delete_oldest',
+  format: 'both',
+  lastBackupAt: null,
+};
+
 const isWindows = process.platform === 'win32';
 const EXTERNAL_BASE_DIR = process.env.EXTERNAL_BACKUP_DIR || (isWindows ? 'C:\\inci-card' : '/home/inci-card');
 const DRIVE_C_DIR = EXTERNAL_BASE_DIR;
@@ -692,8 +701,9 @@ export async function restoreDatabaseBackup(backupJsonData: any, passwordConfirm
 export async function getAutoBackupConfig(): Promise<AutoBackupConfig> {
   try {
     ensureBackupDir();
-    if (fs.existsSync(CONFIG_FILE)) {
-      const data = fs.readFileSync(CONFIG_FILE, 'utf-8');
+    const configFile = getConfigFile();
+    if (fs.existsSync(configFile)) {
+      const data = fs.readFileSync(configFile, 'utf-8');
       return { ...DEFAULT_CONFIG, ...JSON.parse(data) };
     }
   } catch (e) {
@@ -708,9 +718,10 @@ export async function saveAutoBackupConfig(newConfig: Partial<AutoBackupConfig>,
       await verifyAdminAndPassword(passwordConfirm);
     }
     ensureBackupDir();
+    const configFile = getConfigFile();
     const current = await getAutoBackupConfig();
     const updated = { ...current, ...newConfig };
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), 'utf-8');
+    fs.writeFileSync(configFile, JSON.stringify(updated, null, 2), 'utf-8');
     return { success: true, config: updated };
   } catch (e: any) {
     console.error('Error saving auto backup config:', e);
@@ -720,11 +731,11 @@ export async function saveAutoBackupConfig(newConfig: Partial<AutoBackupConfig>,
 
 export async function listLocalServerBackups() {
   try {
-    ensureBackupDir();
+    const backupDir = ensureBackupDir();
     const map = new Map<string, { filename: string; sizeBytes: number; createdAt: string; modifiedAt: string; path: string }>();
 
     const dirsToScan = [
-      { dir: BACKUP_DIR, filter: (f: string) => f.endsWith('.json') || f.endsWith('.sql') },
+      { dir: backupDir, filter: (f: string) => f.endsWith('.json') || f.endsWith('.sql') },
       { dir: DRIVE_C_DIR, filter: (f: string) => f.endsWith('.sql') },
       { dir: DRIVE_C_BACKUP_DIR, filter: (f: string) => f.endsWith('.json') },
     ];
@@ -764,9 +775,9 @@ export async function listLocalServerBackups() {
 export async function deleteLocalServerBackup(filename: string, passwordConfirm?: string) {
   try {
     await verifyAdminAndPassword(passwordConfirm);
-    ensureBackupDir();
+    const backupDir = ensureBackupDir();
     const safeFilename = path.basename(filename);
-    const filePath = path.join(BACKUP_DIR, safeFilename);
+    const filePath = path.join(backupDir, safeFilename);
     if (fs.existsSync(filePath) && safeFilename !== 'backup_config.json') {
       fs.unlinkSync(filePath);
       try {
@@ -914,9 +925,9 @@ export async function restoreDatabaseFromSql(sqlContent: string, passwordConfirm
 
 export async function readLocalServerBackup(filename: string) {
   try {
-    ensureBackupDir();
+    const backupDir = ensureBackupDir();
     const safeFilename = path.basename(filename);
-    let filePath = path.join(BACKUP_DIR, safeFilename);
+    let filePath = path.join(backupDir, safeFilename);
     if (!fs.existsSync(filePath)) {
       filePath = path.join(DRIVE_C_DIR, safeFilename);
     }
@@ -942,7 +953,7 @@ export async function executeAutoBackupNow(passwordConfirm?: string, isManualTri
     if (isManualTrigger) {
       await verifyAdminAndPassword(passwordConfirm);
     }
-    ensureBackupDir();
+    const backupDir = ensureBackupDir();
     const config = await getAutoBackupConfig();
     const targetFormat = config.format || 'both';
 
@@ -957,7 +968,7 @@ export async function executeAutoBackupNow(passwordConfirm?: string, isManualTri
           ? 'inci-card-autobackup-latest.json'
           : `inci-card-autobackup-${now.toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`;
 
-        fs.writeFileSync(path.join(BACKUP_DIR, filename), exportRes.jsonString, 'utf-8');
+        fs.writeFileSync(path.join(backupDir, filename), exportRes.jsonString, 'utf-8');
         try {
           if (fs.existsSync(DRIVE_C_BACKUP_DIR)) {
             fs.writeFileSync(path.join(DRIVE_C_BACKUP_DIR, filename), exportRes.jsonString, 'utf-8');
@@ -992,7 +1003,7 @@ export async function executeAutoBackupNow(passwordConfirm?: string, isManualTri
           for (let i = 0; i < excessCount; i++) {
             const fileToDelete = oldestFirst[i];
             if (fileToDelete) {
-              const deletePath = path.join(BACKUP_DIR, fileToDelete.filename);
+              const deletePath = path.join(backupDir, fileToDelete.filename);
               if (fs.existsSync(deletePath)) fs.unlinkSync(deletePath);
 
               try {
