@@ -655,6 +655,20 @@ export default function PrintQueueClient({
                       <Printer className="w-4 h-4" />
                       <span>Générer PDF d&apos;impression ({selectedIds.length})</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReprintEmployeeId('');
+                        setReprintTemplateType(selectedTemplateType || 'BADGE');
+                        setReprintReason('');
+                        setShowReprintDialog(true);
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Demander réimpression ({selectedIds.length})</span>
+                    </button>
                     
                     {(activeTab === 'ready' || activeTab === 'to-reprint') && (
                       <button
@@ -1151,9 +1165,16 @@ export default function PrintQueueClient({
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl w-full max-w-md p-6 space-y-4">
             <h3 className="text-sm font-bold text-neutral-800 dark:text-white flex items-center gap-2">
-              <RotateCcw className="w-4 h-4 text-violet-500" /> Demande de réimpression
+              <RotateCcw className="w-4 h-4 text-violet-500" /> 
+              {selectedIds.length > 1 
+                ? `Demande de réimpression en lot (${selectedIds.length} cartes)` 
+                : 'Demande de réimpression'}
             </h3>
-            <p className="text-xs text-neutral-500">Un motif est obligatoire. Il sera visible sur la fiche et dans la file d&apos;impression.</p>
+            <p className="text-xs text-neutral-500">
+              {selectedIds.length > 1
+                ? `Un motif est obligatoire. Il sera appliqué aux ${selectedIds.length} cartes sélectionnées.`
+                : "Un motif est obligatoire. Il sera visible sur la fiche et dans la file d'impression."}
+            </p>
             
             <div>
               <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Type de carte à réimprimer</label>
@@ -1248,6 +1269,11 @@ export default function PrintQueueClient({
                     setShowReprintDialog(false);
                     setReprintReason('');
                     setSelectedIds([]);
+                    toast({
+                      title: "Demande enregistrée",
+                      message: `${targetIds.length} carte(s) demandée(s) en réimpression avec succès.`,
+                      variant: "success",
+                    });
                     // Refresh queue
                     fetchQueue();
                   } catch (err: any) {

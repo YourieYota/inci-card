@@ -2,7 +2,22 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Employee } from '@prisma/client';
-import { X, Search, CheckSquare, Square, Download, Loader2, AlertCircle, Users, Columns } from 'lucide-react';
+import { 
+  X, 
+  Search, 
+  CheckSquare, 
+  Square, 
+  Download, 
+  Loader2, 
+  AlertCircle, 
+  Users, 
+  Columns,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  SlidersHorizontal,
+  Filter
+} from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 interface LaserExportModalProps {
@@ -12,11 +27,45 @@ interface LaserExportModalProps {
   onClose: () => void;
 }
 
+const getDynField = (data: Record<string, any>, ...keys: string[]): string => {
+  if (!data || typeof data !== 'object') return '';
+  const dataLower = Object.fromEntries(Object.entries(data).map(([k, v]) => [k.toLowerCase(), v]));
+  for (const key of keys) {
+    const val = dataLower[key.toLowerCase()];
+    if (val !== undefined && val !== null && val !== '') return String(val);
+  }
+  return '';
+};
+
+const getEmployeeName = (emp: any): string => {
+  const data = emp.dynamicData as Record<string, any>;
+  if (data && typeof data === 'object') {
+    const p = getDynField(data, 'prenom', 'prenoms', 'prénom', 'prénoms', 'firstname');
+    const n = getDynField(data, 'nom', 'noms', 'lastname', 'surname', 'familyname');
+    const full = `${p} ${n}`.trim() || getDynField(data, 'nom complet', 'full name', 'name', 'nom_prenom', 'prenom_nom');
+    if (full) return full;
+  }
+  return emp.uniqueIdentifier;
+};
+
+const getEmployeeSortKey = (emp: any): string => {
+  const data = emp.dynamicData as Record<string, any>;
+  const n = getDynField(data, 'nom', 'noms', 'lastname', 'surname', 'familyname');
+  const p = getDynField(data, 'prenom', 'prenoms', 'prénom', 'prénoms', 'firstname');
+  const full = `${n} ${p}`.trim() || getDynField(data, 'nom complet', 'full name', 'name');
+  return full || emp.uniqueIdentifier;
+};
+
 export default function LaserExportModal({ companyId, companyName, employees, onClose }: LaserExportModalProps) {
   const { toast } = useToast();
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
+  // Display & Sort preferences matching print queue logic
+  const [displayField, setDisplayField] = useState<string>('name');
+  const [sortField, setSortField] = useState<string>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [progress, setProgress] = useState<{ current: number; total: number; text: string } | null>(null);
 
@@ -41,6 +90,23 @@ export default function LaserExportModal({ companyId, companyName, employees, on
     }
     loadData();
   }, [companyId]);
+
+  // Extract all unique dynamic keys from employees
+  const dynamicKeys = useMemo(() => {
+    const excludeKeys = ['id', 'photo', 'photourl', 'status', 'printedat', 'createdat', 'updatedat', 'cardnumber', 'enrollmentnumber'];
+    const keysSet = new Set<string>();
+    employees.forEach((emp) => {
+      if (emp.dynamicData && typeof emp.dynamicData === 'object') {
+        const data = emp.dynamicData as Record<string, any>;
+        Object.keys(data).forEach((k) => {
+          if (k && k.trim() && !k.startsWith('_') && !excludeKeys.includes(k.toLowerCase().trim())) {
+            keysSet.add(k.trim());
+          }
+        });
+      }
+    });
+    return Array.from(keysSet);
+  }, [employees]);
 
   // 1. Compute all unique fields available across employees
   const allAvailableFields = useMemo(() => {
@@ -110,24 +176,78 @@ export default function LaserExportModal({ companyId, companyName, employees, on
     }
   }, [selectedDocTypeSlug, selectedCategoryId, categories]);
 
-  // 3. Filtering logic
+  // 3. Filtering & Sorting logic (matching Print Queue logic)
   const filteredEmployees = useMemo(() => {
-    return employees.filter((emp) => {
+    let result = employees.filter((emp) => {
       if (selectedStatus !== 'ALL' && emp.status !== selectedStatus) {
         return false;
       }
       if (searchQuery) {
         const query = searchQuery.toLowerCase().trim();
+        const name = getEmployeeName(emp).toLowerCase();
+        const id = (emp.enrollmentNumber || '').toLowerCase();
+        const uid = (emp.uniqueIdentifier || '').toLowerCase();
+        if (name.includes(query) || id.includes(query) || uid.includes(query)) {
+          return true;
+        }
+
         const data = emp.dynamicData as Record<string, any>;
-        const nom = String(data?.NOM || data?.nom || '').toLowerCase();
-        const prenom = String(data?.PRENOMS || data?.prenoms || '').toLowerCase();
-        const matricule = String(data?.MATRICULE || data?.matricule || emp.enrollmentNumber || '').toLowerCase();
-        
-        return nom.includes(query) || prenom.includes(query) || matricule.includes(query);
+        if (data && typeof data === 'object') {
+          return Object.values(data).some((val) =>
+            val !== null && val !== undefined && String(val).toLowerCase().includes(query)
+          );
+        }
+
+        return false;
       }
       return true;
     });
-  }, [employees, selectedStatus, searchQuery]);
+
+    if (sortField) {
+      result = [...result].sort((a, b) => {
+        let valA: any = '';
+        let valB: any = '';
+
+        if (sortField === 'name' || sortField === 'Nom Complet') {
+          valA = getEmployeeSortKey(a);
+          valB = getEmployeeSortKey(b);
+        } else if (sortField === 'matricule' || sortField === 'Matricule') {
+          const dataA = a.dynamicData as Record<string, any>;
+          const dataB = b.dynamicData as Record<string, any>;
+          valA = getDynField(dataA, 'matricule', 'id', 'code', 'identifiant') || a.enrollmentNumber || a.uniqueIdentifier;
+          valB = getDynField(dataB, 'matricule', 'id', 'code', 'identifiant') || b.enrollmentNumber || b.uniqueIdentifier;
+        } else if (sortField === 'uniqueIdentifier' || sortField === 'Identifiant Unique') {
+          valA = a.uniqueIdentifier || '';
+          valB = b.uniqueIdentifier || '';
+        } else if (sortField === 'enrollmentNumber' || sortField === "N° d'enrôlement") {
+          valA = a.enrollmentNumber || '';
+          valB = b.enrollmentNumber || '';
+        } else if (sortField === 'status' || sortField === 'Statut') {
+          valA = a.status || '';
+          valB = b.status || '';
+        } else {
+          const dataA = a.dynamicData as Record<string, any>;
+          const dataB = b.dynamicData as Record<string, any>;
+          valA = getDynField(dataA, sortField) || (dataA?.[sortField] !== undefined ? String(dataA[sortField]) : '');
+          valB = getDynField(dataB, sortField) || (dataB?.[sortField] !== undefined ? String(dataB[sortField]) : '');
+        }
+
+        const normalize = (v: any) => (typeof v === 'string' ? v.trim() : v);
+        valA = normalize(valA);
+        valB = normalize(valB);
+
+        if (typeof valA === 'string') {
+          return sortDirection === 'asc'
+            ? valA.localeCompare(String(valB), 'fr', { numeric: true, sensitivity: 'base' })
+            : String(valB).localeCompare(valA, 'fr', { numeric: true, sensitivity: 'base' });
+        } else {
+          return sortDirection === 'asc' ? (valA > valB ? 1 : -1) : (valB > valA ? 1 : -1);
+        }
+      });
+    }
+
+    return result;
+  }, [employees, selectedStatus, searchQuery, sortField, sortDirection]);
 
   // 4. Helper utilities
   const toggleEmployee = (id: string) => {
@@ -251,32 +371,91 @@ export default function LaserExportModal({ companyId, companyName, employees, on
             </div>
 
             {/* FILTERS CONTAINER */}
-            <div className="flex gap-2">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                disabled={isExporting}
-                className="px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:outline-none"
-              >
-                <option value="ALL">Tous les statuts</option>
-                <option value="A_ENROLER">À enrôler</option>
-                <option value="PHOTO_VALIDEE">Photo Validée</option>
-                <option value="IMPRIME">Imprimé</option>
-                <option value="A_VERIFIER">À vérifier</option>
-              </select>
-
-              <div className="relative flex-1">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-neutral-400">
-                  <Search className="w-3.5 h-3.5" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Rechercher nom, prénom, matricule..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
                   disabled={isExporting}
-                  className="w-full pl-8 pr-4 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs outline-none transition focus:ring-1 focus:ring-indigo-500/25"
-                />
+                  className="px-3 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:outline-none"
+                >
+                  <option value="ALL">Tous les statuts</option>
+                  <option value="A_ENROLER">À enrôler</option>
+                  <option value="PHOTO_VALIDEE">Photo Validée</option>
+                  <option value="IMPRIME">Imprimé</option>
+                  <option value="A_VERIFIER">À vérifier</option>
+                </select>
+
+                <div className="relative flex-1">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-neutral-400">
+                    <Search className="w-3.5 h-3.5" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Rechercher nom, prénom, matricule..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    disabled={isExporting}
+                    className="w-full pl-8 pr-4 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs outline-none transition focus:ring-1 focus:ring-indigo-500/25"
+                  />
+                </div>
+              </div>
+
+              {/* DISPLAY FIELD & SORT CONTROLS (PRINT QUEUE LOGIC) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-neutral-50/80 dark:bg-neutral-900/40 p-2.5 rounded-xl border border-neutral-200/60 dark:border-neutral-800/80 text-xs">
+                {/* Display Field selector */}
+                <div className="flex items-center gap-1.5">
+                  <Filter className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <span className="text-[10px] font-bold text-neutral-500 shrink-0">Afficher:</span>
+                  <select
+                    value={displayField}
+                    onChange={(e) => setDisplayField(e.target.value)}
+                    disabled={isExporting}
+                    className="w-full px-2 py-1 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 rounded-lg text-[11px] font-semibold text-neutral-700 dark:text-neutral-200 focus:outline-none truncate"
+                  >
+                    <option value="name">Nom Complet</option>
+                    <option value="matricule">Matricule</option>
+                    <option value="enrollmentNumber">N° d&apos;enrôlement</option>
+                    <option value="uniqueIdentifier">Identifiant Unique</option>
+                    {dynamicKeys.map((k) => (
+                      <option key={k} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sort Field & Direction selector */}
+                <div className="flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <span className="text-[10px] font-bold text-neutral-500 shrink-0">Trier:</span>
+                  <select
+                    value={sortField}
+                    onChange={(e) => setSortField(e.target.value)}
+                    disabled={isExporting}
+                    className="w-full px-2 py-1 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 rounded-lg text-[11px] font-semibold text-neutral-700 dark:text-neutral-200 focus:outline-none truncate"
+                  >
+                    <option value="name">Nom Complet</option>
+                    <option value="matricule">Matricule</option>
+                    <option value="enrollmentNumber">N° d&apos;enrôlement</option>
+                    <option value="uniqueIdentifier">Identifiant Unique</option>
+                    <option value="status">Statut</option>
+                    {dynamicKeys.map((k) => (
+                      <option key={k} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    disabled={isExporting}
+                    className="p-1 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg text-neutral-600 dark:text-neutral-300 transition shrink-0"
+                    title={sortDirection === 'asc' ? 'Ordre croissant (A-Z)' : 'Ordre décroissant (Z-A)'}
+                  >
+                    {sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -312,8 +491,27 @@ export default function LaserExportModal({ companyId, companyName, employees, on
               ) : (
                 filteredEmployees.map((emp) => {
                   const data = emp.dynamicData as Record<string, any>;
-                  const name = `${data?.NOM || data?.nom || ''} ${data?.PRENOMS || data?.prenoms || ''}`.trim() || emp.uniqueIdentifier;
-                  const matricule = data?.MATRICULE || data?.matricule || emp.enrollmentNumber || emp.uniqueIdentifier;
+                  const empName = getEmployeeName(emp);
+                  const empMatricule = getDynField(data, 'matricule', 'id', 'code', 'identifiant') || emp.enrollmentNumber || emp.uniqueIdentifier;
+                  
+                  let mainDisplayText = empName;
+                  let subDisplayText = `Matricule: ${empMatricule}`;
+
+                  if (displayField === 'matricule' || displayField === 'Matricule') {
+                    mainDisplayText = empMatricule;
+                    subDisplayText = `Nom: ${empName}`;
+                  } else if (displayField === 'enrollmentNumber' || displayField === "N° d'enrôlement") {
+                    mainDisplayText = emp.enrollmentNumber || 'Non généré';
+                    subDisplayText = `Nom: ${empName} • Matricule: ${empMatricule}`;
+                  } else if (displayField === 'uniqueIdentifier' || displayField === 'Identifiant Unique') {
+                    mainDisplayText = emp.uniqueIdentifier;
+                    subDisplayText = `Nom: ${empName} • Matricule: ${empMatricule}`;
+                  } else if (displayField !== 'name' && displayField !== 'Nom Complet') {
+                    const customVal = getDynField(data, displayField) || (data?.[displayField] !== undefined && data?.[displayField] !== null ? String(data[displayField]) : '');
+                    mainDisplayText = customVal ? `${displayField}: ${customVal}` : empName;
+                    subDisplayText = customVal ? `Nom: ${empName} • Matricule: ${empMatricule}` : `Matricule: ${empMatricule}`;
+                  }
+
                   const isChecked = selectedEmployeeIds.has(emp.id);
 
                   return (
@@ -333,8 +531,8 @@ export default function LaserExportModal({ companyId, companyName, employees, on
                           )}
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200">{name}</span>
-                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono mt-0.5">Matricule: {matricule}</span>
+                          <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200">{mainDisplayText}</span>
+                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono mt-0.5">{subDisplayText}</span>
                         </div>
                       </div>
 
