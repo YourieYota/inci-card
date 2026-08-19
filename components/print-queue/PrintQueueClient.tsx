@@ -656,19 +656,21 @@ export default function PrintQueueClient({
                       <span>Générer PDF d&apos;impression ({selectedIds.length})</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReprintEmployeeId('');
-                        setReprintTemplateType(selectedTemplateType || 'BADGE');
-                        setReprintReason('');
-                        setShowReprintDialog(true);
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      <span>Demander réimpression ({selectedIds.length})</span>
-                    </button>
+                    {(activeTab === 'printed' || activeTab === 'reprinted' || activeTab === 'history') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReprintEmployeeId('');
+                          setReprintTemplateType(selectedTemplateType || 'BADGE');
+                          setReprintReason('');
+                          setShowReprintDialog(true);
+                        }}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Demander réimpression ({selectedIds.length})</span>
+                      </button>
+                    )}
                     
                     {(activeTab === 'ready' || activeTab === 'to-reprint') && (
                       <button
@@ -1258,7 +1260,23 @@ export default function PrintQueueClient({
                 onClick={async () => {
                   setIsSaving(true);
                   try {
-                    const targetIds = selectedIds.length > 0 ? selectedIds : (reprintEmployeeId ? [reprintEmployeeId] : []);
+                    const rawIds = selectedIds.length > 0 ? selectedIds : (reprintEmployeeId ? [reprintEmployeeId] : []);
+                    const selectedEmps = employees.filter((e) => rawIds.includes(e.id));
+                    const eligibleEmps = selectedEmps.filter(
+                      (emp) => emp.status === 'IMPRIME' || emp.status === 'REIMPRIME' || (emp.printJobs && emp.printJobs.length > 0)
+                    );
+                    const targetIds = eligibleEmps.map((e) => e.id);
+
+                    if (targetIds.length === 0) {
+                      toast({
+                        title: "Réimpression impossible",
+                        message: "Aucun des employés sélectionnés n'a le statut d'imprimé.",
+                        variant: "warning",
+                      });
+                      setIsSaving(false);
+                      return;
+                    }
+
                     await requestReprintBatch(
                       targetIds, 
                       reprintReason.trim(), 

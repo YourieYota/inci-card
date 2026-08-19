@@ -1535,6 +1535,7 @@ export async function requestReprintBatch(
       });
 
       if (!emp || emp.isBlocked) continue;
+      if (emp.status !== 'IMPRIME' && emp.status !== 'REIMPRIME' && !emp.isLocked) continue;
 
       let targetCardNumber: string;
       const isObsoleteBadgeNumber = emp.cardNumber ? emp.cardNumber.toUpperCase().startsWith('BADGE') : false;
