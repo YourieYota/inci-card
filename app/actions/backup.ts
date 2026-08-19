@@ -49,7 +49,7 @@ export interface AutoBackupConfig {
   lastBackupAt?: string | null;
 }
 
-export const DEFAULT_CONFIG: AutoBackupConfig = {
+const DEFAULT_CONFIG: AutoBackupConfig = {
   enabled: false,
   interval: 'daily',
   maxBackups: 7,
