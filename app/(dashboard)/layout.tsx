@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
+import { checkAndRunAutoBackupIfNeeded } from "@/app/actions/backup";
 
 const navigation = [
   { name: "Dashboard",          href: "/dashboard",          icon: LayoutDashboard, roles: ['ADMIN', 'DESIGNER', 'OPERATEUR'] },
@@ -149,6 +150,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace('/login');
     }
   }, [status, router]);
+
+  // ── Automated background backup heartbeat ──
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const runCheck = () => {
+        checkAndRunAutoBackupIfNeeded().catch((e) => console.warn('Auto backup background check error:', e));
+      };
+      runCheck();
+      const interval = setInterval(runCheck, 15 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [status]);
 
   // Show loading screen while checking session
   if (status === 'loading' || status === 'unauthenticated') {

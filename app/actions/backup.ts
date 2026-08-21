@@ -140,9 +140,11 @@ export async function getDatabaseStats() {
   }
 }
 
-export async function exportDatabaseBackup(passwordConfirm?: string) {
+export async function exportDatabaseBackup(passwordConfirm?: string, isSystemAutoBackup: boolean = false) {
   try {
-    await verifyAdminAndPassword(passwordConfirm);
+    if (!isSystemAutoBackup) {
+      await verifyAdminAndPassword(passwordConfirm);
+    }
 
     const [
       companies,
@@ -298,9 +300,11 @@ export async function uploadAndRestoreBackup(formData: FormData) {
   }
 }
 
-export async function exportDatabaseSql(passwordConfirm?: string) {
+export async function exportDatabaseSql(passwordConfirm?: string, isSystemAutoBackup: boolean = false) {
   try {
-    await verifyAdminAndPassword(passwordConfirm);
+    if (!isSystemAutoBackup) {
+      await verifyAdminAndPassword(passwordConfirm);
+    }
     ensureBackupDir();
 
     const [
@@ -961,7 +965,7 @@ export async function executeAutoBackupNow(passwordConfirm?: string, isManualTri
 
     // 1. JSON Auto Backup
     if (targetFormat === 'json' || targetFormat === 'both') {
-      const exportRes = await exportDatabaseBackup();
+      const exportRes = await exportDatabaseBackup(passwordConfirm, true);
       if (exportRes.success && exportRes.jsonString) {
         const now = new Date();
         const filename = config.rotationStrategy === 'overwrite_latest'
@@ -981,7 +985,7 @@ export async function executeAutoBackupNow(passwordConfirm?: string, isManualTri
 
     // 2. SQL Auto Backup
     if (targetFormat === 'sql' || targetFormat === 'both') {
-      const sqlRes = await exportDatabaseSql();
+      const sqlRes = await exportDatabaseSql(passwordConfirm, true);
       if (sqlRes.success && sqlRes.filename) {
         lastCreatedFilename = sqlRes.filename;
       }
