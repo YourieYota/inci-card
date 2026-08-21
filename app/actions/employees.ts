@@ -233,14 +233,14 @@ export async function importEmployees({
       return firstKey ? r[firstKey] : undefined;
     };
 
-    // 3. Process rows
-    const importPromises = rows.map(async (row) => {
+    // 3. Process rows sequentially
+    for (const row of rows) {
       // Extract photo if present and remove it from row data to prevent DB JSON bloat
       const { _photoBase64, ...cleanedRow } = row;
 
       const uniqueVal = getCleanedRowVal(cleanedRow, uniqueField);
       if (uniqueVal === undefined || uniqueVal === null || uniqueVal === '') {
-        return; // skip rows without unique identifiers
+        continue; // skip rows without unique identifiers
       }
 
       const uniqueIdentifier = String(uniqueVal).trim();
@@ -296,7 +296,7 @@ export async function importEmployees({
         // Guard: check if the employee was modified in the app and is protected
         if (shouldProtect && existingEmployee.appModified) {
           skippedProtectedCount++;
-          return;
+          continue;
         }
 
         if (isModificationOnly) {
@@ -386,9 +386,7 @@ export async function importEmployees({
           addedCount++;
         }
       }
-    });
-
-    await Promise.all(importPromises);
+    }
 
     return {
       success: true,

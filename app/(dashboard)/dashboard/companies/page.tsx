@@ -18,14 +18,12 @@ export default async function CompaniesPage() {
     dbError = true;
   }
 
-  const serializedCompanies = companies.map(c => ({
-    ...c,
-    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-  })) as any;
+  const serializedCompanies = JSON.parse(JSON.stringify(companies));
+  const serializedGlobalCategories = JSON.parse(JSON.stringify(globalCategories));
 
   return (
     <div className="w-full max-w-[1920px] mx-auto px-2 md:px-4 py-2">
-      <CompaniesClient initialCompanies={serializedCompanies} dbError={dbError} globalCategories={globalCategories} />
+      <CompaniesClient initialCompanies={serializedCompanies} dbError={dbError} globalCategories={serializedGlobalCategories} />
     </div>
   );
 }

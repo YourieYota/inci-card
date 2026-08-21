@@ -12,7 +12,7 @@ interface PageProps {
 }
 
 export default async function EmployeesPage({ searchParams }: PageProps) {
-  const resolvedSearchParams = await searchParams;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const companyId = resolvedSearchParams.companyId || '';
 
   let companies: Awaited<ReturnType<typeof getCompanies>> = [];
@@ -35,19 +35,9 @@ export default async function EmployeesPage({ searchParams }: PageProps) {
     }
   }
 
-  // Serialize Date objects for React 19 / Next.js client component compatibility
-  const serializedCompanies = companies.map(c => ({
-    ...c,
-    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-  }));
-
-  const serializedEmployees = initialEmployees.map(emp => ({
-    ...emp,
-    createdAt: emp.createdAt instanceof Date ? emp.createdAt.toISOString() : emp.createdAt,
-    updatedAt: emp.updatedAt instanceof Date ? emp.updatedAt.toISOString() : emp.updatedAt,
-    printedAt: emp.printedAt instanceof Date ? emp.printedAt.toISOString() : emp.printedAt,
-    photoValidatedAt: emp.photoValidatedAt instanceof Date ? emp.photoValidatedAt.toISOString() : emp.photoValidatedAt,
-  }));
+  // Deeply serialize Date objects and complex properties for React 19 / Next.js client component compatibility
+  const serializedCompanies = JSON.parse(JSON.stringify(companies));
+  const serializedEmployees = JSON.parse(JSON.stringify(initialEmployees));
 
   return (
     <div className="w-full max-w-[1920px] mx-auto px-2 md:px-4 py-2">

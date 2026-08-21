@@ -231,7 +231,7 @@ export default function ExcelImporter({
       
       // 1. Locate Excel/CSV file, index image files and locate nested ZIP files
       let excelFileObj: JSZip.JSZipObject | null = null;
-      let nestedZipObj: JSZip.JSZipObject | null = null;
+      const nestedZipObjs: JSZip.JSZipObject[] = [];
       const imageMap = new Map<string, JSZip.JSZipObject>();
 
       for (const [relativePath, fileObj] of Object.entries(zip.files)) {
@@ -244,7 +244,7 @@ export default function ExcelImporter({
             excelFileObj = fileObj;
           }
         } else if (lowerName.endsWith('.zip')) {
-          nestedZipObj = fileObj;
+          nestedZipObjs.push(fileObj);
         } else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png') || lowerName.endsWith('.webp')) {
           // Extract base filename (ignoring parent directories in the zip)
           const baseName = relativePath.split('/').pop() || relativePath;
@@ -252,8 +252,8 @@ export default function ExcelImporter({
         }
       }
 
-      // If a nested ZIP was found, load and index its images
-      if (nestedZipObj) {
+      // If nested ZIPs were found, load and index their images
+      for (const nestedZipObj of nestedZipObjs) {
         try {
           const nestedZipBuffer = await nestedZipObj.async('arraybuffer');
           const nestedZip = await JSZip.loadAsync(nestedZipBuffer);
@@ -266,7 +266,7 @@ export default function ExcelImporter({
             }
           }
         } catch (zipErr) {
-          console.warn("Erreur lors de la lecture du ZIP imbriqué:", zipErr);
+          console.warn("Erreur lors de la lecture d'un ZIP imbriqué:", zipErr);
         }
       }
 
@@ -486,16 +486,29 @@ export default function ExcelImporter({
         return;
       }
 
-      const res = await importEmployees({
-        companyId,
-        uniqueField,
-        rows: serializedRows,
-        isModificationOnly,
-      });
+      // Chunk large imports into batches of 10 rows to avoid Server Action body size limits / 500 errors
+      const CHUNK_SIZE = 10;
+      let totalAdded = 0;
+      let totalUpdated = 0;
+      let totalSkippedProtected = 0;
 
-      if (res.success) {
-        onImportSuccess(res.count, res.addedCount, res.updatedCount, res.skippedProtectedCount);
+      for (let i = 0; i < serializedRows.length; i += CHUNK_SIZE) {
+        const chunk = serializedRows.slice(i, i + CHUNK_SIZE);
+        const res = await importEmployees({
+          companyId,
+          uniqueField,
+          rows: chunk,
+          isModificationOnly,
+        });
+
+        if (res && res.success) {
+          totalAdded += res.addedCount || 0;
+          totalUpdated += res.updatedCount || 0;
+          totalSkippedProtected += res.skippedProtectedCount || 0;
+        }
       }
+
+      onImportSuccess(totalAdded + totalUpdated, totalAdded, totalUpdated, totalSkippedProtected);
     } catch (err: any) {
       setError(err.message || "Erreur lors de l'importation.");
     } finally {
