@@ -68,7 +68,7 @@ interface CardDocumentType {
 export default function CardsManagementPage() {
   const { toast } = useToast();
   const { confirm } = useConfirmDialog();
-  const [activeTab, setActiveTab] = useState<'categories' | 'formats' | 'physical' | 'doctypes'>('doctypes');
+  const [activeTab, setActiveTab] = useState<'categories' | 'formats' | 'physical' | 'types' | 'doctypes' | 'docTypes'>('doctypes');
   const [formats, setFormats] = useState<CardFormat[]>([]);
   const [categories, setCategories] = useState<CardCategory[]>([]);
   const [physicalTypes, setPhysicalTypes] = useState<CardPhysicalType[]>([]);

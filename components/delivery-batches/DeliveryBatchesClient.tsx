@@ -581,7 +581,11 @@ export default function DeliveryBatchesClient({ initialCompanies, initialBatches
     const confirmMsg = newStatus === 'EN_TRANSIT' 
       ? 'Voulez-vous marquer ce lot comme Expédié ?'
       : 'Voulez-vous marquer ce lot comme Réceptionné / Livré ?';
-    if (!confirm(confirmMsg)) return;
+    const ok = await confirm({
+      title: 'Changement de statut',
+      message: confirmMsg,
+    });
+    if (!ok) return;
 
     try {
       await updateBatchStatus(batchId, newStatus);
