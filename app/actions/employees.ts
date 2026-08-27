@@ -210,12 +210,27 @@ export async function importEmployees({
     // Build smart lookup index maps for exact matching by uniqueIdentifier and target dynamicData fields
     const lookupMap = new Map<string, typeof existingEmployees[0]>();
     existingEmployees.forEach(emp => {
+      // 1. Index by emp.uniqueIdentifier
       if (emp.uniqueIdentifier) {
         const uidTrim = String(emp.uniqueIdentifier).trim().toLowerCase();
-        lookupMap.set(uidTrim, emp);
-        lookupMap.set(`id::${uidTrim}`, emp);
+        if (uidTrim) {
+          lookupMap.set(`uid::${uidTrim}`, emp);
+        }
       }
-      const dyn = (emp.dynamicData as Record<string, any>) || {};
+
+      // 2. Index by emp.enrollmentNumber if present
+      if (emp.enrollmentNumber) {
+        const enrTrim = String(emp.enrollmentNumber).trim().toLowerCase();
+        if (enrTrim) {
+          lookupMap.set(`enr::${enrTrim}`, emp);
+        }
+      }
+
+      // 3. Index dynamicData fields strictly under their explicit key (e.g. "matricule::123", "n°::179")
+      const dyn = (emp.dynamicData && typeof emp.dynamicData === 'object' && !Array.isArray(emp.dynamicData))
+        ? (emp.dynamicData as Record<string, any>)
+        : {};
+
       Object.entries(dyn).forEach(([k, v]) => {
         if (v !== undefined && v !== null && String(v).trim()) {
           const valTrim = String(v).trim().toLowerCase();
@@ -223,9 +238,6 @@ export async function importEmployees({
           const valKey = `${keyTrim}::${valTrim}`;
           if (!lookupMap.has(valKey)) {
             lookupMap.set(valKey, emp);
-          }
-          if (!lookupMap.has(valTrim)) {
-            lookupMap.set(valTrim, emp);
           }
         }
       });
@@ -235,23 +247,29 @@ export async function importEmployees({
       const valTrim = String(fieldVal).trim().toLowerCase();
       if (!valTrim) return undefined;
 
-      // 1. Direct match on lookupMap by exact valTrim (uniqueIdentifier or raw value)
-      if (lookupMap.has(valTrim)) {
-        return lookupMap.get(valTrim);
+      // 1. Check direct match on emp.uniqueIdentifier
+      if (lookupMap.has(`uid::${valTrim}`)) {
+        return lookupMap.get(`uid::${valTrim}`);
       }
 
-      // 2. Direct match on id::valTrim
-      const idKey = `id::${valTrim}`;
-      if (lookupMap.has(idKey)) {
-        return lookupMap.get(idKey);
+      // 2. Check direct match on emp.enrollmentNumber
+      if (lookupMap.has(`enr::${valTrim}`)) {
+        return lookupMap.get(`enr::${valTrim}`);
       }
 
-      // 3. Match by aliases in dynamicData (e.g. matricule::123, n°::179, nni::456)
+      // 3. Check match by exact fieldKey in dynamicData (e.g. "n°::179" or "matricule::contractuel")
+      const fieldKeyTrim = fieldKey.trim().toLowerCase();
+      const exactKey = `${fieldKeyTrim}::${valTrim}`;
+      if (lookupMap.has(exactKey)) {
+        return lookupMap.get(exactKey);
+      }
+
+      // 4. Check match by field aliases in dynamicData (e.g., if fieldKey is "N°", check "numéro::179", "n°::179", etc.)
       const aliases = getFieldAliases(fieldKey);
       for (const alias of aliases) {
-        const exactKey = `${alias}::${valTrim}`;
-        if (lookupMap.has(exactKey)) {
-          return lookupMap.get(exactKey);
+        const aliasKey = `${alias}::${valTrim}`;
+        if (lookupMap.has(aliasKey)) {
+          return lookupMap.get(aliasKey);
         }
       }
 
