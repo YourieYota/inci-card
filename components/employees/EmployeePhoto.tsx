@@ -49,6 +49,11 @@ export default function EmployeePhoto({
             sessionStorage.setItem(cacheKey, url);
           } catch (e) {
             console.warn("Failed to write to sessionStorage:", e);
+            try {
+              Object.keys(sessionStorage).forEach(k => {
+                if (k.startsWith('emp-photo:')) sessionStorage.removeItem(k);
+              });
+            } catch (err) {}
           }
         }
       })
