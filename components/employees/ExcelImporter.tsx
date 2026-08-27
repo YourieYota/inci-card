@@ -543,6 +543,10 @@ export default function ExcelImporter({
           totalUpdated += res.updatedCount || 0;
           totalSkippedProtected += res.skippedProtectedCount || 0;
           totalSkippedDuplicates += res.skippedDuplicateCount || 0;
+        } else if (res && !res.success) {
+          setError(res.error || "Erreur lors de l'importation.");
+          setIsImporting(false);
+          return;
         }
       }
 

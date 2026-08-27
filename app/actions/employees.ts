@@ -240,21 +240,10 @@ export async function importEmployees({
         }
       }
 
-      // 2. Match by emp.uniqueIdentifier ("id::valTrim") if field groups do not conflict
+      // 2. Match by emp.uniqueIdentifier ("id::valTrim")
       const idKey = `id::${valTrim}`;
       if (lookupMap.has(idKey)) {
-        const candidate = lookupMap.get(idKey);
-        if (candidate) {
-          const dyn = (candidate.dynamicData as Record<string, any>) || {};
-          const hasConflictingGroup = Object.keys(dyn).some(k => {
-            const keyGroup = getFieldGroup(k);
-            return keyGroup !== searchGroup && (keyGroup === "ORDRE" || keyGroup === "NUMERO_SIMPLE" || keyGroup === "MATRICULE" || keyGroup === "NNI");
-          });
-
-          if (!hasConflictingGroup) {
-            return candidate;
-          }
-        }
+        return lookupMap.get(idKey);
       }
 
       return undefined;
@@ -467,9 +456,17 @@ export async function importEmployees({
       skippedProtectedCount,
       skippedDuplicateCount
     };
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Error importing employees:', error);
-    throw new Error('Erreur lors de l\'importation des employés');
+    return {
+      success: false,
+      error: error?.message || "Erreur lors de l'importation des employés",
+      count: 0,
+      addedCount: 0,
+      updatedCount: 0,
+      skippedProtectedCount: 0,
+      skippedDuplicateCount: 0,
+    };
   }
 }
 
