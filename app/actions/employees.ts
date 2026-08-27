@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { extractCategoryFromDynamicData } from '@/lib/categoryUtils';
 import crypto from 'crypto';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 
 async function getSafeSession() {
   try {
