@@ -196,7 +196,7 @@ export async function importEmployees({
         ];
       }
       if (getFieldGroup(fieldKey) === "NUMERO_SIMPLE") {
-        return ["n°", "numéro", "numero", "no", "no.", "num", "n"];
+        return ["n°", "numéro", "numero", "no", "no.", "num"];
       }
       if (getFieldGroup(fieldKey) === "MATRICULE") {
         return ["matricule", "mat", "n° matricule", "numéro matricule", "numero matricule"];
@@ -309,13 +309,20 @@ export async function importEmployees({
         const existingEmployee = findExistingEmployee(uniqueField, uniqueIdentifier);
 
         if (existingEmployee) {
+          // Standard import mode (isModificationOnly = false):
+          // DO NOT modify existing employees. Skip duplicates to preserve existing data!
+          if (!isModificationOnly) {
+            skippedDuplicateCount++;
+            continue;
+          }
+
           // Guard: check if the employee was modified in the app and is protected
           if (shouldProtect && existingEmployee.appModified) {
             skippedProtectedCount++;
             continue;
           }
 
-          // Process photo if present
+          // Process photo if present for modification mode
           let photoData: any = {};
           if (_photoBase64) {
             const hash = await computePhotoHash(_photoBase64);
@@ -359,8 +366,10 @@ export async function importEmployees({
             }
           }
 
-          // Compare dynamicData and update modified or new fields
-          const oldData = (existingEmployee.dynamicData as Record<string, any>) || {};
+          // Compare dynamicData and update modified or new fields for modification mode
+          const oldData = (existingEmployee.dynamicData && typeof existingEmployee.dynamicData === 'object' && !Array.isArray(existingEmployee.dynamicData))
+            ? (existingEmployee.dynamicData as Record<string, any>)
+            : {};
           const newData = { ...oldData };
           let hasChanges = false;
 
