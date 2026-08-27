@@ -247,29 +247,59 @@ export async function importEmployees({
       const valTrim = String(fieldVal).trim().toLowerCase();
       if (!valTrim) return undefined;
 
-      // 1. Check direct match on emp.uniqueIdentifier
-      if (lookupMap.has(`uid::${valTrim}`)) {
-        return lookupMap.get(`uid::${valTrim}`);
-      }
+      const searchGroup = getFieldGroup(fieldKey);
 
-      // 2. Check direct match on emp.enrollmentNumber
-      if (lookupMap.has(`enr::${valTrim}`)) {
-        return lookupMap.get(`enr::${valTrim}`);
-      }
-
-      // 3. Check match by exact fieldKey in dynamicData (e.g. "n°::179" or "matricule::contractuel")
+      // 1. Check match by exact fieldKey in dynamicData (e.g. "n°::179" or "matricule::123")
       const fieldKeyTrim = fieldKey.trim().toLowerCase();
       const exactKey = `${fieldKeyTrim}::${valTrim}`;
       if (lookupMap.has(exactKey)) {
         return lookupMap.get(exactKey);
       }
 
-      // 4. Check match by field aliases in dynamicData (e.g., if fieldKey is "N°", check "numéro::179", "n°::179", etc.)
+      // 2. Check match by field aliases in dynamicData strictly within the same group (e.g., if fieldKey is "N°", check "numéro::179", "n°::179", etc.)
       const aliases = getFieldAliases(fieldKey);
       for (const alias of aliases) {
         const aliasKey = `${alias}::${valTrim}`;
         if (lookupMap.has(aliasKey)) {
           return lookupMap.get(aliasKey);
+        }
+      }
+
+      // 3. Check direct match on emp.uniqueIdentifier ("uid::valTrim") ONLY if there is no identifier group conflict
+      if (lookupMap.has(`uid::${valTrim}`)) {
+        const candidate = lookupMap.get(`uid::${valTrim}`);
+        if (candidate) {
+          const dyn = (candidate.dynamicData && typeof candidate.dynamicData === 'object' && !Array.isArray(candidate.dynamicData))
+            ? (candidate.dynamicData as Record<string, any>)
+            : {};
+
+          const hasConflictingGroup = Object.keys(dyn).some(k => {
+            const keyGroup = getFieldGroup(k);
+            return keyGroup !== searchGroup && (keyGroup === "ORDRE" || keyGroup === "NUMERO_SIMPLE" || keyGroup === "MATRICULE" || keyGroup === "NNI");
+          });
+
+          if (!hasConflictingGroup) {
+            return candidate;
+          }
+        }
+      }
+
+      // 4. Check direct match on emp.enrollmentNumber ("enr::valTrim") ONLY if there is no identifier group conflict
+      if (lookupMap.has(`enr::${valTrim}`)) {
+        const candidate = lookupMap.get(`enr::${valTrim}`);
+        if (candidate) {
+          const dyn = (candidate.dynamicData && typeof candidate.dynamicData === 'object' && !Array.isArray(candidate.dynamicData))
+            ? (candidate.dynamicData as Record<string, any>)
+            : {};
+
+          const hasConflictingGroup = Object.keys(dyn).some(k => {
+            const keyGroup = getFieldGroup(k);
+            return keyGroup !== searchGroup && (keyGroup === "ORDRE" || keyGroup === "NUMERO_SIMPLE" || keyGroup === "MATRICULE" || keyGroup === "NNI");
+          });
+
+          if (!hasConflictingGroup) {
+            return candidate;
+          }
         }
       }
 
