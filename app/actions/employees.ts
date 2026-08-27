@@ -165,11 +165,54 @@ export async function importEmployees({
       where: { companyId },
     });
 
-    // Build smart lookup index maps for fast matching by uniqueIdentifier and dynamicData fields (NNI, MATRICULE, N° d'ordre, etc.)
+    function getFieldGroup(fieldKey: string): string {
+      const norm = fieldKey.trim().toLowerCase();
+      if (
+        norm.includes("ordre") ||
+        norm === "n° d'ordre" || norm === "numéro d'ordre" || norm === "numero d'ordre" ||
+        norm === "n°ordre" || norm === "n° ordre" || norm === "numero ordre" ||
+        norm === "no d'ordre" || norm === "no ordre" || norm === "n d'ordre" || norm === "n ordre"
+      ) {
+        return "ORDRE";
+      }
+      if (norm === "n°" || norm === "numéro" || norm === "numero" || norm === "no" || norm === "no." || norm === "num" || norm === "n") {
+        return "NUMERO_SIMPLE";
+      }
+      if (norm.includes("matricule") || norm === "mat") {
+        return "MATRICULE";
+      }
+      if (norm.includes("nni") || norm === "n.n.i") {
+        return "NNI";
+      }
+      return norm;
+    }
+
+    function getFieldAliases(fieldKey: string): string[] {
+      const norm = fieldKey.trim().toLowerCase();
+      if (getFieldGroup(fieldKey) === "ORDRE") {
+        return [
+          "n° d'ordre", "numéro d'ordre", "numero d'ordre", "n°ordre", "n° ordre",
+          "numero ordre", "no d'ordre", "no ordre", "n d'ordre", "n ordre", "ordre"
+        ];
+      }
+      if (getFieldGroup(fieldKey) === "NUMERO_SIMPLE") {
+        return ["n°", "numéro", "numero", "no", "no.", "num", "n"];
+      }
+      if (getFieldGroup(fieldKey) === "MATRICULE") {
+        return ["matricule", "mat", "n° matricule", "numéro matricule", "numero matricule"];
+      }
+      if (getFieldGroup(fieldKey) === "NNI") {
+        return ["nni", "n.n.i", "n° nni", "numéro nni", "numero nni"];
+      }
+      return [norm];
+    }
+
+    // Build smart lookup index maps for exact matching by uniqueIdentifier and target dynamicData fields
     const lookupMap = new Map<string, typeof existingEmployees[0]>();
     existingEmployees.forEach(emp => {
       if (emp.uniqueIdentifier) {
-        lookupMap.set(String(emp.uniqueIdentifier).trim().toLowerCase(), emp);
+        // Scope uniqueIdentifier under "id::" namespace
+        lookupMap.set(`id::${String(emp.uniqueIdentifier).trim().toLowerCase()}`, emp);
       }
       const dyn = (emp.dynamicData as Record<string, any>) || {};
       Object.entries(dyn).forEach(([k, v]) => {
@@ -186,23 +229,31 @@ export async function importEmployees({
       const valTrim = String(fieldVal).trim().toLowerCase();
       if (!valTrim) return undefined;
 
-      // 1. Direct match on lookupMap by uniqueIdentifier
-      if (lookupMap.has(valTrim)) {
-        return lookupMap.get(valTrim);
+      const searchGroup = getFieldGroup(fieldKey);
+      const aliases = getFieldAliases(fieldKey);
+
+      // 1. Match by exact alias::valTrim in dynamicData
+      for (const alias of aliases) {
+        const exactKey = `${alias}::${valTrim}`;
+        if (lookupMap.has(exactKey)) {
+          return lookupMap.get(exactKey);
+        }
       }
 
-      // 2. Match by exact fieldKey::fieldVal
-      const exactKey = `${fieldKey.trim().toLowerCase()}::${valTrim}`;
-      if (lookupMap.has(exactKey)) {
-        return lookupMap.get(exactKey);
-      }
+      // 2. Match by emp.uniqueIdentifier ("id::valTrim") if field groups do not conflict
+      const idKey = `id::${valTrim}`;
+      if (lookupMap.has(idKey)) {
+        const candidate = lookupMap.get(idKey);
+        if (candidate) {
+          const dyn = (candidate.dynamicData as Record<string, any>) || {};
+          const hasConflictingGroup = Object.keys(dyn).some(k => {
+            const keyGroup = getFieldGroup(k);
+            return keyGroup !== searchGroup && (keyGroup === "ORDRE" || keyGroup === "NUMERO_SIMPLE" || keyGroup === "MATRICULE" || keyGroup === "NNI");
+          });
 
-      // 3. Fallback match by common identifier field names (NNI, MATRICULE, N° d'ordre)
-      const commonFields = ['nni', 'n.n.i', 'matricule', "n° d'ordre", 'n° ordre', 'n°ordre', 'identifiant'];
-      for (const field of commonFields) {
-        const key = `${field}::${valTrim}`;
-        if (lookupMap.has(key)) {
-          return lookupMap.get(key);
+          if (!hasConflictingGroup) {
+            return candidate;
+          }
         }
       }
 
@@ -212,25 +263,19 @@ export async function importEmployees({
     let addedCount = 0;
     let updatedCount = 0;
     let skippedProtectedCount = 0;
+    let skippedDuplicateCount = 0;
 
-    // Helper for robust identifier extraction from row data
+    // Helper for robust identifier extraction from row data (no random fallback to 1st column)
     const getCleanedRowVal = (r: Record<string, any>, targetKey: string) => {
-      if (r[targetKey] !== undefined && r[targetKey] !== null && String(r[targetKey]).trim() !== '') return r[targetKey];
+      if (r[targetKey] !== undefined && r[targetKey] !== null && String(r[targetKey]).trim() !== '') {
+        return r[targetKey];
+      }
       const trimmedTarget = targetKey.trim().toLowerCase();
       const foundKey = Object.keys(r).find(k => k.trim().toLowerCase() === trimmedTarget);
-      if (foundKey && r[foundKey] !== undefined && r[foundKey] !== null && String(r[foundKey]).trim() !== '') return r[foundKey];
-      
-      // Fallback: if selected targetKey is missing in row, check common identifier headers present in row
-      const commonIdKeys = ['nni', 'n.n.i', 'matricule', "n° d'ordre", 'n° ordre', 'n°ordre', 'identifiant'];
-      for (const idKey of commonIdKeys) {
-        const kMatch = Object.keys(r).find(k => k.trim().toLowerCase() === idKey);
-        if (kMatch && r[kMatch] !== undefined && r[kMatch] !== null && String(r[kMatch]).trim() !== '') {
-          return r[kMatch];
-        }
+      if (foundKey && r[foundKey] !== undefined && r[foundKey] !== null && String(r[foundKey]).trim() !== '') {
+        return r[foundKey];
       }
-      // Ultimate fallback: first non-photo, non-empty key in row
-      const firstKey = Object.keys(r).find(k => !k.startsWith('_') && r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '');
-      return firstKey ? r[firstKey] : undefined;
+      return undefined;
     };
 
     // 3. Process rows sequentially
@@ -239,131 +284,123 @@ export async function importEmployees({
       const { _photoBase64, ...cleanedRow } = row;
 
       const uniqueVal = getCleanedRowVal(cleanedRow, uniqueField);
-      if (uniqueVal === undefined || uniqueVal === null || uniqueVal === '') {
+      if (uniqueVal === undefined || uniqueVal === null || String(uniqueVal).trim() === '') {
         continue; // skip rows without unique identifiers
       }
 
       const uniqueIdentifier = String(uniqueVal).trim();
       const existingEmployee = findExistingEmployee(uniqueField, uniqueIdentifier);
 
-      // Process photo if present
-      let photoData: any = {};
-      if (_photoBase64) {
-        const hash = await computePhotoHash(_photoBase64);
-        const duplicate = await prisma.employee.findFirst({
-          where: {
-            photoHash: hash,
-            id: existingEmployee ? { not: existingEmployee.id } : undefined,
-          },
-        });
-
-        photoData = {
-          photoUrl: _photoBase64,
-          photoHash: hash,
-        };
-
-        if (duplicate) {
-          photoData.photoConflict = true;
-          photoData.status = 'A_VERIFIER';
-          
-          // Mark other duplicates as in conflict
-          await prisma.employee.updateMany({
-            where: { photoHash: hash },
-            data: {
-              photoConflict: true,
-              status: 'A_VERIFIER',
-            },
-          });
-        } else {
-          photoData.photoConflict = false;
-          photoData.status = 'PHOTO_VALIDEE';
-        }
-
-        // If the photo is validated, pre-assign enrollment number and enrolledBy if missing
-        if (photoData.status === 'PHOTO_VALIDEE') {
-          const hasEnrollment = existingEmployee ? !!existingEmployee.enrollmentNumber : false;
-          if (!hasEnrollment) {
-            photoData.enrollmentNumber = await generateEnrollmentNumber(companyId);
-          }
-          const hasEnrolledBy = existingEmployee ? !!existingEmployee.enrolledBy : false;
-          if (!hasEnrolledBy) {
-            photoData.enrolledBy = operatorName;
-          }
-        }
-      }
-
       if (existingEmployee) {
+        // Standard import mode (isModificationOnly = false):
+        // DO NOT modify existing employees. Skip duplicates to preserve existing data!
+        if (!isModificationOnly) {
+          skippedDuplicateCount++;
+          continue;
+        }
+
         // Guard: check if the employee was modified in the app and is protected
         if (shouldProtect && existingEmployee.appModified) {
           skippedProtectedCount++;
           continue;
         }
 
-        if (isModificationOnly) {
-          // Compare dynamicData and only update modified fields
-          const oldData = (existingEmployee.dynamicData as Record<string, any>) || {};
-          const newData = { ...oldData };
-          let hasChanges = false;
-
-          const parseDateForComp = (dStr: string) => {
-            if (!dStr) return '';
-            if (dStr.includes('/')) {
-              const parts = dStr.split('/');
-              if (parts.length === 3) {
-                return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
-              }
-            }
-            if (dStr.includes('T')) {
-              const dateObj = new Date(dStr);
-              if (!isNaN(dateObj.getTime())) {
-                const day = String(dateObj.getUTCDate()).padStart(2, '0');
-                const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-                const year = dateObj.getUTCFullYear();
-                return `${day}/${month}/${year}`;
-              }
-            }
-            return dStr;
-          };
-
-          Object.entries(cleanedRow).forEach(([key, value]) => {
-            const trimmedKey = key.trim().toLowerCase();
-            const existingOldKey = Object.keys(oldData).find(k => k.trim().toLowerCase() === trimmedKey) || key;
-            const rawOldVal = oldData[existingOldKey];
-
-            const oldValStr = rawOldVal !== undefined && rawOldVal !== null ? String(rawOldVal).trim() : '';
-            const newValStr = value !== undefined && value !== null ? String(value).trim() : '';
-
-            const isDateKey = trimmedKey.includes('date') || trimmedKey.includes('naiss');
-            const compOld = isDateKey ? parseDateForComp(oldValStr) : oldValStr;
-            const compNew = isDateKey ? parseDateForComp(newValStr) : newValStr;
-
-            if (compOld !== compNew) {
-              if (existingOldKey !== key && existingOldKey in newData) {
-                delete newData[existingOldKey];
-              }
-              newData[key] = value;
-              hasChanges = true;
-            }
+        // Process photo if present for modification mode
+        let photoData: any = {};
+        if (_photoBase64) {
+          const hash = await computePhotoHash(_photoBase64);
+          const duplicate = await prisma.employee.findFirst({
+            where: {
+              photoHash: hash,
+              id: { not: existingEmployee.id },
+            },
           });
 
-          if (hasChanges || _photoBase64) {
-            await prisma.employee.update({
-              where: { id: existingEmployee.id },
+          photoData = {
+            photoUrl: _photoBase64,
+            photoHash: hash,
+          };
+
+          if (duplicate) {
+            photoData.photoConflict = true;
+            photoData.status = 'A_VERIFIER';
+            
+            // Mark other duplicates as in conflict
+            await prisma.employee.updateMany({
+              where: { photoHash: hash },
               data: {
-                dynamicData: newData,
-                updatedAt: new Date(),
-                ...photoData,
+                photoConflict: true,
+                status: 'A_VERIFIER',
               },
             });
-            updatedCount++;
+          } else {
+            photoData.photoConflict = false;
+            photoData.status = 'PHOTO_VALIDEE';
           }
-        } else {
-          // Standard merge import (preserves other existing columns, adds or updates new ones)
-          const oldData = (existingEmployee.dynamicData as Record<string, any>) || {};
+
+          if (photoData.status === 'PHOTO_VALIDEE') {
+            const hasEnrollment = !!existingEmployee.enrollmentNumber;
+            if (!hasEnrollment) {
+              photoData.enrollmentNumber = await generateEnrollmentNumber(companyId);
+            }
+            const hasEnrolledBy = !!existingEmployee.enrolledBy;
+            if (!hasEnrolledBy) {
+              photoData.enrolledBy = operatorName;
+            }
+          }
+        }
+
+        // Compare dynamicData and only update modified fields
+        const oldData = (existingEmployee.dynamicData as Record<string, any>) || {};
+        const newData = { ...oldData };
+        let hasChanges = false;
+
+        const parseDateForComp = (dStr: string) => {
+          if (!dStr) return '';
+          if (dStr.includes('/')) {
+            const parts = dStr.split('/');
+            if (parts.length === 3) {
+              return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+            }
+          }
+          if (dStr.includes('T')) {
+            const dateObj = new Date(dStr);
+            if (!isNaN(dateObj.getTime())) {
+              const day = String(dateObj.getUTCDate()).padStart(2, '0');
+              const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+              const year = dateObj.getUTCFullYear();
+              return `${day}/${month}/${year}`;
+            }
+          }
+          return dStr;
+        };
+
+        Object.entries(cleanedRow).forEach(([key, value]) => {
+          const trimmedKey = key.trim().toLowerCase();
+          const existingOldKey = Object.keys(oldData).find(k => k.trim().toLowerCase() === trimmedKey) || key;
+          const rawOldVal = oldData[existingOldKey];
+
+          const oldValStr = rawOldVal !== undefined && rawOldVal !== null ? String(rawOldVal).trim() : '';
+          const newValStr = value !== undefined && value !== null ? String(value).trim() : '';
+
+          const isDateKey = trimmedKey.includes('date') || trimmedKey.includes('naiss');
+          const compOld = isDateKey ? parseDateForComp(oldValStr) : oldValStr;
+          const compNew = isDateKey ? parseDateForComp(newValStr) : newValStr;
+
+          if (compOld !== compNew) {
+            if (existingOldKey !== key && existingOldKey in newData) {
+              delete newData[existingOldKey];
+            }
+            newData[key] = value;
+            hasChanges = true;
+          }
+        });
+
+        if (hasChanges || _photoBase64) {
           await prisma.employee.update({
             where: { id: existingEmployee.id },
             data: {
-              dynamicData: { ...oldData, ...cleanedRow },
+              dynamicData: newData,
               updatedAt: new Date(),
               ...photoData,
             },
@@ -373,6 +410,40 @@ export async function importEmployees({
       } else {
         // If not found and we are not in modifications-only mode, create the employee
         if (!isModificationOnly) {
+          let photoData: any = {};
+          if (_photoBase64) {
+            const hash = await computePhotoHash(_photoBase64);
+            const duplicate = await prisma.employee.findFirst({
+              where: { photoHash: hash },
+            });
+
+            photoData = {
+              photoUrl: _photoBase64,
+              photoHash: hash,
+            };
+
+            if (duplicate) {
+              photoData.photoConflict = true;
+              photoData.status = 'A_VERIFIER';
+              
+              await prisma.employee.updateMany({
+                where: { photoHash: hash },
+                data: {
+                  photoConflict: true,
+                  status: 'A_VERIFIER',
+                },
+              });
+            } else {
+              photoData.photoConflict = false;
+              photoData.status = 'PHOTO_VALIDEE';
+            }
+
+            if (photoData.status === 'PHOTO_VALIDEE') {
+              photoData.enrollmentNumber = await generateEnrollmentNumber(companyId);
+              photoData.enrolledBy = operatorName;
+            }
+          }
+
           await prisma.employee.create({
             data: {
               companyId,
@@ -393,7 +464,8 @@ export async function importEmployees({
       count: addedCount + updatedCount,
       addedCount,
       updatedCount,
-      skippedProtectedCount
+      skippedProtectedCount,
+      skippedDuplicateCount
     };
   } catch (error) {
     console.warn('Error importing employees:', error);

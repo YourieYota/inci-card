@@ -206,19 +206,21 @@ export async function exportDatabaseBackup(passwordConfirm?: string, isSystemAut
     const filename = `inci-card-backup-${formattedDate}.json`;
     const jsonString = JSON.stringify(backupData, null, 2);
 
-    try {
-      const filePath = path.join(primaryDir, filename);
-      fs.writeFileSync(filePath, jsonString, 'utf-8');
-    } catch (writeErr) {
-      console.warn('Could not save JSON backup file to primary dir:', writeErr);
-    }
-
-    try {
-      if (fs.existsSync(DRIVE_C_BACKUP_DIR)) {
-        fs.writeFileSync(path.join(DRIVE_C_BACKUP_DIR, filename), jsonString, 'utf-8');
+    if (!isSystemAutoBackup) {
+      try {
+        const filePath = path.join(primaryDir, filename);
+        fs.writeFileSync(filePath, jsonString, 'utf-8');
+      } catch (writeErr) {
+        console.warn('Could not save JSON backup file to primary dir:', writeErr);
       }
-    } catch (e) {
-      console.warn('Error writing JSON backup copy to C drive backups folder:', e);
+
+      try {
+        if (fs.existsSync(DRIVE_C_BACKUP_DIR)) {
+          fs.writeFileSync(path.join(DRIVE_C_BACKUP_DIR, filename), jsonString, 'utf-8');
+        }
+      } catch (e) {
+        console.warn('Error writing JSON backup copy to C drive backups folder:', e);
+      }
     }
 
     return {

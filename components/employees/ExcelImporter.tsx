@@ -9,7 +9,7 @@ import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface ExcelImporterProps {
   companyId: string;
-  onImportSuccess: (count: number, added?: number, updated?: number, skippedProtected?: number, isDelete?: boolean, deletedEmployees?: any[]) => void;
+  onImportSuccess: (count: number, added?: number, updated?: number, skippedProtected?: number, isDelete?: boolean, deletedEmployees?: any[], skippedDuplicates?: number) => void;
   onCancel: () => void;
   isOfflineMode?: boolean;
   onImportOffline?: (uniqueField: string, rows: any[]) => void;
@@ -192,13 +192,31 @@ export default function ExcelImporter({
         setRows(processedRows);
         setSelectedHeaders(new Set(sheetHeaders));
 
-        // Auto-detect unique identifier column (prioritize NNI, MATRICULE, etc., fallback to first column)
+        // Auto-detect unique identifier column (prioritize NNI, MATRICULE, N° d'ordre, etc., avoid generic N° line counter)
         if (sheetHeaders.length > 0) {
           const foundUnique = sheetHeaders.find(h => {
             const l = h.toLowerCase().trim();
-            return l === 'nni' || l.includes('nni') || l.includes('matricule') || l.includes('identifiant') || l.includes('ordre');
+            return (
+              l === 'nni' || l.includes('nni') ||
+              l.includes('matricule') ||
+              l.includes('identifiant') ||
+              l.includes('ordre') ||
+              l === 'code'
+            );
           });
-          setUniqueField(foundUnique || sheetHeaders[0]);
+
+          let fallbackField = sheetHeaders[0];
+          if (foundUnique) {
+            fallbackField = foundUnique;
+          } else {
+            const nonGeneric = sheetHeaders.find(h => {
+              const l = h.toLowerCase().trim();
+              return l !== 'n°' && l !== 'numéro' && l !== 'numero' && l !== 'no' && l !== 'num' && l !== '#';
+            });
+            if (nonGeneric) fallbackField = nonGeneric;
+          }
+
+          setUniqueField(fallbackField);
         }
       } catch (err: any) {
         setError(err.message || 'Erreur lors de la lecture du fichier Excel.');
@@ -324,9 +342,27 @@ export default function ExcelImporter({
       if (sheetHeaders.length > 0) {
         const foundUnique = sheetHeaders.find(h => {
           const l = h.toLowerCase().trim();
-          return l === 'nni' || l.includes('nni') || l.includes('matricule') || l.includes('identifiant') || l.includes('ordre');
+          return (
+            l === 'nni' || l.includes('nni') ||
+            l.includes('matricule') ||
+            l.includes('identifiant') ||
+            l.includes('ordre') ||
+            l === 'code'
+          );
         });
-        setUniqueField(foundUnique || sheetHeaders[0]);
+
+        let fallbackField = sheetHeaders[0];
+        if (foundUnique) {
+          fallbackField = foundUnique;
+        } else {
+          const nonGeneric = sheetHeaders.find(h => {
+            const l = h.toLowerCase().trim();
+            return l !== 'n°' && l !== 'numéro' && l !== 'numero' && l !== 'no' && l !== 'num' && l !== '#';
+          });
+          if (nonGeneric) fallbackField = nonGeneric;
+        }
+
+        setUniqueField(fallbackField);
         // Auto-detect a photo/image column
         const foundPhoto = sheetHeaders.find(h => {
           const l = h.toLowerCase();
@@ -491,6 +527,7 @@ export default function ExcelImporter({
       let totalAdded = 0;
       let totalUpdated = 0;
       let totalSkippedProtected = 0;
+      let totalSkippedDuplicates = 0;
 
       for (let i = 0; i < serializedRows.length; i += CHUNK_SIZE) {
         const chunk = serializedRows.slice(i, i + CHUNK_SIZE);
@@ -505,10 +542,11 @@ export default function ExcelImporter({
           totalAdded += res.addedCount || 0;
           totalUpdated += res.updatedCount || 0;
           totalSkippedProtected += res.skippedProtectedCount || 0;
+          totalSkippedDuplicates += res.skippedDuplicateCount || 0;
         }
       }
 
-      onImportSuccess(totalAdded + totalUpdated, totalAdded, totalUpdated, totalSkippedProtected);
+      onImportSuccess(totalAdded + totalUpdated, totalAdded, totalUpdated, totalSkippedProtected, false, [], totalSkippedDuplicates);
     } catch (err: any) {
       setError(err.message || "Erreur lors de l'importation.");
     } finally {

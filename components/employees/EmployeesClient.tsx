@@ -170,7 +170,8 @@ export default function EmployeesClient({
     updated?: number,
     skippedProtected?: number,
     isDelete?: boolean,
-    deletedEmployees?: any[]
+    deletedEmployees?: any[],
+    skippedDuplicates?: number
   ) => {
     setShowImporter(false);
     
@@ -198,13 +199,16 @@ export default function EmployeesClient({
       }
     } else {
       msg = `${count} employé(s) importé(s) / mis à jour avec succès !`;
-      if (added !== undefined || updated !== undefined || skippedProtected !== undefined) {
+      if (added !== undefined || updated !== undefined || skippedProtected !== undefined || skippedDuplicates !== undefined) {
         const parts = [];
         if (added !== undefined && added > 0) parts.push(`${added} créé(s)`);
         if (updated !== undefined && updated > 0) parts.push(`${updated} mis à jour`);
+        if (skippedDuplicates !== undefined && skippedDuplicates > 0) parts.push(`${skippedDuplicates} doublon(s) existant(s) ignoré(s)`);
         if (skippedProtected !== undefined && skippedProtected > 0) parts.push(`${skippedProtected} protégé(s) et non modifié(s)`);
         if (parts.length > 0) {
           msg = `Importation terminée : ${parts.join(', ')}.`;
+        } else if (count === 0) {
+          msg = `Importation terminée : aucun nouvel employé à ajouter.`;
         }
       }
     }
