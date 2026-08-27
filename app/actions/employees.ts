@@ -211,15 +211,21 @@ export async function importEmployees({
     const lookupMap = new Map<string, typeof existingEmployees[0]>();
     existingEmployees.forEach(emp => {
       if (emp.uniqueIdentifier) {
-        // Scope uniqueIdentifier under "id::" namespace
-        lookupMap.set(`id::${String(emp.uniqueIdentifier).trim().toLowerCase()}`, emp);
+        const uidTrim = String(emp.uniqueIdentifier).trim().toLowerCase();
+        lookupMap.set(uidTrim, emp);
+        lookupMap.set(`id::${uidTrim}`, emp);
       }
       const dyn = (emp.dynamicData as Record<string, any>) || {};
       Object.entries(dyn).forEach(([k, v]) => {
         if (v !== undefined && v !== null && String(v).trim()) {
-          const valKey = `${k.trim().toLowerCase()}::${String(v).trim().toLowerCase()}`;
+          const valTrim = String(v).trim().toLowerCase();
+          const keyTrim = k.trim().toLowerCase();
+          const valKey = `${keyTrim}::${valTrim}`;
           if (!lookupMap.has(valKey)) {
             lookupMap.set(valKey, emp);
+          }
+          if (!lookupMap.has(valTrim)) {
+            lookupMap.set(valTrim, emp);
           }
         }
       });
@@ -229,21 +235,24 @@ export async function importEmployees({
       const valTrim = String(fieldVal).trim().toLowerCase();
       if (!valTrim) return undefined;
 
-      const searchGroup = getFieldGroup(fieldKey);
-      const aliases = getFieldAliases(fieldKey);
+      // 1. Direct match on lookupMap by exact valTrim (uniqueIdentifier or raw value)
+      if (lookupMap.has(valTrim)) {
+        return lookupMap.get(valTrim);
+      }
 
-      // 1. Match by exact alias::valTrim in dynamicData
+      // 2. Direct match on id::valTrim
+      const idKey = `id::${valTrim}`;
+      if (lookupMap.has(idKey)) {
+        return lookupMap.get(idKey);
+      }
+
+      // 3. Match by aliases in dynamicData (e.g. matricule::123, n°::179, nni::456)
+      const aliases = getFieldAliases(fieldKey);
       for (const alias of aliases) {
         const exactKey = `${alias}::${valTrim}`;
         if (lookupMap.has(exactKey)) {
           return lookupMap.get(exactKey);
         }
-      }
-
-      // 2. Match by emp.uniqueIdentifier ("id::valTrim")
-      const idKey = `id::${valTrim}`;
-      if (lookupMap.has(idKey)) {
-        return lookupMap.get(idKey);
       }
 
       return undefined;
@@ -269,141 +278,34 @@ export async function importEmployees({
 
     // 3. Process rows sequentially
     for (const row of rows) {
-      // Extract photo if present and remove it from row data to prevent DB JSON bloat
-      const { _photoBase64, ...cleanedRow } = row;
+      try {
+        // Extract photo if present and remove it from row data to prevent DB JSON bloat
+        const { _photoBase64, ...cleanedRow } = row;
 
-      const uniqueVal = getCleanedRowVal(cleanedRow, uniqueField);
-      if (uniqueVal === undefined || uniqueVal === null || String(uniqueVal).trim() === '') {
-        continue; // skip rows without unique identifiers
-      }
-
-      const uniqueIdentifier = String(uniqueVal).trim();
-      const existingEmployee = findExistingEmployee(uniqueField, uniqueIdentifier);
-
-      if (existingEmployee) {
-        // Standard import mode (isModificationOnly = false):
-        // DO NOT modify existing employees. Skip duplicates to preserve existing data!
-        if (!isModificationOnly) {
-          skippedDuplicateCount++;
-          continue;
+        const uniqueVal = getCleanedRowVal(cleanedRow, uniqueField);
+        if (uniqueVal === undefined || uniqueVal === null || String(uniqueVal).trim() === '') {
+          continue; // skip rows without unique identifiers
         }
 
-        // Guard: check if the employee was modified in the app and is protected
-        if (shouldProtect && existingEmployee.appModified) {
-          skippedProtectedCount++;
-          continue;
-        }
+        const uniqueIdentifier = String(uniqueVal).trim();
+        const existingEmployee = findExistingEmployee(uniqueField, uniqueIdentifier);
 
-        // Process photo if present for modification mode
-        let photoData: any = {};
-        if (_photoBase64) {
-          const hash = await computePhotoHash(_photoBase64);
-          const duplicate = await prisma.employee.findFirst({
-            where: {
-              photoHash: hash,
-              id: { not: existingEmployee.id },
-            },
-          });
-
-          photoData = {
-            photoUrl: _photoBase64,
-            photoHash: hash,
-          };
-
-          if (duplicate) {
-            photoData.photoConflict = true;
-            photoData.status = 'A_VERIFIER';
-            
-            // Mark other duplicates as in conflict
-            await prisma.employee.updateMany({
-              where: { photoHash: hash },
-              data: {
-                photoConflict: true,
-                status: 'A_VERIFIER',
-              },
-            });
-          } else {
-            photoData.photoConflict = false;
-            photoData.status = 'PHOTO_VALIDEE';
+        if (existingEmployee) {
+          // Guard: check if the employee was modified in the app and is protected
+          if (shouldProtect && existingEmployee.appModified) {
+            skippedProtectedCount++;
+            continue;
           }
 
-          if (photoData.status === 'PHOTO_VALIDEE') {
-            const hasEnrollment = !!existingEmployee.enrollmentNumber;
-            if (!hasEnrollment) {
-              photoData.enrollmentNumber = await generateEnrollmentNumber(companyId);
-            }
-            const hasEnrolledBy = !!existingEmployee.enrolledBy;
-            if (!hasEnrolledBy) {
-              photoData.enrolledBy = operatorName;
-            }
-          }
-        }
-
-        // Compare dynamicData and only update modified fields
-        const oldData = (existingEmployee.dynamicData as Record<string, any>) || {};
-        const newData = { ...oldData };
-        let hasChanges = false;
-
-        const parseDateForComp = (dStr: string) => {
-          if (!dStr) return '';
-          if (dStr.includes('/')) {
-            const parts = dStr.split('/');
-            if (parts.length === 3) {
-              return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
-            }
-          }
-          if (dStr.includes('T')) {
-            const dateObj = new Date(dStr);
-            if (!isNaN(dateObj.getTime())) {
-              const day = String(dateObj.getUTCDate()).padStart(2, '0');
-              const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-              const year = dateObj.getUTCFullYear();
-              return `${day}/${month}/${year}`;
-            }
-          }
-          return dStr;
-        };
-
-        Object.entries(cleanedRow).forEach(([key, value]) => {
-          const trimmedKey = key.trim().toLowerCase();
-          const existingOldKey = Object.keys(oldData).find(k => k.trim().toLowerCase() === trimmedKey) || key;
-          const rawOldVal = oldData[existingOldKey];
-
-          const oldValStr = rawOldVal !== undefined && rawOldVal !== null ? String(rawOldVal).trim() : '';
-          const newValStr = value !== undefined && value !== null ? String(value).trim() : '';
-
-          const isDateKey = trimmedKey.includes('date') || trimmedKey.includes('naiss');
-          const compOld = isDateKey ? parseDateForComp(oldValStr) : oldValStr;
-          const compNew = isDateKey ? parseDateForComp(newValStr) : newValStr;
-
-          if (compOld !== compNew) {
-            if (existingOldKey !== key && existingOldKey in newData) {
-              delete newData[existingOldKey];
-            }
-            newData[key] = value;
-            hasChanges = true;
-          }
-        });
-
-        if (hasChanges || _photoBase64) {
-          await prisma.employee.update({
-            where: { id: existingEmployee.id },
-            data: {
-              dynamicData: newData,
-              updatedAt: new Date(),
-              ...photoData,
-            },
-          });
-          updatedCount++;
-        }
-      } else {
-        // If not found and we are not in modifications-only mode, create the employee
-        if (!isModificationOnly) {
+          // Process photo if present
           let photoData: any = {};
           if (_photoBase64) {
             const hash = await computePhotoHash(_photoBase64);
             const duplicate = await prisma.employee.findFirst({
-              where: { photoHash: hash },
+              where: {
+                photoHash: hash,
+                id: { not: existingEmployee.id },
+              },
             });
 
             photoData = {
@@ -428,23 +330,128 @@ export async function importEmployees({
             }
 
             if (photoData.status === 'PHOTO_VALIDEE') {
-              photoData.enrollmentNumber = await generateEnrollmentNumber(companyId);
-              photoData.enrolledBy = operatorName;
+              const hasEnrollment = !!existingEmployee.enrollmentNumber;
+              if (!hasEnrollment) {
+                photoData.enrollmentNumber = await generateEnrollmentNumber(companyId);
+              }
+              const hasEnrolledBy = !!existingEmployee.enrolledBy;
+              if (!hasEnrolledBy) {
+                photoData.enrolledBy = operatorName;
+              }
             }
           }
 
-          await prisma.employee.create({
-            data: {
-              companyId,
-              uniqueIdentifier,
-              dynamicData: cleanedRow,
-              status: _photoBase64 ? (photoData.status || 'A_ENROLER') : 'A_ENROLER',
-              enrolledBy: _photoBase64 ? (photoData.enrolledBy || operatorName) : operatorName,
-              ...photoData,
-            },
+          // Compare dynamicData and update modified or new fields
+          const oldData = (existingEmployee.dynamicData as Record<string, any>) || {};
+          const newData = { ...oldData };
+          let hasChanges = false;
+
+          const parseDateForComp = (dStr: string) => {
+            if (!dStr) return '';
+            if (dStr.includes('/')) {
+              const parts = dStr.split('/');
+              if (parts.length === 3) {
+                return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+              }
+            }
+            if (dStr.includes('T')) {
+              const dateObj = new Date(dStr);
+              if (!isNaN(dateObj.getTime())) {
+                const day = String(dateObj.getUTCDate()).padStart(2, '0');
+                const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+                const year = dateObj.getUTCFullYear();
+                return `${day}/${month}/${year}`;
+              }
+            }
+            return dStr;
+          };
+
+          Object.entries(cleanedRow).forEach(([key, value]) => {
+            const trimmedKey = key.trim().toLowerCase();
+            const existingOldKey = Object.keys(oldData).find(k => k.trim().toLowerCase() === trimmedKey) || key;
+            const rawOldVal = oldData[existingOldKey];
+
+            const oldValStr = rawOldVal !== undefined && rawOldVal !== null ? String(rawOldVal).trim() : '';
+            const newValStr = value !== undefined && value !== null ? String(value).trim() : '';
+
+            const isDateKey = trimmedKey.includes('date') || trimmedKey.includes('naiss');
+            const compOld = isDateKey ? parseDateForComp(oldValStr) : oldValStr;
+            const compNew = isDateKey ? parseDateForComp(newValStr) : newValStr;
+
+            if (compOld !== compNew) {
+              if (existingOldKey !== key && existingOldKey in newData) {
+                delete newData[existingOldKey];
+              }
+              newData[key] = value;
+              hasChanges = true;
+            }
           });
-          addedCount++;
+
+          if (hasChanges || _photoBase64) {
+            await prisma.employee.update({
+              where: { id: existingEmployee.id },
+              data: {
+                dynamicData: newData,
+                updatedAt: new Date(),
+                ...photoData,
+              },
+            });
+            updatedCount++;
+          } else {
+            skippedDuplicateCount++;
+          }
+        } else {
+          // If not found and we are not in modifications-only mode, create the employee
+          if (!isModificationOnly) {
+            let photoData: any = {};
+            if (_photoBase64) {
+              const hash = await computePhotoHash(_photoBase64);
+              const duplicate = await prisma.employee.findFirst({
+                where: { photoHash: hash },
+              });
+
+              photoData = {
+                photoUrl: _photoBase64,
+                photoHash: hash,
+              };
+
+              if (duplicate) {
+                photoData.photoConflict = true;
+                photoData.status = 'A_VERIFIER';
+                
+                await prisma.employee.updateMany({
+                  where: { photoHash: hash },
+                  data: {
+                    photoConflict: true,
+                    status: 'A_VERIFIER',
+                  },
+                });
+              } else {
+                photoData.photoConflict = false;
+                photoData.status = 'PHOTO_VALIDEE';
+              }
+
+              if (photoData.status === 'PHOTO_VALIDEE') {
+                photoData.enrollmentNumber = await generateEnrollmentNumber(companyId);
+                photoData.enrolledBy = operatorName;
+              }
+            }
+
+            await prisma.employee.create({
+              data: {
+                companyId,
+                uniqueIdentifier,
+                dynamicData: cleanedRow,
+                status: _photoBase64 ? (photoData.status || 'A_ENROLER') : 'A_ENROLER',
+                enrolledBy: _photoBase64 ? (photoData.enrolledBy || operatorName) : operatorName,
+                ...photoData,
+              },
+            });
+            addedCount++;
+          }
         }
+      } catch (rowErr: any) {
+        console.error("Erreur lors du traitement d'une ligne d'importation :", rowErr);
       }
     }
 
