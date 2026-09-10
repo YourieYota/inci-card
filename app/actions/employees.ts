@@ -545,7 +545,7 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
       data.printedBy = operatorName;
     }
 
-    if (status === 'PHOTO_VALIDEE' || status === 'IMPRIME') {
+    if (status === 'PHOTO_VALIDEE' || status === 'IMPRIME' || status === 'A_REIMPRIMER' || status === 'REIMPRIME') {
       const emp = await prisma.employee.findUnique({
         where: { id: employeeId },
         select: { enrollmentNumber: true, companyId: true, enrolledBy: true },
@@ -593,10 +593,10 @@ export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: st
 
       const singleData = { ...data };
       if (emp) {
-        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME') && !emp.enrollmentNumber) {
+        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME' || status === 'A_REIMPRIMER' || status === 'REIMPRIME') && !emp.enrollmentNumber) {
           singleData.enrollmentNumber = await generateEnrollmentNumber(emp.companyId);
         }
-        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME') && !emp.enrolledBy) {
+        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME' || status === 'A_REIMPRIMER' || status === 'REIMPRIME') && !emp.enrolledBy) {
           singleData.enrolledBy = operatorName;
         }
       }
