@@ -755,7 +755,7 @@ export default function EmployeeDetailModal({
               {/* Status Manager */}
               <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 flex flex-col gap-2">
                 <label className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500">Statut de l&apos;enrôlement</label>
-                <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5 w-max flex-wrap gap-0.5">
+                <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-0.5 flex-wrap gap-0.5">
                   {(['A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER', 'A_REIMPRIMER', 'REIMPRIME', 'NE_PAS_IMPRIMER'] as const).map((st) => {
                     const isActive = status === st;
 
