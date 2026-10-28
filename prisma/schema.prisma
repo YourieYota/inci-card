@@ -189,3 +189,9 @@ model PrintJob {
   createdAt      DateTime @default(now())
   employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt
+}

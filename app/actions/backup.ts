@@ -6,6 +6,8 @@ import path from 'path';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcrypt';
+import { assertNotFieldMode } from '@/lib/fieldMode';
+import { generateTableInserts } from '@/lib/sqlDump';
 
 export async function verifyAdminAndPassword(passwordConfirm?: string) {
   const session = await getServerSession(authOptions);
@@ -335,36 +337,6 @@ export async function exportDatabaseSql(passwordConfirm?: string, isSystemAutoBa
       prisma.printJob.findMany(),
     ]);
 
-    const toSqlValue = (val: any): string => {
-      if (val === null || val === undefined) return 'NULL';
-      if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
-      if (typeof val === 'number') return String(val);
-      if (val instanceof Date) return `'${val.toISOString()}'`;
-      if (typeof val === 'object') {
-        const jsonStr = JSON.stringify(val).replace(/'/g, "''");
-        return `'${jsonStr}'`;
-      }
-      const str = String(val).replace(/'/g, "''");
-      return `'${str}'`;
-    };
-
-    const generateTableInserts = (tableName: string, rows: any[]): string => {
-      if (!rows || rows.length === 0) return `-- No records for table "${tableName}"\n\n`;
-      const lines: string[] = [`-- ============================================================`, `-- Table: "${tableName}" (${rows.length} rows)`, `-- ============================================================`];
-      
-      const colSet = new Set<string>();
-      rows.forEach(r => Object.keys(r).forEach(k => colSet.add(k)));
-      const cols = Array.from(colSet);
-      const colList = cols.map(c => `"${c}"`).join(', ');
-
-      rows.forEach(row => {
-        const values = cols.map(c => toSqlValue(row[c])).join(', ');
-        lines.push(`INSERT INTO "${tableName}" (${colList}) VALUES (${values}) ON CONFLICT DO NOTHING;`);
-      });
-
-      return lines.join('\n') + '\n\n';
-    };
-
     const nowIso = new Date().toISOString();
     const sqlHeader = `-- ============================================================\n` +
       `-- INCI CARD DATABASE SQL BACKUP DUMP\n` +
@@ -422,6 +394,7 @@ export async function exportDatabaseSql(passwordConfirm?: string, isSystemAutoBa
 export async function restoreDatabaseBackup(backupJsonData: any, passwordConfirm?: string) {
   try {
     await verifyAdminAndPassword(passwordConfirm);
+    await assertNotFieldMode('La restauration de la base');
 
     if (!backupJsonData || !backupJsonData.data) {
       throw new Error('Fichier de sauvegarde invalide ou corrompu');
@@ -881,6 +854,7 @@ function parseSqlStatements(sql: string): string[] {
 export async function restoreDatabaseFromSql(sqlContent: string, passwordConfirm?: string) {
   try {
     await verifyAdminAndPassword(passwordConfirm);
+    await assertNotFieldMode('La restauration de la base');
 
     if (!sqlContent || !sqlContent.trim()) {
       throw new Error('Fichier SQL vide ou invalide');

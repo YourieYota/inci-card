@@ -1,12 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
 import { 
   User, Settings, Printer, Bell, Check, Save, AlertCircle, Eye, EyeOff, Loader2,
   Database, Download, Upload, HardDrive, RefreshCw, FileJson, CheckCircle2,
-  Clock, ShieldAlert, Trash2, FolderArchive, Play, Sun, Moon, Monitor
+  Clock, ShieldAlert, Trash2, FolderArchive, Play, Sun, Moon, Monitor, WifiOff
 } from 'lucide-react';
+import { getFieldMode, enableFieldMode, disableFieldMode } from '@/app/actions/fieldMode';
+import { getKitCompanies, exportFieldKit, getInstalledFieldKit } from '@/app/actions/fieldKit';
+import { exportFieldData, analyzeFieldSync, applyFieldSyncFromFile } from '@/app/actions/fieldSync';
+import type { FieldSyncPlan } from '@/lib/fieldSync';
 import { updateUserProfile } from '@/app/actions/users';
 import { 
   getDatabaseStats, exportDatabaseBackup, exportDatabaseSql, restoreDatabaseBackup, restoreDatabaseFromSql,
@@ -27,7 +32,7 @@ interface SettingsClientProps {
   } | null;
 }
 
-type TabType = 'profile' | 'preferences' | 'printing' | 'notifications' | 'backup';
+type TabType = 'profile' | 'preferences' | 'printing' | 'notifications' | 'backup' | 'terrain';
 
 export default function SettingsClient({ initialUser }: SettingsClientProps) {
   const { theme, setTheme } = useTheme();
@@ -97,6 +102,25 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
   const [passModalTitle, setPassModalTitle] = useState('');
   const [passModalLoading, setPassModalLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<((password: string) => Promise<void>) | null>(null);
+
+  // Field (offline) mode
+  const router = useRouter();
+  const [fieldMode, setFieldMode] = useState<{
+    enabled: boolean;
+    since: string | null;
+    enabledBy: string | null;
+    lastExportAt: string | null;
+    pendingCount: number;
+  } | null>(null);
+  const [kitCompanies, setKitCompanies] = useState<Array<{ id: string; name: string; employeeCount: number }>>([]);
+  const [selectedKitCompanies, setSelectedKitCompanies] = useState<string[]>([]);
+  const [isExportingKit, setIsExportingKit] = useState(false);
+  const [installedKit, setInstalledKit] = useState<{ exportedAt: string; exportedBy: string; companies: { id: string; name: string }[] } | null>(null);
+  const [isExportingFieldData, setIsExportingFieldData] = useState(false);
+  const [syncFile, setSyncFile] = useState<File | null>(null);
+  const [syncPlan, setSyncPlan] = useState<FieldSyncPlan | null>(null);
+  const [isAnalyzingSync, setIsAnalyzingSync] = useState(false);
+  const [isApplyingSync, setIsApplyingSync] = useState(false);
 
   const requestAdminAuth = (title: string, action: (password: string) => Promise<void>) => {
     if (!isAdmin) {
@@ -263,10 +287,163 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     });
   };
 
+  const loadFieldMode = async () => {
+    try {
+      const state = await getFieldMode();
+      setFieldMode({
+        enabled: state.enabled,
+        since: state.since,
+        enabledBy: state.enabledBy,
+        lastExportAt: state.lastExportAt,
+        pendingCount: state.pendingCount,
+      });
+      if (state.enabled) {
+        setInstalledKit(await getInstalledFieldKit());
+      } else {
+        setKitCompanies(await getKitCompanies());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleExportFieldKit = () => {
+    if (selectedKitCompanies.length === 0) {
+      setMessage({ type: 'error', text: 'Sélectionnez au moins une entreprise pour le kit terrain.' });
+      return;
+    }
+    requestAdminAuth('Préparer un kit terrain', async (pass) => {
+      setIsExportingKit(true);
+      try {
+        const res = await exportFieldKit(selectedKitCompanies, pass);
+        if (!res.success || !res.sqlString) throw new Error(res.error || 'Impossible de préparer le kit terrain');
+        const blob = new Blob([res.sqlString], { type: 'application/sql' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.filename!;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setMessage({
+          type: 'success',
+          text: `Kit terrain téléchargé : ${res.counts?.companies} entreprise(s), ${res.counts?.employees} employé(s), ${res.counts?.users} compte(s).`,
+        });
+      } finally {
+        setIsExportingKit(false);
+      }
+    });
+  };
+
+  const handleToggleFieldMode = () => {
+    if (fieldMode?.enabled) {
+      requestAdminAuth('Quitter le mode terrain', async (pass) => {
+        const res = await disableFieldMode(pass);
+        if (!res.success) throw new Error(res.error || 'Impossible de désactiver le mode terrain');
+        setMessage({ type: 'success', text: 'Mode terrain désactivé. Cette installation fonctionne de nouveau en mode serveur.' });
+        loadFieldMode();
+        router.refresh();
+      });
+      return;
+    }
+
+    requestAdminAuth('Activer le mode terrain', async (pass) => {
+      let res = await enableFieldMode(pass);
+      if (res.needsConfirmation) {
+        const confirmed = window.confirm(
+          `Attention : cette base contient déjà ${res.numberedCount} enrôlement(s) numéroté(s).\n\n` +
+          `Si vous êtes sur le SERVEUR PRINCIPAL, annulez : en mode terrain, plus aucun numéro ne serait attribué et l'impression serait bloquée.\n\n` +
+          `Si vous êtes sur le PC terrain préparé avec le kit, vous pouvez continuer.\n\nActiver le mode terrain ?`
+        );
+        if (!confirmed) return;
+        res = await enableFieldMode(pass, true);
+      }
+      if (!res.success) throw new Error(res.error || "Impossible d'activer le mode terrain");
+      setMessage({ type: 'success', text: 'Mode terrain activé sur cette installation.' });
+      loadFieldMode();
+      router.refresh();
+    });
+  };
+
+  const downloadBase64File = (base64: string, filename: string, type: string) => {
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportFieldData = () => {
+    requestAdminAuth('Exporter les données terrain', async (pass) => {
+      setIsExportingFieldData(true);
+      try {
+        const res = await exportFieldData(pass);
+        if (!res.success) throw new Error(res.error);
+        downloadBase64File(res.zipBase64, res.filename, 'application/zip');
+        setMessage({
+          type: 'success',
+          text: `Données terrain exportées : ${res.counts.employees} fiche(s), ${res.counts.photos} photo(s). Rapportez ce fichier .zip au serveur principal.`,
+        });
+        loadFieldMode();
+      } finally {
+        setIsExportingFieldData(false);
+      }
+    });
+  };
+
+  const handleAnalyzeSync = async () => {
+    if (!syncFile) return;
+    setIsAnalyzingSync(true);
+    setSyncPlan(null);
+    setMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', syncFile);
+      const res = await analyzeFieldSync(formData);
+      if (!res.success || !res.plan) throw new Error(res.error || "Impossible d'analyser le fichier");
+      setSyncPlan(res.plan);
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e.message });
+    } finally {
+      setIsAnalyzingSync(false);
+    }
+  };
+
+  const handleApplySync = () => {
+    if (!syncFile || !syncPlan) return;
+    requestAdminAuth('Synchroniser les données terrain', async (pass) => {
+      setIsApplyingSync(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', syncFile);
+        formData.append('passwordConfirm', pass);
+        const res = await applyFieldSyncFromFile(formData);
+        if (!res.success || !res.result) throw new Error(res.error || 'Échec de la synchronisation');
+        const r = res.result;
+        setMessage({
+          type: 'success',
+          text: `Synchronisation terminée : ${r.created} ajoutée(s), ${r.updated} mise(s) à jour, ${r.numbersAssigned} numéro(s) attribué(s), ${r.conflicts} conflit(s) ignoré(s). Sauvegarde préalable : ${res.backupFilename}.`,
+        });
+        setSyncPlan(null);
+        setSyncFile(null);
+        fetchStats();
+      } finally {
+        setIsApplyingSync(false);
+      }
+    });
+  };
+
   useEffect(() => {
     setMounted(true);
     fetchStats();
     loadAutoBackupData();
+    loadFieldMode();
+    if (new URLSearchParams(window.location.search).get('tab') === 'terrain') setActiveTab('terrain');
     // Load local storage preferences if any
     const savedLang = localStorage.getItem('pref_lang');
     if (savedLang) setLang(savedLang);
@@ -498,6 +675,18 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
           >
             <Database className="w-4 h-4 shrink-0" />
             <span>Sauvegarde & Base</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('terrain')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap lg:whitespace-normal ${
+              activeTab === 'terrain'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
+            }`}
+          >
+            <WifiOff className="w-4 h-4 shrink-0" />
+            <span>Mode terrain</span>
           </button>
         </div>
 
@@ -1309,6 +1498,256 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Tab: Field (offline) mode */}
+          {activeTab === 'terrain' && (
+            <div className="p-6 space-y-6">
+              <div className="border-b border-neutral-100 dark:border-neutral-800 pb-3">
+                <h3 className="text-sm font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Mode terrain (hors ligne)</h3>
+                <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">
+                  À activer uniquement sur le PC qui sert de serveur pendant un enrôlement hors de l&apos;entreprise.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border space-y-3 ${
+                fieldMode?.enabled
+                  ? 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/40'
+                  : 'bg-neutral-50 border-neutral-100 dark:bg-neutral-900/60 dark:border-neutral-800'
+              }`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <span className="block text-xs font-bold text-neutral-800 dark:text-white">
+                      {fieldMode?.enabled ? 'Mode terrain actif' : 'Mode serveur (normal)'}
+                    </span>
+                    <span className="block text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      {fieldMode?.enabled
+                        ? `Activé le ${fieldMode.since ? new Date(fieldMode.since).toLocaleString('fr-FR') : '—'}${fieldMode.enabledBy ? ` par ${fieldMode.enabledBy}` : ''}`
+                        : 'Les numéros d’enrôlement sont attribués normalement.'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleToggleFieldMode}
+                    disabled={!isAdmin || !fieldMode}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition disabled:opacity-50 ${
+                      fieldMode?.enabled
+                        ? 'bg-neutral-800 hover:bg-neutral-700 text-white'
+                        : 'bg-amber-500 hover:bg-amber-600 text-amber-950'
+                    }`}
+                  >
+                    {fieldMode?.enabled ? 'Quitter le mode terrain' : 'Activer le mode terrain'}
+                  </button>
+                </div>
+
+                {fieldMode?.enabled && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-white/70 dark:bg-neutral-900/60 rounded-xl border border-amber-100 dark:border-neutral-800 text-center">
+                      <span className="block text-lg font-bold text-amber-600 dark:text-amber-400">{fieldMode.pendingCount}</span>
+                      <span className="text-[10px] font-semibold text-neutral-500 uppercase">Fiches à synchroniser</span>
+                    </div>
+                    <div className="p-3 bg-white/70 dark:bg-neutral-900/60 rounded-xl border border-amber-100 dark:border-neutral-800 text-center">
+                      <span className="block text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-1">
+                        {fieldMode.lastExportAt ? new Date(fieldMode.lastExportAt).toLocaleString('fr-FR') : 'Jamais'}
+                      </span>
+                      <span className="text-[10px] font-semibold text-neutral-500 uppercase">Dernier export</span>
+                    </div>
+                  </div>
+                )}
+
+                {!isAdmin && (
+                  <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">Seul un administrateur peut changer de mode.</p>
+                )}
+              </div>
+
+              {fieldMode?.enabled && installedKit && (
+                <div className="p-4 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-800 rounded-2xl space-y-1">
+                  <span className="block text-xs font-bold text-neutral-800 dark:text-white">Kit terrain installé</span>
+                  <span className="block text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Préparé le {new Date(installedKit.exportedAt).toLocaleString('fr-FR')} par {installedKit.exportedBy}
+                  </span>
+                  <span className="block text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Entreprises : {installedKit.companies.map(c => c.name).join(', ')}
+                  </span>
+                </div>
+              )}
+
+              {fieldMode?.enabled && (
+                <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl space-y-3">
+                  <div>
+                    <span className="block text-xs font-bold text-neutral-800 dark:text-white">Exporter les données terrain</span>
+                    <span className="block text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      Produit un fichier .zip avec toutes les fiches enrôlées ou modifiées depuis l&apos;installation du kit (données, archive SQL et photos).
+                      Vous pouvez l&apos;exporter autant de fois que nécessaire : chaque export est complet.
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleExportFieldData}
+                    disabled={!isAdmin || isExportingFieldData}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition disabled:opacity-50"
+                  >
+                    {isExportingFieldData ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    Exporter les données terrain
+                  </button>
+                </div>
+              )}
+
+              {fieldMode && !fieldMode.enabled && (
+                <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl space-y-3">
+                  <div>
+                    <span className="block text-xs font-bold text-neutral-800 dark:text-white">Synchroniser des données terrain</span>
+                    <span className="block text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      Importez le fichier .zip exporté depuis le PC terrain. Les nouvelles fiches sont ajoutées et numérotées ; une fiche modifiée
+                      aussi sur le serveur n&apos;est jamais écrasée. Une sauvegarde complète est faite juste avant.
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      type="file"
+                      accept=".zip,application/zip"
+                      onChange={(e) => { setSyncFile(e.target.files?.[0] ?? null); setSyncPlan(null); }}
+                      className="text-xs text-neutral-600 dark:text-neutral-300 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-white file:text-xs file:font-bold file:text-neutral-700 dark:file:bg-neutral-800 dark:file:text-neutral-200"
+                    />
+                    <button
+                      onClick={handleAnalyzeSync}
+                      disabled={!isAdmin || !syncFile || isAnalyzingSync}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-neutral-800 border border-emerald-200 dark:border-neutral-700 text-emerald-700 dark:text-emerald-400 transition disabled:opacity-50"
+                    >
+                      {isAnalyzingSync ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileJson className="w-3.5 h-3.5" />}
+                      Analyser
+                    </button>
+                  </div>
+
+                  {syncPlan && (
+                    <div className="space-y-3">
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Export du {new Date(syncPlan.manifest.exportedAt).toLocaleString('fr-FR')} par {syncPlan.manifest.exportedBy}
+                        {syncPlan.manifest.kitExportedAt && <> · kit préparé le {new Date(syncPlan.manifest.kitExportedAt).toLocaleString('fr-FR')}</>}
+                      </p>
+
+                      {syncPlan.alreadySyncedAt && (
+                        <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                          Ce fichier a déjà été synchronisé le {new Date(syncPlan.alreadySyncedAt).toLocaleString('fr-FR')}. Les fiches déjà importées seront ignorées.
+                        </p>
+                      )}
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {([
+                          ['CREATE', 'Nouvelles', 'text-emerald-600 dark:text-emerald-400'],
+                          ['UPDATE', 'Mises à jour', 'text-indigo-600 dark:text-indigo-400'],
+                          ['UNCHANGED', 'Identiques', 'text-neutral-500'],
+                          ['CONFLICT', 'Conflits', 'text-rose-600 dark:text-rose-400'],
+                        ] as const).map(([key, label, color]) => (
+                          <div key={key} className="p-3 bg-white/70 dark:bg-neutral-900/60 rounded-xl border border-emerald-100 dark:border-neutral-800 text-center">
+                            <span className={`block text-lg font-bold ${color}`}>{syncPlan.summary[key]}</span>
+                            <span className="text-[10px] font-semibold text-neutral-500 uppercase">{label}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {syncPlan.companiesToCreate.length > 0 && (
+                        <p className="text-[11px] text-neutral-600 dark:text-neutral-300">
+                          Entreprise(s) créée(s) sur le terrain, ajoutée(s) au serveur : <strong>{syncPlan.companiesToCreate.join(', ')}</strong>
+                        </p>
+                      )}
+
+                      <div className="max-h-72 overflow-y-auto rounded-xl border border-emerald-100 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60">
+                        <table className="w-full text-[11px]">
+                          <thead className="sticky top-0 bg-neutral-50 dark:bg-neutral-900 text-neutral-500 uppercase text-[10px]">
+                            <tr>
+                              <th className="text-left px-3 py-2">Matricule</th>
+                              <th className="text-left px-3 py-2">Nom</th>
+                              <th className="text-left px-3 py-2">Entreprise</th>
+                              <th className="text-left px-3 py-2">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {[...syncPlan.items]
+                              .sort((a, b) => Number(b.action === 'CONFLICT') - Number(a.action === 'CONFLICT'))
+                              .map(item => (
+                                <tr key={item.id}>
+                                  <td className="px-3 py-1.5 font-mono text-neutral-700 dark:text-neutral-300">{item.uniqueIdentifier}</td>
+                                  <td className="px-3 py-1.5 text-neutral-700 dark:text-neutral-300">{item.displayName}</td>
+                                  <td className="px-3 py-1.5 text-neutral-500">{item.companyName}</td>
+                                  <td className="px-3 py-1.5">
+                                    <span className={`font-bold ${
+                                      item.action === 'CONFLICT' ? 'text-rose-600 dark:text-rose-400'
+                                        : item.action === 'CREATE' ? 'text-emerald-600 dark:text-emerald-400'
+                                        : item.action === 'UPDATE' ? 'text-indigo-600 dark:text-indigo-400'
+                                        : 'text-neutral-400'
+                                    }`}>
+                                      {{ CREATE: 'Ajout', UPDATE: 'Mise à jour', UNCHANGED: 'Identique', CONFLICT: 'Conflit' }[item.action]}
+                                    </span>
+                                    {item.assignNumber && <span className="text-neutral-500"> · numéro attribué</span>}
+                                    {item.photoDuplicate && <span className="text-amber-600"> · photo déjà utilisée (à vérifier)</span>}
+                                    {item.reason && <span className="block text-rose-600/80 dark:text-rose-400/80">{item.reason}</span>}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <button
+                        onClick={handleApplySync}
+                        disabled={!isAdmin || isApplyingSync || syncPlan.summary.CREATE + syncPlan.summary.UPDATE === 0}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50"
+                      >
+                        {isApplyingSync ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                        Synchroniser ({syncPlan.summary.CREATE + syncPlan.summary.UPDATE} fiche(s))
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {fieldMode && !fieldMode.enabled && (
+                <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl space-y-3">
+                  <div>
+                    <span className="block text-xs font-bold text-neutral-800 dark:text-white">Préparer un kit terrain</span>
+                    <span className="block text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      Génère un fichier .sql contenant les entreprises choisies (gabarits, catégories, employés) et les comptes utilisateurs.
+                      Il s&apos;installe sur le PC terrain avec <code className="font-mono">scripts\installer-kit-terrain.ps1</code>, qui active automatiquement le mode terrain.
+                    </span>
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto rounded-xl border border-indigo-100 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 divide-y divide-neutral-100 dark:divide-neutral-800">
+                    {kitCompanies.length === 0 ? (
+                      <p className="p-3 text-[11px] text-neutral-400">Aucune entreprise.</p>
+                    ) : (
+                      kitCompanies.map(c => (
+                        <label key={c.id} className="flex items-center gap-3 px-3 py-2 text-xs cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/60">
+                          <input
+                            type="checkbox"
+                            checked={selectedKitCompanies.includes(c.id)}
+                            onChange={(e) =>
+                              setSelectedKitCompanies(prev => e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id))
+                            }
+                          />
+                          <span className="font-semibold text-neutral-700 dark:text-neutral-200">{c.name}</span>
+                          <span className="ml-auto text-[10px] text-neutral-400">{c.employeeCount} employé(s)</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleExportFieldKit}
+                    disabled={!isAdmin || isExportingKit || selectedKitCompanies.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition disabled:opacity-50"
+                  >
+                    {isExportingKit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    Télécharger le kit terrain ({selectedKitCompanies.length})
+                  </button>
+                </div>
+              )}
+
+              <ul className="text-[11px] text-neutral-500 dark:text-neutral-400 space-y-1.5 list-disc pl-4">
+                <li>En mode terrain, aucun numéro d&apos;enrôlement n&apos;est généré : il sera attribué lors de la synchronisation sur le serveur principal.</li>
+                <li>L&apos;impression, les lots d&apos;expédition et la restauration de base sont bloqués.</li>
+                <li>Le mode terrain ne peut être quitté que lorsque toutes les fiches terrain ont été exportées.</li>
+              </ul>
             </div>
           )}
         </div>

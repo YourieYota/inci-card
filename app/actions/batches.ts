@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import { assertNotFieldMode } from '@/lib/fieldMode';
 
 export async function getDeliveryBatches(companyId?: string) {
   try {
@@ -27,6 +28,7 @@ export async function getDeliveryBatches(companyId?: string) {
 }
 
 export async function createDeliveryBatch({ companyId, employeeIds, cardDocumentTypeSlug }: { companyId: string, employeeIds: string[], cardDocumentTypeSlug?: string }) {
+  await assertNotFieldMode("La création d'un lot d'expédition");
   if (!employeeIds.length) throw new Error('Aucun employé sélectionné');
   
   try {
@@ -217,6 +219,7 @@ export async function deleteDeliveryBatch(batchId: string) {
 }
 
 export async function updateDeliveryBatch(batchId: string, customBatchNumber: string, employeeIds: string[], cardDocumentTypeSlug?: string) {
+  await assertNotFieldMode("La modification d'un lot d'expédition");
   if (!employeeIds.length) throw new Error('Aucun employé sélectionné');
   
   try {
