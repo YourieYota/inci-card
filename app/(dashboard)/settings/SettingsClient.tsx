@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
 import { 
   User, Settings, Printer, Bell, Check, Save, AlertCircle, Eye, EyeOff, Loader2,
   Database, Download, Upload, HardDrive, RefreshCw, FileJson, CheckCircle2,
-  Clock, ShieldAlert, Trash2, FolderArchive, Play, Sun, Moon, Monitor
+  Clock, ShieldAlert, Trash2, FolderArchive, Play, Sun, Moon, Monitor, WifiOff
 } from 'lucide-react';
+import { getFieldMode, enableFieldMode, disableFieldMode } from '@/app/actions/fieldMode';
 import { updateUserProfile } from '@/app/actions/users';
 import { 
   getDatabaseStats, exportDatabaseBackup, exportDatabaseSql, restoreDatabaseBackup, restoreDatabaseFromSql,
@@ -27,7 +29,7 @@ interface SettingsClientProps {
   } | null;
 }
 
-type TabType = 'profile' | 'preferences' | 'printing' | 'notifications' | 'backup';
+type TabType = 'profile' | 'preferences' | 'printing' | 'notifications' | 'backup' | 'terrain';
 
 export default function SettingsClient({ initialUser }: SettingsClientProps) {
   const { theme, setTheme } = useTheme();
@@ -97,6 +99,16 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
   const [passModalTitle, setPassModalTitle] = useState('');
   const [passModalLoading, setPassModalLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<((password: string) => Promise<void>) | null>(null);
+
+  // Field (offline) mode
+  const router = useRouter();
+  const [fieldMode, setFieldMode] = useState<{
+    enabled: boolean;
+    since: string | null;
+    enabledBy: string | null;
+    lastExportAt: string | null;
+    pendingCount: number;
+  } | null>(null);
 
   const requestAdminAuth = (title: string, action: (password: string) => Promise<void>) => {
     if (!isAdmin) {
@@ -263,10 +275,57 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     });
   };
 
+  const loadFieldMode = async () => {
+    try {
+      const state = await getFieldMode();
+      setFieldMode({
+        enabled: state.enabled,
+        since: state.since,
+        enabledBy: state.enabledBy,
+        lastExportAt: state.lastExportAt,
+        pendingCount: state.pendingCount,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleToggleFieldMode = () => {
+    if (fieldMode?.enabled) {
+      requestAdminAuth('Quitter le mode terrain', async (pass) => {
+        const res = await disableFieldMode(pass);
+        if (!res.success) throw new Error(res.error || 'Impossible de désactiver le mode terrain');
+        setMessage({ type: 'success', text: 'Mode terrain désactivé. Cette installation fonctionne de nouveau en mode serveur.' });
+        loadFieldMode();
+        router.refresh();
+      });
+      return;
+    }
+
+    requestAdminAuth('Activer le mode terrain', async (pass) => {
+      let res = await enableFieldMode(pass);
+      if (res.needsConfirmation) {
+        const confirmed = window.confirm(
+          `Attention : cette base contient déjà ${res.numberedCount} enrôlement(s) numéroté(s).\n\n` +
+          `Si vous êtes sur le SERVEUR PRINCIPAL, annulez : en mode terrain, plus aucun numéro ne serait attribué et l'impression serait bloquée.\n\n` +
+          `Si vous êtes sur le PC terrain préparé avec le kit, vous pouvez continuer.\n\nActiver le mode terrain ?`
+        );
+        if (!confirmed) return;
+        res = await enableFieldMode(pass, true);
+      }
+      if (!res.success) throw new Error(res.error || "Impossible d'activer le mode terrain");
+      setMessage({ type: 'success', text: 'Mode terrain activé sur cette installation.' });
+      loadFieldMode();
+      router.refresh();
+    });
+  };
+
   useEffect(() => {
     setMounted(true);
     fetchStats();
     loadAutoBackupData();
+    loadFieldMode();
+    if (new URLSearchParams(window.location.search).get('tab') === 'terrain') setActiveTab('terrain');
     // Load local storage preferences if any
     const savedLang = localStorage.getItem('pref_lang');
     if (savedLang) setLang(savedLang);
@@ -498,6 +557,18 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
           >
             <Database className="w-4 h-4 shrink-0" />
             <span>Sauvegarde & Base</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('terrain')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition w-full whitespace-nowrap lg:whitespace-normal ${
+              activeTab === 'terrain'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
+            }`}
+          >
+            <WifiOff className="w-4 h-4 shrink-0" />
+            <span>Mode terrain</span>
           </button>
         </div>
 
@@ -1309,6 +1380,73 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Tab: Field (offline) mode */}
+          {activeTab === 'terrain' && (
+            <div className="p-6 space-y-6">
+              <div className="border-b border-neutral-100 dark:border-neutral-800 pb-3">
+                <h3 className="text-sm font-bold text-neutral-800 dark:text-white uppercase tracking-wide">Mode terrain (hors ligne)</h3>
+                <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">
+                  À activer uniquement sur le PC qui sert de serveur pendant un enrôlement hors de l&apos;entreprise.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border space-y-3 ${
+                fieldMode?.enabled
+                  ? 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/40'
+                  : 'bg-neutral-50 border-neutral-100 dark:bg-neutral-900/60 dark:border-neutral-800'
+              }`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <span className="block text-xs font-bold text-neutral-800 dark:text-white">
+                      {fieldMode?.enabled ? 'Mode terrain actif' : 'Mode serveur (normal)'}
+                    </span>
+                    <span className="block text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      {fieldMode?.enabled
+                        ? `Activé le ${fieldMode.since ? new Date(fieldMode.since).toLocaleString('fr-FR') : '—'}${fieldMode.enabledBy ? ` par ${fieldMode.enabledBy}` : ''}`
+                        : 'Les numéros d’enrôlement sont attribués normalement.'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleToggleFieldMode}
+                    disabled={!isAdmin || !fieldMode}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition disabled:opacity-50 ${
+                      fieldMode?.enabled
+                        ? 'bg-neutral-800 hover:bg-neutral-700 text-white'
+                        : 'bg-amber-500 hover:bg-amber-600 text-amber-950'
+                    }`}
+                  >
+                    {fieldMode?.enabled ? 'Quitter le mode terrain' : 'Activer le mode terrain'}
+                  </button>
+                </div>
+
+                {fieldMode?.enabled && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-white/70 dark:bg-neutral-900/60 rounded-xl border border-amber-100 dark:border-neutral-800 text-center">
+                      <span className="block text-lg font-bold text-amber-600 dark:text-amber-400">{fieldMode.pendingCount}</span>
+                      <span className="text-[10px] font-semibold text-neutral-500 uppercase">Fiches à synchroniser</span>
+                    </div>
+                    <div className="p-3 bg-white/70 dark:bg-neutral-900/60 rounded-xl border border-amber-100 dark:border-neutral-800 text-center">
+                      <span className="block text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-1">
+                        {fieldMode.lastExportAt ? new Date(fieldMode.lastExportAt).toLocaleString('fr-FR') : 'Jamais'}
+                      </span>
+                      <span className="text-[10px] font-semibold text-neutral-500 uppercase">Dernier export</span>
+                    </div>
+                  </div>
+                )}
+
+                {!isAdmin && (
+                  <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">Seul un administrateur peut changer de mode.</p>
+                )}
+              </div>
+
+              <ul className="text-[11px] text-neutral-500 dark:text-neutral-400 space-y-1.5 list-disc pl-4">
+                <li>En mode terrain, aucun numéro d&apos;enrôlement n&apos;est généré : il sera attribué lors de la synchronisation sur le serveur principal.</li>
+                <li>L&apos;impression, les lots d&apos;expédition et la restauration de base sont bloqués.</li>
+                <li>Le mode terrain ne peut être quitté que lorsque toutes les fiches terrain ont été exportées.</li>
+              </ul>
             </div>
           )}
         </div>

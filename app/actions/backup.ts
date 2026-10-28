@@ -6,6 +6,7 @@ import path from 'path';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcrypt';
+import { assertNotFieldMode } from '@/lib/fieldMode';
 
 export async function verifyAdminAndPassword(passwordConfirm?: string) {
   const session = await getServerSession(authOptions);
@@ -422,6 +423,7 @@ export async function exportDatabaseSql(passwordConfirm?: string, isSystemAutoBa
 export async function restoreDatabaseBackup(backupJsonData: any, passwordConfirm?: string) {
   try {
     await verifyAdminAndPassword(passwordConfirm);
+    await assertNotFieldMode('La restauration de la base');
 
     if (!backupJsonData || !backupJsonData.data) {
       throw new Error('Fichier de sauvegarde invalide ou corrompu');
@@ -881,6 +883,7 @@ function parseSqlStatements(sql: string): string[] {
 export async function restoreDatabaseFromSql(sqlContent: string, passwordConfirm?: string) {
   try {
     await verifyAdminAndPassword(passwordConfirm);
+    await assertNotFieldMode('La restauration de la base');
 
     if (!sqlContent || !sqlContent.trim()) {
       throw new Error('Fichier SQL vide ou invalide');
