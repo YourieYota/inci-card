@@ -60,13 +60,17 @@ try {
     docker compose up -d db
     if ($LASTEXITCODE -ne 0) { throw "Impossible de demarrer la base (docker compose up -d db)." }
 
+    # Au premier démarrage, Postgres lance un serveur temporaire (socket local
+    # uniquement) puis le redémarre : on teste en TCP, et 3 fois de suite.
     $ready = $false
-    for ($i = 0; $i -lt 30; $i++) {
-        docker exec $container pg_isready -U $dbUser -d $dbName *> $null
-        if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+    $okCount = 0
+    for ($i = 0; $i -lt 90; $i++) {
+        docker exec $container pg_isready -h 127.0.0.1 -U $dbUser -d $dbName *> $null
+        if ($LASTEXITCODE -eq 0) { $okCount++ } else { $okCount = 0 }
+        if ($okCount -ge 3) { $ready = $true; break }
         Start-Sleep -Seconds 2
     }
-    if (-not $ready) { throw "La base ne repond pas apres 60 secondes." }
+    if (-not $ready) { throw "La base ne repond pas apres 3 minutes." }
 
     Write-Host "[2/4] Copie du kit dans le conteneur..." -ForegroundColor Cyan
     docker cp $Kit "${container}:/tmp/kit-terrain.sql"
