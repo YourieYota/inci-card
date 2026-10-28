@@ -1,0 +1,32 @@
+# Fichiers exclus du contexte de build Docker (voir Dockerfile : COPY . .)
+
+# Dépendances et builds locaux : l'image installe et compile les siens (Linux)
+node_modules
+.next
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Secrets : l'image reçoit ses variables par docker-compose.yml
+.env*
+nginx/certs
+nginx/certbot
+
+# Données et fichiers sans rapport avec l'application web
+backups
+*.sql
+!prisma/schema.sql
+rembg-service
+ReflectApp
+reflect.cs
+package
+imgly.tgz
+scratch
+dump.ps1
+check-db.js
+
+# Outillage
+.git
+.gitignore
+.claude
+.vercel
+*.log
