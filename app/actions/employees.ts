@@ -6,6 +6,7 @@ import { extractCategoryFromDynamicData } from '@/lib/categoryUtils';
 import crypto from 'crypto';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import { getFieldModeState, assertNotFieldMode } from '@/lib/fieldMode';
 
 async function getSafeSession() {
   try {
@@ -55,7 +56,10 @@ async function computePhotoHash(photoUrl: string): Promise<string> {
   return crypto.createHash('sha256').update(photoUrl).digest('hex');
 }
 
-async function generateEnrollmentNumber(companyId: string): Promise<string> {
+async function generateEnrollmentNumber(companyId: string): Promise<string | null> {
+  // En mode terrain, le numéro est attribué à la synchronisation sur le serveur principal
+  if ((await getFieldModeState()).enabled) return null;
+
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     select: { identifierPrefix: true },
@@ -535,6 +539,7 @@ export async function importEmployees({
 }
 
 export async function updateEmployeeStatus(employeeId: string, status: string) {
+  if (status === 'IMPRIME') await assertNotFieldMode("L'impression");
   try {
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
@@ -573,6 +578,7 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
 }
 
 export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: string) {
+  if (status === 'IMPRIME') await assertNotFieldMode("L'impression");
   try {
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
@@ -1435,6 +1441,7 @@ export async function confirmPrint(
   categoryId?: string,
   physicalTypeId?: string
 ) {
+  await assertNotFieldMode("L'impression");
   try {
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";

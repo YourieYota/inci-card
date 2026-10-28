@@ -9,6 +9,7 @@ import {
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { checkAndRunAutoBackupIfNeeded } from "@/app/actions/backup";
+import FieldModeBanner from "@/components/ui/FieldModeBanner";
 
 const navigation = [
   { name: "Dashboard",          href: "/dashboard",          icon: LayoutDashboard, roles: ['ADMIN', 'DESIGNER', 'OPERATEUR'] },
@@ -221,6 +222,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <img src="/logo-imprimerie.png" className="h-7 object-contain" alt="Logo" />
           <span className="font-bold text-sm text-slate-900 dark:text-white truncate">Imprimerie Nationale</span>
         </div>
+
+        <FieldModeBanner />
 
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           {children}
