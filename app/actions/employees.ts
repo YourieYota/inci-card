@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getFieldModeState, assertNotFieldMode } from '@/lib/fieldMode';
+import { nextEnrollmentNumber } from '@/lib/enrollmentNumber';
 
 async function getSafeSession() {
   try {
@@ -59,40 +60,7 @@ async function computePhotoHash(photoUrl: string): Promise<string> {
 async function generateEnrollmentNumber(companyId: string): Promise<string | null> {
   // En mode terrain, le numéro est attribué à la synchronisation sur le serveur principal
   if ((await getFieldModeState()).enabled) return null;
-
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { identifierPrefix: true },
-  });
-
-  const count = await prisma.employee.count({
-    where: {
-      companyId: companyId,
-      enrollmentNumber: { not: null }
-    },
-  });
-
-  if (company?.identifierPrefix) {
-    const prefix = company.identifierPrefix;
-    const num = String(count + 1).padStart(3, '0');
-    return `${prefix}${num}`;
-  }
-
-  const docType = await prisma.cardDocumentType.findFirst({
-    where: {
-      companyId: companyId || null,
-      cardCode: { not: "" }
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  if (docType && docType.cardCode) {
-    const num = String(count + 1).padStart(4, '0');
-    return `${docType.cardCode}${num}`;
-  }
-
-  const num = String(count + 1).padStart(5, '0');
-  return `INCI-ENR-${new Date().getFullYear()}-${num}`;
+  return nextEnrollmentNumber(companyId);
 }
 
 export async function getEmployees(companyId: string) {

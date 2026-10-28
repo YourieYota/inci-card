@@ -34,7 +34,7 @@ export async function getFieldModeState(): Promise<FieldModeState> {
 }
 
 // Crée la table si le schéma n'a pas été appliqué (évite un `prisma db push` manuel sur chaque installation)
-async function ensureAppSettingTable() {
+export async function ensureAppSettingTable() {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "AppSetting" (
       "key" TEXT NOT NULL,
