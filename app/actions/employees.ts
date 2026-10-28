@@ -507,7 +507,7 @@ export async function importEmployees({
 }
 
 export async function updateEmployeeStatus(employeeId: string, status: string) {
-  if (status === 'IMPRIME') await assertNotFieldMode("L'impression");
+  if (status === 'IMPRIME' || status === 'REIMPRIME') await assertNotFieldMode("L'impression");
   try {
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
@@ -546,7 +546,7 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
 }
 
 export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: string) {
-  if (status === 'IMPRIME') await assertNotFieldMode("L'impression");
+  if (status === 'IMPRIME' || status === 'REIMPRIME') await assertNotFieldMode("L'impression");
   try {
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
