@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import { getServerSession } from 'next-auth/next';
@@ -420,6 +421,19 @@ export async function exportDatabaseSql(passwordConfirm?: string, isSystemAutoBa
   }
 }
 
+// Copies every scalar column the schema declares for `model` from a JSON backup row, reviving
+// DateTime strings. Columns absent from older backups are left out so the database default applies.
+function toRestoreRow(model: Prisma.ModelName, row: any): Record<string, unknown> {
+  const fields = Prisma.dmmf.datamodel.models.find((m) => m.name === model)?.fields ?? [];
+  const out: Record<string, unknown> = {};
+  for (const field of fields) {
+    if (field.kind !== 'scalar' || row?.[field.name] === undefined) continue;
+    const value = row[field.name];
+    out[field.name] = field.type === 'DateTime' && value !== null ? new Date(value) : value;
+  }
+  return out;
+}
+
 export async function restoreDatabaseBackup(backupJsonData: any, passwordConfirm?: string) {
   try {
     await verifyAdminAndPassword(passwordConfirm);
@@ -445,256 +459,43 @@ export async function restoreDatabaseBackup(backupJsonData: any, passwordConfirm
         DELETE FROM "Company";
       `);
 
-      // 1. CustomRole
+      // Roles and users are upserted rather than cleared so the admin running the restore keeps access
       if (Array.isArray(data.customRoles)) {
         for (const r of data.customRoles) {
-          await tx.customRole.upsert({
-            where: { id: r.id },
-            update: { name: r.name, slug: r.slug, description: r.description, color: r.color, permissions: r.permissions ?? {} },
-            create: { id: r.id, name: r.name, slug: r.slug, description: r.description, color: r.color, isSystem: r.isSystem ?? false, permissions: r.permissions ?? {} }
-          });
+          const row = toRestoreRow('CustomRole', r);
+          const { id, ...update } = row;
+          await tx.customRole.upsert({ where: { id: r.id }, update, create: row as any });
         }
       }
 
-      // 2. CardFormat
-      if (Array.isArray(data.cardFormats)) {
-        for (const f of data.cardFormats) {
-          await tx.cardFormat.upsert({
-            where: { id: f.id },
-            update: { name: f.name, width: f.width, height: f.height, unit: f.unit },
-            create: { id: f.id, name: f.name, width: f.width, height: f.height, unit: f.unit }
-          });
-        }
-      }
-
-      // 3. CardPhysicalType
-      if (Array.isArray(data.cardPhysicalTypes)) {
-        for (const p of data.cardPhysicalTypes) {
-          await tx.cardPhysicalType.upsert({
-            where: { id: p.id },
-            update: { name: p.name, description: p.description },
-            create: { id: p.id, name: p.name, slug: p.slug, description: p.description }
-          });
-        }
-      }
-
-      // 4. CardDocumentType
-      if (Array.isArray(data.cardDocumentTypes)) {
-        for (const d of data.cardDocumentTypes) {
-          await tx.cardDocumentType.upsert({
-            where: { id: d.id },
-            update: { name: d.name, description: d.description },
-            create: { id: d.id, name: d.name, slug: d.slug, description: d.description }
-          });
-        }
-      }
-
-      // 5. CardCategory
-      if (Array.isArray(data.cardCategories)) {
-        for (const c of data.cardCategories) {
-          await tx.cardCategory.upsert({
-            where: { id: c.id },
-            update: { name: c.name, description: c.description },
-            create: { id: c.id, name: c.name, slug: c.slug, formatId: c.formatId, description: c.description }
-          });
-        }
-      }
-
-      // 6. Companies
-      if (Array.isArray(data.companies)) {
-        for (const company of data.companies) {
-          await tx.company.upsert({
-            where: { id: company.id },
-            update: {
-              name: company.name,
-              identifierPrefix: company.identifierPrefix,
-              isLocked: company.isLocked ?? false,
-              isLaserEnabled: company.isLaserEnabled ?? false,
-              protectAppModified: company.protectAppModified ?? true,
-            },
-            create: {
-              id: company.id,
-              name: company.name,
-              identifierPrefix: company.identifierPrefix,
-              isLocked: company.isLocked ?? false,
-              isLaserEnabled: company.isLaserEnabled ?? false,
-              protectAppModified: company.protectAppModified ?? true,
-              createdAt: company.createdAt ? new Date(company.createdAt) : undefined,
-            },
-          });
-        }
-      }
-
-      // 7. Delivery Batches if any
-      if (Array.isArray(data.deliveryBatches)) {
-        for (const batch of data.deliveryBatches) {
-          await tx.deliveryBatch.upsert({
-            where: { id: batch.id },
-            update: {
-              batchNumber: batch.batchNumber,
-              status: batch.status ?? 'PREPARE',
-              deliveredAt: batch.deliveredAt ? new Date(batch.deliveredAt) : null,
-              shippedAt: batch.shippedAt ? new Date(batch.shippedAt) : null,
-              signedProof: batch.signedProof,
-              signedProofName: batch.signedProofName,
-              signedProofType: batch.signedProofType,
-              cardDocumentTypeSlug: batch.cardDocumentTypeSlug,
-            },
-            create: {
-              id: batch.id,
-              companyId: batch.companyId,
-              batchNumber: batch.batchNumber,
-              status: batch.status ?? 'PREPARE',
-              deliveredAt: batch.deliveredAt ? new Date(batch.deliveredAt) : null,
-              shippedAt: batch.shippedAt ? new Date(batch.shippedAt) : null,
-              signedProof: batch.signedProof,
-              signedProofName: batch.signedProofName,
-              signedProofType: batch.signedProofType,
-              cardDocumentTypeSlug: batch.cardDocumentTypeSlug,
-              createdAt: batch.createdAt ? new Date(batch.createdAt) : undefined,
-            },
-          });
-        }
-      }
-
-      // 8. Employees
-      if (Array.isArray(data.employees)) {
-        for (const emp of data.employees) {
-          await tx.employee.upsert({
-            where: { id: emp.id },
-            update: {
-              companyId: emp.companyId,
-              dynamicData: emp.dynamicData ?? {},
-              uniqueIdentifier: emp.uniqueIdentifier,
-              photoUrl: emp.photoUrl,
-              status: emp.status ?? 'A_ENROLER',
-              enrollmentNumber: emp.enrollmentNumber,
-              printedAt: emp.printedAt ? new Date(emp.printedAt) : null,
-              photoConflict: emp.photoConflict ?? false,
-              photoHash: emp.photoHash,
-              deliveryBatchId: emp.deliveryBatchId,
-              cardNumber: emp.cardNumber,
-              isBlocked: emp.isBlocked ?? false,
-              isLocked: emp.isLocked ?? false,
-              printCount: emp.printCount ?? 0,
-              appModified: emp.appModified ?? false,
-              externalQrUrl: emp.externalQrUrl,
-            },
-            create: {
-              id: emp.id,
-              companyId: emp.companyId,
-              dynamicData: emp.dynamicData ?? {},
-              uniqueIdentifier: emp.uniqueIdentifier,
-              photoUrl: emp.photoUrl,
-              status: emp.status ?? 'A_ENROLER',
-              enrollmentNumber: emp.enrollmentNumber,
-              printedAt: emp.printedAt ? new Date(emp.printedAt) : null,
-              createdAt: emp.createdAt ? new Date(emp.createdAt) : undefined,
-              photoConflict: emp.photoConflict ?? false,
-              photoHash: emp.photoHash,
-              deliveryBatchId: emp.deliveryBatchId,
-              cardNumber: emp.cardNumber,
-              isBlocked: emp.isBlocked ?? false,
-              isLocked: emp.isLocked ?? false,
-              printCount: emp.printCount ?? 0,
-              appModified: emp.appModified ?? false,
-              externalQrUrl: emp.externalQrUrl,
-            },
-          });
-        }
-      }
-
-      // 9. Templates
-      if (Array.isArray(data.cardTemplates)) {
-        for (const template of data.cardTemplates) {
-          await tx.cardTemplate.upsert({
-            where: { id: template.id },
-            update: {
-              companyId: template.companyId,
-              width: template.width,
-              height: template.height,
-              backgroundUrl: template.backgroundUrl,
-              layoutConfig: template.layoutConfig,
-              type: template.type ?? 'BADGE',
-              categoryId: template.categoryId,
-            },
-            create: {
-              id: template.id,
-              companyId: template.companyId,
-              width: template.width,
-              height: template.height,
-              backgroundUrl: template.backgroundUrl,
-              layoutConfig: template.layoutConfig,
-              type: template.type ?? 'BADGE',
-              categoryId: template.categoryId,
-            },
-          });
-        }
-      }
-
-      // 10. Users
       if (Array.isArray(data.users)) {
         for (const u of data.users) {
-          const updateData: any = {
-            email: u.email,
-            name: u.name,
-            firstName: u.firstName,
-            login: u.login,
-            phone: u.phone,
-            role: u.role,
-          };
-          if (u.passwordHash) updateData.passwordHash = u.passwordHash;
-
+          const row = toRestoreRow('User', u);
+          const { id, ...update } = row;
+          if (!u.passwordHash) delete update.passwordHash;
           await tx.user.upsert({
             where: { id: u.id },
-            update: updateData,
-            create: {
-              id: u.id,
-              email: u.email,
-              passwordHash: u.passwordHash || '',
-              name: u.name,
-              firstName: u.firstName,
-              login: u.login,
-              phone: u.phone,
-              role: u.role ?? 'OPERATEUR',
-              createdAt: u.createdAt ? new Date(u.createdAt) : undefined,
-            },
+            update,
+            create: { ...row, passwordHash: u.passwordHash || '' } as any,
           });
         }
       }
 
-      // 11. PrintJobs
-      if (Array.isArray(data.printJobs)) {
-        for (const pj of data.printJobs) {
-          await tx.printJob.upsert({
-            where: { id: pj.id },
-            update: {
-              employeeId: pj.employeeId,
-              cardNumber: pj.cardNumber,
-              templateType: pj.templateType,
-              categoryId: pj.categoryId,
-              physicalTypeId: pj.physicalTypeId,
-              isReprint: pj.isReprint ?? false,
-              reprintReason: pj.reprintReason,
-              printedBy: pj.printedBy,
-              printedAt: pj.printedAt ? new Date(pj.printedAt) : undefined,
-            },
-            create: {
-              id: pj.id,
-              employeeId: pj.employeeId,
-              cardNumber: pj.cardNumber,
-              templateType: pj.templateType,
-              categoryId: pj.categoryId,
-              physicalTypeId: pj.physicalTypeId,
-              isReprint: pj.isReprint ?? false,
-              reprintReason: pj.reprintReason,
-              printedBy: pj.printedBy,
-              printedAt: pj.printedAt ? new Date(pj.printedAt) : undefined,
-              createdAt: pj.createdAt ? new Date(pj.createdAt) : undefined,
-            },
-          });
-        }
-      }
+      // Cleared tables are recreated parents first so every foreign key resolves:
+      // Company → CardFormat / CardPhysicalType / CardDocumentType → CardCategory → CardTemplate
+      // → DeliveryBatch → Employee → PrintJob
+      const rows = (model: Prisma.ModelName, list: unknown) =>
+        Array.isArray(list) ? list.map((r) => toRestoreRow(model, r)) as any[] : [];
+
+      await tx.company.createMany({ data: rows('Company', data.companies) });
+      await tx.cardFormat.createMany({ data: rows('CardFormat', data.cardFormats) });
+      await tx.cardPhysicalType.createMany({ data: rows('CardPhysicalType', data.cardPhysicalTypes) });
+      await tx.cardDocumentType.createMany({ data: rows('CardDocumentType', data.cardDocumentTypes) });
+      await tx.cardCategory.createMany({ data: rows('CardCategory', data.cardCategories) });
+      await tx.cardTemplate.createMany({ data: rows('CardTemplate', data.cardTemplates) });
+      await tx.deliveryBatch.createMany({ data: rows('DeliveryBatch', data.deliveryBatches) });
+      await tx.employee.createMany({ data: rows('Employee', data.employees) });
+      await tx.printJob.createMany({ data: rows('PrintJob', data.printJobs) });
     }, { maxWait: 60000, timeout: 600000 });
 
     return { success: true, message: 'Sauvegarde restaurée avec succès !' };
