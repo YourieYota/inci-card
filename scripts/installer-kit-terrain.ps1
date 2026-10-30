@@ -1,7 +1,8 @@
 # ============================================================
 # INCI CARD - Installation d'un kit terrain sur le PC terrain
 #
-# Utilisation (depuis le dossier du projet) :
+# Utilisation : double-cliquer sur "Installer kit terrain.bat" (à la racine du
+# projet) et choisir le fichier kit, ou en ligne de commande :
 #   powershell -ExecutionPolicy Bypass -File scripts\installer-kit-terrain.ps1 -Kit "C:\chemin\kit-terrain-xxxx.sql"
 #
 # Le script démarre la base Docker, installe le kit (structure + données
@@ -10,7 +11,6 @@
 # ============================================================
 
 param(
-    [Parameter(Mandatory = $true)]
     [string]$Kit
 )
 
@@ -25,6 +25,20 @@ function Get-EnvValue([string]$name, [string]$default) {
         if ($line) { return ($line -split '=', 2)[1].Trim().Trim('"') }
     }
     return $default
+}
+
+# Sans -Kit (lancement par double-clic), on demande le fichier.
+if (-not $Kit) {
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = 'Choisir le kit terrain INCI CARD'
+    $dialog.Filter = 'Kit terrain (kit-terrain-*.sql)|kit-terrain-*.sql|Fichiers SQL (*.sql)|*.sql'
+    $dialog.InitialDirectory = $projectDir
+    if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+        Write-Host "Aucun kit choisi. Installation annulee."
+        exit 0
+    }
+    $Kit = $dialog.FileName
 }
 
 if (-not (Test-Path $Kit)) {
