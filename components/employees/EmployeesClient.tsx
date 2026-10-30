@@ -10,7 +10,7 @@ import WebcamModal from './WebcamModal';
 import EmployeeDetailModal from './EmployeeDetailModal';
 import LaserExportModal from './LaserExportModal';
 import TrashModal from './TrashModal';
-import { getEmployees, saveEmployeePhoto, getCompanyDashboardStats, restoreEmployees } from '@/app/actions/employees';
+import { saveEmployeePhoto, restoreEmployees } from '@/app/actions/employees';
 import { safeSetItem, safeGetItem, cleanEmployeesForCache } from '@/lib/storage';
 
 interface EmployeesClientProps {
@@ -122,7 +122,9 @@ export default function EmployeesClient({
     url.searchParams.set('companyId', selectedCompanyId);
     window.history.replaceState({}, '', url.toString());
 
-    refreshEmployees(true);
+    // The server already rendered this company's list: show it and refresh quietly
+    const hasServerData = selectedCompanyId === initialCompanyId && initialEmployees.length > 0 && !dbError;
+    refreshEmployees(!hasServerData);
     updateTrashCount();
   }, [selectedCompanyId]);
 
@@ -130,10 +132,10 @@ export default function EmployeesClient({
     if (!selectedCompanyId) return;
     if (showLoader) setIsLoading(true);
     try {
-      const [data, stats] = await Promise.all([
-        getEmployees(selectedCompanyId),
-        getCompanyDashboardStats(selectedCompanyId)
-      ]);
+      const res = await fetch(`/api/employees?companyId=${encodeURIComponent(selectedCompanyId)}`, { cache: 'no-store' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Impossible de charger les employés.');
+      const { employees: data, stats } = payload;
       setEmployees(data);
       setCompanyStats(stats);
       safeSetItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(cleanEmployeesForCache(data)));
