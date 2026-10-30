@@ -2,7 +2,35 @@
 
 import React, { useState, useEffect } from 'react';
 import { ImageIcon } from 'lucide-react';
-import { getEmployeePhoto } from '@/app/actions/employees';
+import { getEmployeesPhotos } from '@/app/actions/employees';
+
+// Les actions serveur sont exécutées une par une : une requête par carte (24 par page)
+// faisait attendre tout le reste de la page. Les demandes faites au même moment sont
+// regroupées en un seul appel.
+let pendingIds = new Map<string, ((url: string | null) => void)[]>();
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function loadPhoto(employeeId: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const waiters = pendingIds.get(employeeId) || [];
+    waiters.push(resolve);
+    pendingIds.set(employeeId, waiters);
+    if (!flushTimer) {
+      flushTimer = setTimeout(async () => {
+        const batch = pendingIds;
+        pendingIds = new Map();
+        flushTimer = null;
+        let photos: Record<string, string | null> = {};
+        try {
+          photos = await getEmployeesPhotos(Array.from(batch.keys()));
+        } catch (err) {
+          console.warn('Failed to fetch employee photos:', err);
+        }
+        batch.forEach((resolvers, id) => resolvers.forEach((r) => r(photos[id] ?? null)));
+      }, 30);
+    }
+  });
+}
 
 interface EmployeePhotoProps {
   employeeId: string;
@@ -41,7 +69,7 @@ export default function EmployeePhoto({
     let isMounted = true;
     setLoading(true);
 
-    getEmployeePhoto(employeeId)
+    loadPhoto(employeeId)
       .then((url) => {
         if (isMounted && url) {
           setPhotoUrl(url);
