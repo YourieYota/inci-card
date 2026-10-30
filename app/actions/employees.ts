@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getFieldModeState, assertNotFieldMode } from '@/lib/fieldMode';
+import { nextEnrollmentNumber } from '@/lib/enrollmentNumber';
 
 async function getSafeSession() {
   try {
@@ -59,40 +60,7 @@ async function computePhotoHash(photoUrl: string): Promise<string> {
 async function generateEnrollmentNumber(companyId: string): Promise<string | null> {
   // En mode terrain, le numéro est attribué à la synchronisation sur le serveur principal
   if ((await getFieldModeState()).enabled) return null;
-
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { identifierPrefix: true },
-  });
-
-  const count = await prisma.employee.count({
-    where: {
-      companyId: companyId,
-      enrollmentNumber: { not: null }
-    },
-  });
-
-  if (company?.identifierPrefix) {
-    const prefix = company.identifierPrefix;
-    const num = String(count + 1).padStart(3, '0');
-    return `${prefix}${num}`;
-  }
-
-  const docType = await prisma.cardDocumentType.findFirst({
-    where: {
-      companyId: companyId || null,
-      cardCode: { not: "" }
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  if (docType && docType.cardCode) {
-    const num = String(count + 1).padStart(4, '0');
-    return `${docType.cardCode}${num}`;
-  }
-
-  const num = String(count + 1).padStart(5, '0');
-  return `INCI-ENR-${new Date().getFullYear()}-${num}`;
+  return nextEnrollmentNumber(companyId);
 }
 
 export async function getEmployees(companyId: string) {
@@ -539,7 +507,7 @@ export async function importEmployees({
 }
 
 export async function updateEmployeeStatus(employeeId: string, status: string) {
-  if (status === 'IMPRIME') await assertNotFieldMode("L'impression");
+  if (status === 'IMPRIME' || status === 'REIMPRIME') await assertNotFieldMode("L'impression");
   try {
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
@@ -550,7 +518,7 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
       data.printedBy = operatorName;
     }
 
-    if (status === 'PHOTO_VALIDEE' || status === 'IMPRIME') {
+    if (status === 'PHOTO_VALIDEE' || status === 'IMPRIME' || status === 'A_REIMPRIMER' || status === 'REIMPRIME') {
       const emp = await prisma.employee.findUnique({
         where: { id: employeeId },
         select: { enrollmentNumber: true, companyId: true, enrolledBy: true },
@@ -578,7 +546,7 @@ export async function updateEmployeeStatus(employeeId: string, status: string) {
 }
 
 export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: string) {
-  if (status === 'IMPRIME') await assertNotFieldMode("L'impression");
+  if (status === 'IMPRIME' || status === 'REIMPRIME') await assertNotFieldMode("L'impression");
   try {
     const session = await getSafeSession();
     const operatorName = session?.user?.name || session?.user?.email || "Système";
@@ -599,10 +567,10 @@ export async function bulkUpdateEmployeeStatus(employeeIds: string[], status: st
 
       const singleData = { ...data };
       if (emp) {
-        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME') && !emp.enrollmentNumber) {
+        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME' || status === 'A_REIMPRIMER' || status === 'REIMPRIME') && !emp.enrollmentNumber) {
           singleData.enrollmentNumber = await generateEnrollmentNumber(emp.companyId);
         }
-        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME') && !emp.enrolledBy) {
+        if ((status === 'PHOTO_VALIDEE' || status === 'IMPRIME' || status === 'A_REIMPRIMER' || status === 'REIMPRIME') && !emp.enrolledBy) {
           singleData.enrolledBy = operatorName;
         }
       }

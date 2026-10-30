@@ -55,3 +55,6 @@ backups/
 *.xls
 *.csv
 scratch/
+
+# Structure SQL générée (npm run schema:sql), embarquée dans le kit terrain
+!prisma/schema.sql

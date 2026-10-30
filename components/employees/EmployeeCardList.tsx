@@ -16,7 +16,7 @@ interface EmployeeCardListProps {
   isOfflineMode?: boolean;
 }
 
-type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME' | 'A_VERIFIER' | 'REIMPRESSION';
+type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME' | 'A_VERIFIER' | 'A_REIMPRIMER' | 'REIMPRIME' | 'NE_PAS_IMPRIMER';
 
 type SortOption = 'RECENT' | 'OLD' | 'ALPHABETIC_AZ' | 'ALPHABETIC_ZA';
 
@@ -119,6 +119,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
   // Status filter implementation
   const matchesFilter = (emp: Employee) => {
     if (filter === 'ALL') return true;
+    if (filter === 'REIMPRIME' && (emp.status === 'REIMPRIME' || emp.status === 'REIMPRESSION')) return true;
     return emp.status === filter;
   };
 
@@ -175,7 +176,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
   };
 
   const handleSelectAll = () => {
-    const printableEmployees = sortedEmployees.filter((emp) => emp.status !== 'A_ENROLER');
+    const printableEmployees = sortedEmployees.filter((emp) => emp.status !== 'A_ENROLER' && emp.status !== 'NE_PAS_IMPRIMER');
     if (selectedIds.length === printableEmployees.length) {
       setSelectedIds([]);
     } else {
@@ -194,8 +195,8 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
 
 
-  // Only employees with validated photo or already printed can be printed
-  const printableFilteredCount = filteredEmployees.filter((emp) => emp.status !== 'A_ENROLER').length;
+  // Only employees with validated photo or already printed can be printed (excluding NE_PAS_IMPRIMER)
+  const printableFilteredCount = filteredEmployees.filter((emp) => emp.status !== 'A_ENROLER' && emp.status !== 'NE_PAS_IMPRIMER').length;
 
   return (
     <div className="space-y-6">
@@ -203,7 +204,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
       <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-blue-100/50 dark:border-neutral-800/80 shadow-sm">
         {/* Status Filters */}
         <div className="flex flex-wrap gap-1.5 p-1 bg-slate-50 dark:bg-neutral-900 border border-slate-200/60 dark:border-neutral-800/60 rounded-xl w-full lg:w-auto">
-          {(['ALL', 'A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER', 'REIMPRESSION'] as FilterStatus[]).map((st) => (
+          {(['ALL', 'A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER', 'A_REIMPRIMER', 'REIMPRIME', 'NE_PAS_IMPRIMER'] as FilterStatus[]).map((st) => (
             <button
               key={st}
               onClick={() => setFilter(st)}
@@ -213,7 +214,9 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   : st === 'A_ENROLER' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 shadow-sm border border-amber-200/60 dark:border-amber-900/40'
                   : st === 'PHOTO_VALIDEE' ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 shadow-sm border border-blue-200/60 dark:border-blue-900/40'
                   : st === 'A_VERIFIER' ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 shadow-sm border border-rose-200/60 dark:border-rose-900/40'
-                  : st === 'REIMPRESSION' ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 shadow-sm border border-violet-200/60 dark:border-violet-900/40'
+                  : st === 'A_REIMPRIMER' ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 shadow-sm border border-indigo-200/60 dark:border-indigo-900/40'
+                  : st === 'REIMPRIME' ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 shadow-sm border border-violet-200/60 dark:border-violet-900/40'
+                  : st === 'NE_PAS_IMPRIMER' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shadow-sm border border-zinc-300/80 dark:border-zinc-700'
                   : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm border border-emerald-200/60 dark:border-emerald-900/40'
                   : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300 hover:bg-white/60 dark:hover:bg-neutral-800/50'
               }`}
@@ -223,7 +226,9 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
               {st === 'PHOTO_VALIDEE' && 'Photo Validée'}
               {st === 'IMPRIME' && 'Imprimés'}
               {st === 'A_VERIFIER' && 'À vérifier'}
-              {st === 'REIMPRESSION' && 'Réimpression'}
+              {st === 'A_REIMPRIMER' && 'À réimprimer'}
+              {st === 'REIMPRIME' && 'Réimprimé'}
+              {st === 'NE_PAS_IMPRIMER' && 'Ne pas imprimer'}
             </button>
           ))}
         </div>
@@ -296,7 +301,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
             {paginatedEmployees.map((emp) => {
             const { name, fields } = getEmployeeDetails(emp);
             const isSelfUpdating = isUpdating === emp.id;
-            const isSelectable = emp.status !== 'A_ENROLER';
+            const isSelectable = emp.status !== 'A_ENROLER' && emp.status !== 'NE_PAS_IMPRIMER';
 
             return (
               <div
@@ -320,8 +325,12 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                     ? 'border-amber-100/80 dark:border-amber-900/20 hover:border-amber-300/60 dark:hover:border-amber-800/40'
                     : emp.status === 'PHOTO_VALIDEE'
                     ? 'border-blue-100/80 dark:border-blue-900/20 hover:border-blue-300/60 dark:hover:border-blue-800/40'
-                    : emp.status === 'REIMPRESSION'
+                    : emp.status === 'A_REIMPRIMER'
+                    ? 'border-indigo-200/80 dark:border-indigo-900/20 hover:border-indigo-300/60 dark:hover:border-indigo-800/40'
+                    : emp.status === 'REIMPRIME' || emp.status === 'REIMPRESSION'
                     ? 'border-violet-200/80 dark:border-violet-900/20 hover:border-violet-300/60 dark:hover:border-violet-800/40'
+                    : emp.status === 'NE_PAS_IMPRIMER'
+                    ? 'border-zinc-300/80 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 bg-zinc-50/20 dark:bg-zinc-900/10'
                     : 'border-emerald-100/80 dark:border-emerald-900/20 hover:border-emerald-300/60 dark:hover:border-emerald-800/40'
                 }`}
               >
@@ -330,7 +339,9 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   emp.status === 'A_VERIFIER' || (emp as any).photoConflict ? 'bg-rose-500' :
                   emp.status === 'A_ENROLER' ? 'bg-amber-400/60' :
                   emp.status === 'PHOTO_VALIDEE' ? 'bg-blue-400/60' :
-                  emp.status === 'REIMPRESSION' ? 'bg-violet-400/60' :
+                  emp.status === 'A_REIMPRIMER' ? 'bg-indigo-400/60' :
+                  emp.status === 'REIMPRIME' || emp.status === 'REIMPRESSION' ? 'bg-violet-400/60' :
+                  emp.status === 'NE_PAS_IMPRIMER' ? 'bg-zinc-400/60' :
                   'bg-emerald-400/60'
                 }`} />
 
@@ -379,6 +390,12 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                             ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/40'
                             : emp.status === 'PHOTO_VALIDEE'
                             ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/40'
+                            : emp.status === 'A_REIMPRIMER'
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-200/70 dark:border-indigo-800/40'
+                            : emp.status === 'REIMPRIME' || emp.status === 'REIMPRESSION'
+                            ? 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400 border border-violet-200/70 dark:border-violet-800/40'
+                            : emp.status === 'NE_PAS_IMPRIMER'
+                            ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-300/70 dark:border-zinc-700'
                             : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/40'
                         }`}
                       >
@@ -386,7 +403,9 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                         {emp.status === 'A_ENROLER' && 'À enrôler'}
                         {emp.status === 'PHOTO_VALIDEE' && 'Validé'}
                         {emp.status === 'IMPRIME' && ((emp as any).isLocked ? '🔒 Imprimé' : 'Imprimé')}
-                        {emp.status === 'REIMPRESSION' && '♻️ Réimpression'}
+                        {emp.status === 'A_REIMPRIMER' && '🔄 À réimprimer'}
+                        {(emp.status === 'REIMPRIME' || emp.status === 'REIMPRESSION') && '♻️ Réimprimé'}
+                        {emp.status === 'NE_PAS_IMPRIMER' && '🚫 Ne pas imprimer'}
                       </span>
                       {emp.appModified && (
                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25" title="Fiche modifiée manuellement dans l'application (Protégée des futurs imports Excel)">
@@ -452,6 +471,8 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                     ? 'border-amber-100/50 dark:border-neutral-800/60 bg-amber-50/30 dark:bg-neutral-900/30'
                     : emp.status === 'PHOTO_VALIDEE'
                     ? 'border-blue-100/50 dark:border-neutral-800/60 bg-blue-50/20 dark:bg-neutral-900/30'
+                    : emp.status === 'NE_PAS_IMPRIMER'
+                    ? 'border-zinc-200/50 dark:border-neutral-800/60 bg-zinc-100/40 dark:bg-neutral-900/30'
                     : 'border-emerald-100/50 dark:border-neutral-800/60 bg-emerald-50/20 dark:bg-neutral-900/30'
                 }`}>
                   <div className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono tracking-tight">
@@ -460,7 +481,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                   
                   <div className="flex gap-2">
                      {/* Capture Webcam */}
-                    {(emp.status === 'A_ENROLER' || emp.status === 'PHOTO_VALIDEE' || emp.status === 'A_VERIFIER') && (
+                    {(emp.status === 'A_ENROLER' || emp.status === 'PHOTO_VALIDEE' || emp.status === 'A_VERIFIER' || emp.status === 'A_REIMPRIMER' || emp.status === 'NE_PAS_IMPRIMER') && (
                       <button
                         onClick={() => {
                           if (isOfflineMode) {
@@ -479,12 +500,12 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
                         }`}
                       >
                         <Camera className="w-3.5 h-3.5" />
-                        <span>{emp.photoUrl ? 'Reprendre' : 'Webcam'}</span>
+                        <span>{(emp as any).hasPhoto || emp.photoUrl ? 'Reprendre' : 'Webcam'}</span>
                       </button>
                     )}
 
                     {/* Print Card */}
-                    {(emp.status === 'PHOTO_VALIDEE' || emp.status === 'IMPRIME') && (
+                    {(emp.status === 'PHOTO_VALIDEE' || emp.status === 'IMPRIME' || emp.status === 'A_REIMPRIMER' || emp.status === 'REIMPRIME' || emp.status === 'REIMPRESSION') && (
                       <button
                         onClick={() => handlePrintIndividual(emp.id)}
                         className="flex items-center gap-1.5 py-1.5 px-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl text-xs font-semibold transition shadow-sm"

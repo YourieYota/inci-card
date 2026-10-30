@@ -215,7 +215,7 @@ export default function PrintQueueClient({
 
   // Categories Filtering
   const readyToPrintList = employees.filter((emp) => {
-    const isEnrolledAndValid = emp.hasPhoto && !emp.isBlocked && emp.status !== 'A_ENROLER' && emp.status !== 'A_VERIFIER';
+    const isEnrolledAndValid = emp.hasPhoto && !emp.isBlocked && emp.status !== 'A_ENROLER' && emp.status !== 'A_VERIFIER' && emp.status !== 'NE_PAS_IMPRIMER';
     if (!isEnrolledAndValid) return false;
     const hasReprintRequest = emp.printJobs?.some((j: any) => 
       j.templateType === selectedTemplateType &&
@@ -233,6 +233,7 @@ export default function PrintQueueClient({
   const notReadyList = employees.filter((emp) => {
     return emp.status === 'A_ENROLER' || 
       emp.status === 'A_VERIFIER' || 
+      emp.status === 'NE_PAS_IMPRIMER' ||
       !emp.hasPhoto ||
       emp.isBlocked;
   });

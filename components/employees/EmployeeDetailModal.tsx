@@ -508,9 +508,19 @@ export default function EmployeeDetailModal({
                   <Ban className="w-3 h-3" /> Badge bloqué
                 </span>
               )}
-              {employee.status === 'REIMPRESSION' && (
+              {status === 'NE_PAS_IMPRIMER' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-[10px] font-bold">
+                  <Ban className="w-3 h-3 text-zinc-500" /> Ne pas imprimer
+                </span>
+              )}
+              {status === 'A_REIMPRIMER' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 rounded-lg text-[10px] font-bold">
+                  <RotateCcw className="w-3 h-3" /> À réimprimer
+                </span>
+              )}
+              {(status === 'REIMPRIME' || status === 'REIMPRESSION') && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 rounded-lg text-[10px] font-bold">
-                  <RotateCcw className="w-3 h-3" /> Réimpression
+                  <RotateCcw className="w-3 h-3" /> Réimprimé
                 </span>
               )}
             </h2>
@@ -680,6 +690,45 @@ export default function EmployeeDetailModal({
                   <Camera className="w-3.5 h-3.5" />
                   <span>Prendre via Webcam</span>
                 </button>
+
+                {/* Activer l'impression button for NE_PAS_IMPRIMER */}
+                {status === 'NE_PAS_IMPRIMER' && (
+                  <button
+                    type="button"
+                    disabled={isEmployeeLocked}
+                    onClick={async () => {
+                      const hasAnyPhoto = !!(activePhoto || photoUrl || uploadedPhoto || (employee as any).hasPhoto);
+                      const targetStatus = hasAnyPhoto ? 'PHOTO_VALIDEE' : 'A_ENROLER';
+                      setStatus(targetStatus);
+                      setIsSaving(true);
+                      try {
+                        if (localOfflineMode) {
+                          addOfflineMutation(
+                            'UPDATE_EMPLOYEE_STATUS',
+                            { employeeId: employee.id, status: targetStatus },
+                            `Activer l'impression pour ${employee.uniqueIdentifier}`
+                          );
+                        } else {
+                          await updateEmployeeStatus(employee.id, targetStatus);
+                        }
+                        toast({
+                          title: "Impression activée",
+                          message: `Le statut a été passé à "${hasAnyPhoto ? 'Photo Validée' : 'À enrôler'}".`,
+                          variant: "success"
+                        });
+                        onRefresh();
+                      } catch (err: any) {
+                        toast({ title: "Erreur", message: err.message || "Erreur lors de l'activation de l'impression", variant: "error" });
+                      } finally {
+                        setIsSaving(false);
+                      }
+                    }}
+                    className="flex items-center justify-center gap-2 py-2 px-4 border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Activer l&apos;impression</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -706,8 +755,8 @@ export default function EmployeeDetailModal({
               {/* Status Manager */}
               <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 flex flex-col gap-2">
                 <label className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500">Statut de l&apos;enrôlement</label>
-                <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-neutral-50 dark:bg-neutral-900 p-0.5 w-max">
-                  {(['A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER', 'REIMPRESSION'] as const).map((st) => {
+                <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-0.5 flex-wrap gap-0.5">
+                  {(['A_ENROLER', 'PHOTO_VALIDEE', 'IMPRIME', 'A_VERIFIER', 'A_REIMPRIMER', 'REIMPRIME', 'NE_PAS_IMPRIMER'] as const).map((st) => {
                     const isActive = status === st;
 
                     return (
@@ -715,8 +764,7 @@ export default function EmployeeDetailModal({
                         key={st}
                         type="button"
                         disabled={
-                          (st === 'IMPRIME' && !employeeCardNumber) || 
-                          (st === 'REIMPRESSION' && !printHistory.some(j => j.cardNumber === 'REIMPRESSION_DEMANDEE'))
+                          (st === 'IMPRIME' && !employeeCardNumber)
                         }
                         onClick={() => {
                           setStatus(st);
@@ -731,7 +779,9 @@ export default function EmployeeDetailModal({
                         {st === 'PHOTO_VALIDEE' && 'Validé'}
                         {st === 'IMPRIME' && 'Imprimé'}
                         {st === 'A_VERIFIER' && 'À vérifier'}
-                        {st === 'REIMPRESSION' && '⚔ Réimpression'}
+                        {st === 'A_REIMPRIMER' && 'À réimprimer'}
+                        {st === 'REIMPRIME' && 'Réimprimé'}
+                        {st === 'NE_PAS_IMPRIMER' && 'Ne pas imprimer'}
                       </button>
                     );
                   })}
@@ -812,10 +862,18 @@ export default function EmployeeDetailModal({
             </button>
             <button
               type="button"
-              disabled={status === 'A_ENROLER' || isEmployeeBlocked}
+              disabled={status === 'A_ENROLER' || status === 'NE_PAS_IMPRIMER' || isEmployeeBlocked}
               onClick={handlePrintCard}
               className="flex items-center gap-1.5 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition shadow-sm"
-              title={status === 'A_ENROLER' ? "Veuillez d'abord ajouter une photo et valider l'enrôlement" : isEmployeeBlocked ? "Badge bloqué" : "Imprimer la carte de l'employé"}
+              title={
+                status === 'NE_PAS_IMPRIMER'
+                  ? "Impression désactivée pour cet employé (Statut Ne pas imprimer)"
+                  : status === 'A_ENROLER'
+                  ? "Veuillez d'abord ajouter une photo et valider l'enrôlement"
+                  : isEmployeeBlocked
+                  ? "Badge bloqué"
+                  : "Imprimer la carte de l'employé"
+              }
             >
               <Printer className="w-4 h-4" />
               <span>Imprimer la carte</span>

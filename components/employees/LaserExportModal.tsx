@@ -384,6 +384,9 @@ export default function LaserExportModal({ companyId, companyName, employees, on
                   <option value="PHOTO_VALIDEE">Photo Validée</option>
                   <option value="IMPRIME">Imprimé</option>
                   <option value="A_VERIFIER">À vérifier</option>
+                  <option value="A_REIMPRIMER">À réimprimer</option>
+                  <option value="REIMPRIME">Réimprimé</option>
+                  <option value="NE_PAS_IMPRIMER">Ne pas imprimer</option>
                 </select>
 
                 <div className="relative flex-1">
@@ -540,11 +543,17 @@ export default function LaserExportModal({ companyId, companyName, employees, on
                         emp.status === 'PHOTO_VALIDEE' ? 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900' :
                         emp.status === 'IMPRIME' ? 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900' :
                         emp.status === 'A_VERIFIER' ? 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900' :
+                        emp.status === 'A_REIMPRIMER' ? 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900' :
+                        emp.status === 'REIMPRIME' || emp.status === 'REIMPRESSION' ? 'bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950/20 dark:text-violet-400 dark:border-violet-900' :
+                        emp.status === 'NE_PAS_IMPRIMER' ? 'bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700' :
                         'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900'
                       }`}>
                         {emp.status === 'A_ENROLER' ? 'À ENRÔLER' :
                          emp.status === 'PHOTO_VALIDEE' ? 'VALIDÉ' :
-                         emp.status === 'IMPRIME' ? 'IMPRIMÉ' : 'À VÉRIFIER'}
+                         emp.status === 'IMPRIME' ? 'IMPRIMÉ' :
+                         emp.status === 'A_REIMPRIMER' ? 'À RÉIMPRIMER' :
+                         emp.status === 'REIMPRIME' || emp.status === 'REIMPRESSION' ? 'RÉIMPRIMÉ' :
+                         emp.status === 'NE_PAS_IMPRIMER' ? 'NE PAS IMPRIMER' : 'À VÉRIFIER'}
                       </span>
                     </div>
                   );
