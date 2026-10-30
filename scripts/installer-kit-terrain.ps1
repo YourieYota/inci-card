@@ -1,7 +1,8 @@
 # ============================================================
 # INCI CARD - Installation d'un kit terrain sur le PC terrain
 #
-# Utilisation (depuis le dossier du projet) :
+# Utilisation : double-cliquer sur "Installer kit terrain.bat" (à la racine du
+# projet) et choisir le fichier kit, ou en ligne de commande :
 #   powershell -ExecutionPolicy Bypass -File scripts\installer-kit-terrain.ps1 -Kit "C:\chemin\kit-terrain-xxxx.sql"
 #
 # Le script démarre la base Docker, installe le kit (structure + données
@@ -10,7 +11,6 @@
 # ============================================================
 
 param(
-    [Parameter(Mandatory = $true)]
     [string]$Kit
 )
 
@@ -25,6 +25,20 @@ function Get-EnvValue([string]$name, [string]$default) {
         if ($line) { return ($line -split '=', 2)[1].Trim().Trim('"') }
     }
     return $default
+}
+
+# Sans -Kit (lancement par double-clic), on demande le fichier.
+if (-not $Kit) {
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = 'Choisir le kit terrain INCI CARD'
+    $dialog.Filter = 'Kit terrain (kit-terrain-*.sql)|kit-terrain-*.sql|Fichiers SQL (*.sql)|*.sql'
+    $dialog.InitialDirectory = $projectDir
+    if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+        Write-Host "Aucun kit choisi. Installation annulee."
+        exit 0
+    }
+    $Kit = $dialog.FileName
 }
 
 if (-not (Test-Path $Kit)) {
@@ -60,13 +74,17 @@ try {
     docker compose up -d db
     if ($LASTEXITCODE -ne 0) { throw "Impossible de demarrer la base (docker compose up -d db)." }
 
+    # Au premier démarrage, Postgres lance un serveur temporaire (socket local
+    # uniquement) puis le redémarre : on teste en TCP, et 3 fois de suite.
     $ready = $false
-    for ($i = 0; $i -lt 30; $i++) {
-        docker exec $container pg_isready -U $dbUser -d $dbName *> $null
-        if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+    $okCount = 0
+    for ($i = 0; $i -lt 90; $i++) {
+        docker exec $container pg_isready -h 127.0.0.1 -U $dbUser -d $dbName *> $null
+        if ($LASTEXITCODE -eq 0) { $okCount++ } else { $okCount = 0 }
+        if ($okCount -ge 3) { $ready = $true; break }
         Start-Sleep -Seconds 2
     }
-    if (-not $ready) { throw "La base ne repond pas apres 60 secondes." }
+    if (-not $ready) { throw "La base ne repond pas apres 3 minutes." }
 
     Write-Host "[2/4] Copie du kit dans le conteneur..." -ForegroundColor Cyan
     docker cp $Kit "${container}:/tmp/kit-terrain.sql"
