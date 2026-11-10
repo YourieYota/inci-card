@@ -37,6 +37,8 @@ interface EmployeePhotoProps {
   hasPhoto: boolean;
   className?: string;
   photoFit?: 'cover' | 'contain';
+  /** Change quand la fiche est modifiée (ex. updatedAt) : la photo en cache est alors rechargée */
+  version?: string;
 }
 
 export default function EmployeePhoto({
@@ -44,6 +46,7 @@ export default function EmployeePhoto({
   hasPhoto,
   className,
   photoFit = 'cover',
+  version,
 }: EmployeePhotoProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,18 +59,23 @@ export default function EmployeePhoto({
 
     // Check session storage cache to avoid redundant requests
     const cacheKey = `emp-photo:${employeeId}`;
+    const versionKey = `emp-photo-v:${employeeId}`;
+    let hasCached = false;
     try {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
+        hasCached = true;
         setPhotoUrl(cached);
-        return;
+        // Sans version, ou même version : la photo en cache est à jour
+        if (!version || sessionStorage.getItem(versionKey) === version) return;
       }
     } catch (e) {
       console.warn("Failed to read from sessionStorage:", e);
     }
 
     let isMounted = true;
-    setLoading(true);
+    // Fiche modifiée sur un autre poste : on garde l'ancienne photo affichée pendant le rechargement
+    if (!hasCached) setLoading(true);
 
     loadPhoto(employeeId)
       .then((url) => {
@@ -75,6 +83,7 @@ export default function EmployeePhoto({
           setPhotoUrl(url);
           try {
             sessionStorage.setItem(cacheKey, url);
+            if (version) sessionStorage.setItem(versionKey, version);
           } catch (e) {
             console.warn("Failed to write to sessionStorage:", e);
             try {
@@ -93,7 +102,7 @@ export default function EmployeePhoto({
     return () => {
       isMounted = false;
     };
-  }, [employeeId, hasPhoto]);
+  }, [employeeId, hasPhoto, version]);
 
   if (loading) {
     return (

@@ -41,10 +41,11 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
     return () => window.removeEventListener('focus', handleFocus);
   }, [onRefresh]);
 
-  // Clear selection if employees list changes (e.g., filter/company change)
+  // La liste se recharge toute seule quand un autre poste modifie une fiche : on garde
+  // la sélection et la page en cours (le changement d'entreprise remonte ce composant).
   useEffect(() => {
-    setSelectedIds([]);
-    setCurrentPage(1);
+    const ids = new Set(employees.map((e) => e.id));
+    setSelectedIds((prev) => prev.filter((id) => ids.has(id)));
   }, [employees]);
 
   // Reset to page 1 when filter or search changes
@@ -162,10 +163,14 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
     return list;
   }, [filteredEmployees, sortBy, filter]);
 
+  // Si des fiches disparaissent (suppression sur un autre poste), ne pas rester sur une page vide
+  const pageCount = Math.max(1, Math.ceil(sortedEmployees.length / pageSize));
+  const page = Math.min(currentPage, pageCount);
+
   // Paginated slice
   const paginatedEmployees = sortedEmployees.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
+    (page - 1) * pageSize,
+    page * pageSize
   );
 
   // Selection handlers
@@ -361,9 +366,10 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
 
                   {/* Photo area */}
                   <div className="w-18 h-18 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shrink-0 overflow-hidden flex items-center justify-center shadow-inner relative group-hover:border-neutral-300 dark:group-hover:border-neutral-700 transition-colors">
-                    <EmployeePhoto 
-                      employeeId={emp.id} 
-                      hasPhoto={(emp as any).hasPhoto} 
+                    <EmployeePhoto
+                      employeeId={emp.id}
+                      hasPhoto={(emp as any).hasPhoto}
+                      version={String(emp.updatedAt)}
                       photoFit={(emp.dynamicData as any)?._photoFit}
                     />
                     {(emp as any).photoConflict && (
@@ -525,7 +531,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
           {filteredEmployees.length > pageSize && (
             <div className="bg-white dark:bg-neutral-800 border border-blue-100/50 dark:border-neutral-800 rounded-2xl px-4 py-3 shadow-sm">
               <Pagination
-                currentPage={currentPage}
+                currentPage={page}
                 totalItems={filteredEmployees.length}
                 pageSize={pageSize}
                 onPageChange={setCurrentPage}

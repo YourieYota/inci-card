@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getEmployees, getCompanyDashboardStats } from '@/app/actions/employees';
+import { getEmployeesVersion } from '@/lib/employeesVersion';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,11 +22,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Version lue en premier : si une fiche change pendant la lecture, la prochaine
+    // vérification verra une version différente et rechargera.
+    const version = await getEmployeesVersion(companyId);
     const [employees, stats] = await Promise.all([
       getEmployees(companyId),
       getCompanyDashboardStats(companyId),
     ]);
-    return NextResponse.json({ employees, stats });
+    return NextResponse.json({ employees, stats, version });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Impossible de charger les employés.' }, { status: 500 });
   }

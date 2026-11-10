@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Company, Employee } from '@prisma/client';
 import { Building2, ArrowLeft, FileSpreadsheet, Plus, CheckCircle, RefreshCw, Loader2, Users as UsersIcon, CreditCard, Clock, AlertCircle, Download, Trash2 } from 'lucide-react';
 import Link from 'next/link';
@@ -128,20 +128,27 @@ export default function EmployeesClient({
     updateTrashCount();
   }, [selectedCompanyId]);
 
-  const refreshEmployees = async (showLoader = false) => {
+  const refreshEmployees = async (showLoader = false, silent = false) => {
     if (!selectedCompanyId) return;
     if (showLoader) setIsLoading(true);
     try {
       const res = await fetch(`/api/employees?companyId=${encodeURIComponent(selectedCompanyId)}`, { cache: 'no-store' });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || 'Impossible de charger les employés.');
-      const { employees: data, stats } = payload;
+      const { employees: data, stats, version } = payload;
+      listVersionRef.current = version ?? null;
       setEmployees(data);
       setCompanyStats(stats);
       safeSetItem(`inci-cache:employees:${selectedCompanyId}`, JSON.stringify(cleanEmployeesForCache(data)));
       safeSetItem(`inci-cache:stats:${selectedCompanyId}`, JSON.stringify(stats));
       updateTrashCount();
     } catch (err: any) {
+      // Rechargement automatique (autre poste) : un échec ponctuel du réseau ne doit
+      // ni afficher d'alerte ni remplacer la liste affichée par le cache.
+      if (silent) {
+        console.warn('Automatic employee refresh failed:', err);
+        return;
+      }
       setIsOffline(true);
       // Fetch failed, try local cache
       try {
@@ -165,6 +172,37 @@ export default function EmployeesClient({
       if (showLoader) setIsLoading(false);
     }
   };
+
+  // Mise à jour en direct : toutes les 5 s, on demande au serveur l'empreinte de la
+  // liste ; si un autre poste a ajouté, modifié (photo comprise) ou supprimé une
+  // fiche, on recharge la liste sans écran de chargement.
+  const listVersionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedCompanyId) return;
+    let checking = false;
+    const timer = setInterval(async () => {
+      if (checking || document.visibilityState !== 'visible' || !navigator.onLine) return;
+      checking = true;
+      try {
+        const res = await fetch(`/api/employees/version?companyId=${encodeURIComponent(selectedCompanyId)}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const { version } = await res.json();
+        if (version && listVersionRef.current !== null && version !== listVersionRef.current) {
+          await refreshEmployees(false, true);
+        } else if (listVersionRef.current === null) {
+          listVersionRef.current = version ?? null;
+        }
+      } catch {
+        // Réseau momentanément indisponible : on réessaiera au prochain tour
+      } finally {
+        checking = false;
+      }
+    }, 5000);
+    return () => {
+      clearInterval(timer);
+      listVersionRef.current = null;
+    };
+  }, [selectedCompanyId]);
 
   const handleImportSuccess = (
     count: number,
@@ -603,6 +641,7 @@ export default function EmployeesClient({
           </div>
 
           <EmployeeCardList
+            key={selectedCompanyId}
             employees={employees}
             onTriggerWebcam={setActiveWebcamEmployee}
             onRefresh={refreshEmployees}
