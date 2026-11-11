@@ -255,8 +255,10 @@ export default function ReceiptClient({ employee, template, dbError, employeeId 
         };
 
         // Load RECEIPT template cached for this company
-        const templateKey = `inci-cache:template:${firstCoId}:RECU`;
-        const cachedTemplateRaw = safeGetItem(templateKey);
+        // The studio caches the generic template under ":RECU:default", the offline pre-cache under ":RECU"
+        const cachedTemplateRaw =
+          safeGetItem(`inci-cache:template:${firstCoId}:RECU:default`) ||
+          safeGetItem(`inci-cache:template:${firstCoId}:RECU`);
         if (cachedTemplateRaw) {
           const cachedT = JSON.parse(cachedTemplateRaw);
           setLocalTemplate({
@@ -312,21 +314,28 @@ export default function ReceiptClient({ employee, template, dbError, employeeId 
             fontFamily: el.fontFamily || 'sans-serif',
             fontWeight: el.fontWeight || 'normal',
             fontStyle: el.fontStyle || 'normal',
-            textTransform: el.textTransform || 'none',
+            textTransform: el.textTransform === 'first-letter' ? 'none' : (el.textTransform || 'none'),
             textAlign: el.alignment || 'left',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: el.verticalAlignment === 'top' ? 'flex-start' : el.verticalAlignment === 'bottom' ? 'flex-end' : 'center',
             justifyContent: el.alignment === 'center' ? 'center' : el.alignment === 'right' ? 'flex-end' : 'flex-start',
             overflow: 'hidden',
             whiteSpace: 'normal',
-            wordBreak: 'break-all',
-            lineHeight: 'normal',
+            wordBreak: 'normal',
+            overflowWrap: 'break-word',
+            lineHeight: el.lineHeight !== undefined ? el.lineHeight : 'normal',
+            letterSpacing: el.letterSpacing !== undefined ? `${el.letterSpacing}px` : 'normal',
           }}
         >
-          {el.field
-            ? (getFieldValue(localEmployee, el.field) || '')
-            : resolvePlaceholders(el.content, localEmployee)
-          }
+          {(() => {
+            const rawText = el.field
+              ? (getFieldValue(localEmployee, el.field) || '')
+              : resolvePlaceholders(el.content, localEmployee);
+            if (el.textTransform === 'first-letter' && rawText.length > 0) {
+              return rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase();
+            }
+            return rawText;
+          })()}
         </div>
       );
     }
@@ -392,7 +401,9 @@ export default function ReceiptClient({ employee, template, dbError, employeeId 
           ) : (
             <QRCode
               value={
-                getFieldValue(localEmployee!, el.field) || localEmployee!.enrollmentNumber || localEmployee!.uniqueIdentifier
+                el.field
+                  ? (getFieldValue(localEmployee!, el.field) || '')
+                  : (el.content ? resolvePlaceholders(el.content, localEmployee!) : (localEmployee!.enrollmentNumber || localEmployee!.uniqueIdentifier))
               }
               size={150}
               style={{ height: "auto", maxWidth: "100%", width: "100%" }}
