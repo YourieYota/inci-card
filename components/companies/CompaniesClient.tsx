@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Company } from '@prisma/client';
-import { Building2, Plus, Search, Users, Layout, Calendar, ArrowUpRight, Loader2, CheckCircle, Edit2, Lock, Unlock, Trash2, AlertTriangle, X } from 'lucide-react';
+import { Building2, Plus, Search, Users, Layout, Calendar, ArrowUpRight, Loader2, CheckCircle, Edit2, Lock, Unlock, Trash2, AlertTriangle, X, ListX } from 'lucide-react';
 import Link from 'next/link';
 import { createCompany, updateCompany, deleteCompany, toggleCompanyLock } from '@/app/actions/templates';
 import { safeSetItem, safeGetItem } from '@/lib/storage';
 import { addOfflineMutation } from '@/lib/offlineQueue';
 import { useToast } from '@/components/ui/Toast';
+import ManageFieldsModal from './ManageFieldsModal';
 
 interface CompanyWithCounts extends Company {
   _count: {
@@ -72,6 +73,9 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
   // Delete State
   const [deletingCompany, setDeletingCompany] = useState<CompanyWithCounts | null>(null);
   const [confirmNameInput, setConfirmNameInput] = useState<string>('');
+
+  // Imported fields management
+  const [fieldsCompany, setFieldsCompany] = useState<CompanyWithCounts | null>(null);
 
   const handleToggleLock = async (company: CompanyWithCounts) => {
     if (dbError) {
@@ -394,6 +398,14 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
+                        onClick={() => setFieldsCompany(company)}
+                        disabled={!!dbError}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition"
+                        title={dbError ? "Indisponible hors-ligne" : "Gérer les champs importés"}
+                      >
+                        <ListX className="w-3.5 h-3.5" />
+                      </button>
+                      <button
                         onClick={() => handleDeleteClick(company)}
                         disabled={company.isLocked}
                         className={`p-1.5 rounded-lg transition ${
@@ -714,6 +726,10 @@ export default function CompaniesClient({ initialCompanies, dbError, globalCateg
             </form>
           </div>
         </div>
+      )}
+
+      {fieldsCompany && (
+        <ManageFieldsModal company={fieldsCompany} onClose={() => setFieldsCompany(null)} />
       )}
 
       {/* DELETE CONFIRMATION MODAL */}
