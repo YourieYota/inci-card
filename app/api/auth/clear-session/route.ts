@@ -1,9 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
-export async function GET() {
-  const response = NextResponse.redirect(
-    new URL('/login', process.env.NEXTAUTH_URL || 'http://localhost:3000')
-  );
+export async function GET(request: NextRequest) {
+  // Redirect on the address the browser used, not NEXTAUTH_URL (which may point to another host/port)
+  const response = NextResponse.redirect(new URL('/login', request.url));
 
   // Clear all possible next-auth session cookies
   const cookieNames = [

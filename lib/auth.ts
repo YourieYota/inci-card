@@ -16,11 +16,13 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Accept the email or the login, ignoring case and surrounding spaces
+        const identifier = credentials.email.trim();
         const user = await prisma.user.findFirst({
           where: {
             OR: [
-              { email: credentials.email },
-              { login: credentials.email }
+              { email: { equals: identifier, mode: 'insensitive' } },
+              { login: { equals: identifier, mode: 'insensitive' } }
             ]
           }
         });

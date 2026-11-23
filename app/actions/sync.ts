@@ -241,15 +241,18 @@ export async function syncOfflineMutations(mutations: any[]) {
         results.push({ id, success: true });
       } 
       else if (type === 'CREATE_USER') {
-        await adminCreateUser(payload.data);
+        const res = await adminCreateUser(payload.data);
+        if (!res.success) throw new Error(res.error);
         results.push({ id, success: true });
       } 
       else if (type === 'UPDATE_USER') {
-        await adminUpdateUser(payload.id, payload.data);
+        const res = await adminUpdateUser(payload.id, payload.data);
+        if (!res.success) throw new Error(res.error);
         results.push({ id, success: true });
       } 
       else if (type === 'DELETE_USER') {
-        await adminDeleteUser(payload.id);
+        const res = await adminDeleteUser(payload.id);
+        if (!res.success) throw new Error(res.error);
         results.push({ id, success: true });
       } 
       else {

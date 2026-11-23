@@ -225,11 +225,13 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
         passwordHash: password
       });
 
-      if (result.success) {
-        setActionSuccess('Compte créé avec succès !');
-        fetchUsers();
-        setTimeout(() => setIsCreateOpen(false), 1500);
+      if (!result.success) {
+        setActionError(result.error);
+        return;
       }
+      setActionSuccess('Compte créé avec succès !');
+      fetchUsers();
+      setTimeout(() => setIsCreateOpen(false), 1500);
     } catch (err: any) {
       setActionError(err.message || 'Une erreur est survenue lors de la création');
     } finally {
@@ -284,11 +286,13 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
         newPassword: newPassword || undefined
       });
 
-      if (result.success) {
-        setActionSuccess('Compte modifié avec succès !');
-        fetchUsers();
-        setTimeout(() => setIsEditOpen(false), 1500);
+      if (!result.success) {
+        setActionError(result.error);
+        return;
       }
+      setActionSuccess('Compte modifié avec succès !');
+      fetchUsers();
+      setTimeout(() => setIsEditOpen(false), 1500);
     } catch (err: any) {
       setActionError(err.message || 'Une erreur est survenue lors de la modification');
     } finally {
@@ -317,10 +321,12 @@ export default function AccountsClient({ currentUser }: AccountsClientProps) {
       }
 
       const result = await adminDeleteUser(selectedUser.id);
-      if (result.success) {
-        fetchUsers();
-        setIsDeleteOpen(false);
+      if (!result.success) {
+        setActionError(result.error);
+        return;
       }
+      fetchUsers();
+      setIsDeleteOpen(false);
     } catch (err: any) {
       setActionError(err.message || 'Une erreur est survenue lors de la suppression');
     } finally {
