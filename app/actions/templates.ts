@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
+import { assertNotFieldMode } from '@/lib/fieldMode';
 
 
 export async function getCompanies() {
@@ -380,5 +381,147 @@ export async function toggleCompanyLock(companyId: string, isLocked: boolean) {
   } catch (error) {
     console.warn('Error toggling company lock:', error);
     throw new Error('Impossible de modifier le verrouillage de l\'entreprise');
+  }
+}
+
+// ---- Champs importés (dynamicData) : inventaire et suppression ----
+
+const normalizeFieldKey = (key: string) => key.trim().toLowerCase();
+
+const isCategoryKey = (key: string) => {
+  const norm = key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return ['categorie_id', 'category_id', 'categorie', 'category', 'cat', 'caté'].includes(norm);
+};
+
+// Collects the (normalized) fields a template element reads, either directly or through "{Champ}" placeholders
+const collectTemplateFields = (layoutConfig: any): Set<string> => {
+  const used = new Set<string>();
+  const lists = Array.isArray(layoutConfig)
+    ? [layoutConfig]
+    : [layoutConfig?.recto?.elements, layoutConfig?.verso?.elements, layoutConfig?.elements];
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const el of list) {
+      if (typeof el?.field === 'string' && el.field.trim()) used.add(normalizeFieldKey(el.field));
+      if (typeof el?.content === 'string') {
+        for (const match of el.content.matchAll(/\{([^}]+)\}/g)) used.add(normalizeFieldKey(match[1]));
+      }
+    }
+  }
+  return used;
+};
+
+export interface CompanyFieldUsage {
+  key: string;
+  employeeCount: number;
+  lockedCount: number;
+  templates: string[];
+  protectedReason?: string;
+}
+
+export async function getCompanyFieldUsage(companyId: string): Promise<CompanyFieldUsage[]> {
+  try {
+    const [employees, templates] = await Promise.all([
+      prisma.employee.findMany({
+        where: { companyId },
+        select: { uniqueIdentifier: true, dynamicData: true, isLocked: true },
+      }),
+      prisma.cardTemplate.findMany({
+        where: { companyId },
+        select: { type: true, layoutConfig: true, category: { select: { name: true } } },
+      }),
+    ]);
+
+    const fields = new Map<string, CompanyFieldUsage & { isIdentifier: boolean }>();
+    for (const emp of employees) {
+      const data = emp.dynamicData;
+      if (!data || typeof data !== 'object' || Array.isArray(data)) continue;
+      for (const [key, value] of Object.entries(data as Record<string, any>)) {
+        // Keys starting with "_" are internal settings (photo framing, etc.), not imported columns
+        if (!key.trim() || key.startsWith('_')) continue;
+        const norm = normalizeFieldKey(key);
+        let entry = fields.get(norm);
+        if (!entry) {
+          entry = { key: key.trim(), employeeCount: 0, lockedCount: 0, templates: [], isIdentifier: false };
+          fields.set(norm, entry);
+        }
+        entry.employeeCount++;
+        if (emp.isLocked) entry.lockedCount++;
+        if (value !== null && value !== undefined && String(value).trim() === emp.uniqueIdentifier) {
+          entry.isIdentifier = true;
+        }
+      }
+    }
+
+    const templateFields = templates.map((t) => ({
+      label: `${t.type}${t.category ? ` (${t.category.name})` : ''}`,
+      used: collectTemplateFields(t.layoutConfig),
+    }));
+
+    return Array.from(fields.entries())
+      .map(([norm, { isIdentifier, ...entry }]) => ({
+        ...entry,
+        templates: templateFields.filter((t) => t.used.has(norm)).map((t) => t.label),
+        protectedReason: isIdentifier
+          ? 'Identifiant unique des employés'
+          : isCategoryKey(entry.key)
+            ? 'Détermine la catégorie de carte'
+            : undefined,
+      }))
+      .sort((a, b) => a.key.localeCompare(b.key, 'fr'));
+  } catch (error) {
+    console.warn('Error fetching company field usage:', error);
+    throw new Error('Impossible de récupérer les champs de l\'entreprise');
+  }
+}
+
+export async function removeCompanyField(companyId: string, fieldKey: string) {
+  await assertNotFieldMode('La suppression d\'un champ');
+
+  const norm = normalizeFieldKey(fieldKey || '');
+  if (!norm || norm.startsWith('_')) throw new Error('Champ invalide');
+
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { isLocked: true } });
+  if (!company) throw new Error('Entreprise introuvable');
+  if (company.isLocked) throw new Error('L\'entreprise est verrouillée. Impossible de supprimer un champ.');
+
+  // Re-check protections server-side: the client list may be stale
+  const usage = (await getCompanyFieldUsage(companyId)).find((f) => normalizeFieldKey(f.key) === norm);
+  if (!usage) return { success: true, updated: 0, skippedLocked: 0 };
+  if (usage.protectedReason) {
+    throw new Error(`Le champ « ${usage.key} » ne peut pas être supprimé : ${usage.protectedReason.toLowerCase()}.`);
+  }
+
+  try {
+    const employees = await prisma.employee.findMany({
+      where: { companyId, isLocked: false },
+      select: { id: true, dynamicData: true },
+    });
+
+    const updates = employees.flatMap((emp) => {
+      const data = emp.dynamicData;
+      if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
+      const keys = Object.keys(data).filter((k) => normalizeFieldKey(k) === norm);
+      if (keys.length === 0) return [];
+      const next = { ...(data as Record<string, any>) };
+      keys.forEach((k) => delete next[k]);
+      return [{ id: emp.id, dynamicData: next }];
+    });
+
+    // Chunked transactions: atomic per chunk without holding one huge transaction on large companies
+    const now = new Date();
+    for (let i = 0; i < updates.length; i += 200) {
+      await prisma.$transaction(
+        updates.slice(i, i + 200).map((u) =>
+          prisma.employee.update({ where: { id: u.id }, data: { dynamicData: u.dynamicData, updatedAt: now } })
+        )
+      );
+    }
+
+    revalidatePath('/dashboard', 'layout');
+    return { success: true, updated: updates.length, skippedLocked: usage.lockedCount };
+  } catch (error) {
+    console.warn('Error removing company field:', error);
+    throw new Error('Impossible de supprimer le champ');
   }
 }

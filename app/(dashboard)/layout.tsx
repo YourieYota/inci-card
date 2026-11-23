@@ -125,7 +125,12 @@ function SidebarContent({ pathname, role, name, isLoading, onClose }: {
 
             {/* Logout */}
             <button
-              onClick={() => signOut({ callbackUrl: "/login?logout=1" })}
+              onClick={async () => {
+                // NextAuth builds its redirect from NEXTAUTH_URL, which may not match the address
+                // in the browser (e.g. "http://localhost" while the app runs on :3000): stay on this origin.
+                await signOut({ redirect: false });
+                window.location.assign("/login?logout=1");
+              }}
               className="flex w-full items-center px-3 py-2.5 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-950/30 transition-colors"
             >
               <LogOut className="mr-3 flex-shrink-0" style={{ width: 16, height: 16 }} />

@@ -36,12 +36,15 @@ export default async function ReceiptPage({ searchParams }: PageProps) {
     });
 
     if (employee) {
-      // Retrieve the custom RECEIPT template from database if it exists
+      // Retrieve the custom RECEIPT template from database if it exists.
+      // Employees carry no category, so prefer the generic template (the one edited in the
+      // studio without a category) instead of an arbitrary category-specific one.
       template = await prisma.cardTemplate.findFirst({
         where: {
           companyId: employee.companyId,
           type: 'RECU',
         },
+        orderBy: { categoryId: { sort: 'asc', nulls: 'first' } },
       });
     }
   } catch (error) {

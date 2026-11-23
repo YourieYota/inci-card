@@ -5,6 +5,11 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcrypt';
 
+// Same rules as account creation: lowercase, no accents, only [a-z0-9._-]
+function normalizeLogin(text: string) {
+  return text.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9._-]/g, "");
+}
+
 function slugify(text: string) {
   return text
     .toLowerCase()
@@ -202,7 +207,7 @@ export async function adminCreateUser(data: {
         userLogin = p || n || 'user';
       }
     } else {
-      userLogin = userLogin.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9._-]/g, "");
+      userLogin = normalizeLogin(userLogin);
     }
 
     // Ensure generated/supplied login is unique (auto append 3 digits number if conflicting)
@@ -249,7 +254,8 @@ export async function adminCreateUser(data: {
     };
   } catch (error: any) {
     console.warn('Error creating user:', error);
-    throw new Error(error.message || 'Impossible de créer le compte');
+    // Returned, not thrown: Next.js replaces thrown Server Action messages with a generic one in production
+    return { success: false as const, error: error.message || 'Impossible de créer le compte' };
   }
 }
 
@@ -271,10 +277,17 @@ export async function adminUpdateUser(
       throw new Error('Non autorisé - Rôle Administrateur requis');
     }
 
+    const email = data.email.trim();
+    const login = data.login ? normalizeLogin(data.login) : '';
+    if (!email) throw new Error("L'adresse email est obligatoire");
+    if (data.newPassword && data.newPassword.trim() !== '' && data.newPassword.length < 6) {
+      throw new Error('Le nouveau mot de passe doit contenir au moins 6 caractères');
+    }
+
     // Check unique email
     const existingEmail = await prisma.user.findFirst({
       where: {
-        email: data.email,
+        email: { equals: email, mode: 'insensitive' },
         NOT: { id },
       },
     });
@@ -283,10 +296,10 @@ export async function adminUpdateUser(
     }
 
     // Check unique login
-    if (data.login && data.login.trim() !== '') {
+    if (login) {
       const existingLogin = await prisma.user.findFirst({
         where: {
-          login: data.login,
+          login: { equals: login, mode: 'insensitive' },
           NOT: { id },
         },
       });
@@ -299,8 +312,8 @@ export async function adminUpdateUser(
       name: data.name,
       firstName: data.firstName || null,
       phone: data.phone || null,
-      email: data.email,
-      login: data.login || null,
+      email,
+      login: login || null,
       role: data.role,
     };
 
@@ -326,7 +339,7 @@ export async function adminUpdateUser(
     };
   } catch (error: any) {
     console.warn('Error updating user:', error);
-    throw new Error(error.message || 'Impossible de modifier le compte');
+    return { success: false as const, error: error.message || 'Impossible de modifier le compte' };
   }
 }
 
@@ -352,6 +365,6 @@ export async function adminDeleteUser(id: string) {
     return { success: true };
   } catch (error: any) {
     console.warn('Error deleting user:', error);
-    throw new Error(error.message || 'Impossible de supprimer le compte');
+    return { success: false as const, error: error.message || 'Impossible de supprimer le compte' };
   }
 }
