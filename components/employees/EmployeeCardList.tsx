@@ -7,6 +7,7 @@ import { updateEmployeeStatus } from '@/app/actions/employees';
 import Pagination from '@/components/ui/Pagination';
 import EmployeePhoto from './EmployeePhoto';
 import { useToast } from '@/components/ui/Toast';
+import DynamicFieldFilters, { matchesDynamicFilters, useDynamicFieldValues, type DynamicFieldFilter } from './DynamicFieldFilters';
 
 interface EmployeeCardListProps {
   employees: Employee[];
@@ -24,6 +25,8 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
   const { toast } = useToast();
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [fieldFilters, setFieldFilters] = useState<DynamicFieldFilter[]>([]);
+  const fieldValues = useDynamicFieldValues(employees);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('RECENT');
@@ -51,7 +54,7 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
   // Reset to page 1 when filter or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [filter, searchQuery]);
+  }, [filter, searchQuery, fieldFilters]);
 
   // Search filter implementation
   const matchesSearch = (emp: Employee) => {
@@ -124,7 +127,9 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
     return emp.status === filter;
   };
 
-  const filteredEmployees = employees.filter((e) => matchesSearch(e) && matchesFilter(e));
+  const filteredEmployees = employees.filter(
+    (e) => matchesSearch(e) && matchesFilter(e) && matchesDynamicFilters(e, fieldFilters, fieldValues)
+  );
 
   // Get date based on status filter
   const getStatusDate = (emp: Employee) => {
@@ -265,6 +270,13 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
           </div>
         </div>
       </div>
+
+      {/* DYNAMIC FIELD FILTERS (columns imported from Excel) */}
+      {fieldValues.size > 0 && (
+        <div className="bg-white dark:bg-neutral-800 px-4 py-3 rounded-2xl border border-blue-100/50 dark:border-neutral-800/80 shadow-sm">
+          <DynamicFieldFilters filters={fieldFilters} onChange={setFieldFilters} fieldValues={fieldValues} />
+        </div>
+      )}
 
       {/* BULK ACTIONS BAR */}
       {selectedIds.length > 0 && (
