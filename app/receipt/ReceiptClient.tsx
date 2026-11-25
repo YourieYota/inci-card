@@ -5,6 +5,7 @@ import { Printer, X, User, QrCode, Loader2 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import IntaglioImage from '@/components/studio/IntaglioImage';
 import { safeGetItem } from '@/lib/storage';
+import { formatDateFr } from '@/lib/formatDate';
 
 interface SerializedEmployee {
   id: string;
@@ -85,13 +86,8 @@ const getFieldValue = (emp: SerializedEmployee, field?: string) => {
         (typeof rawVal === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(rawVal));
 
       if (isDateField) {
-        const dateObj = new Date(rawVal);
-        if (!isNaN(dateObj.getTime())) {
-          const day = String(dateObj.getUTCDate()).padStart(2, '0');
-          const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-          const year = dateObj.getUTCFullYear();
-          return `${day}/${month}/${year}`;
-        }
+        const formatted = formatDateFr(rawVal);
+        if (formatted) return formatted;
       }
       return String(rawVal);
     }

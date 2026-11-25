@@ -21,10 +21,36 @@ type FilterStatus = 'ALL' | 'A_ENROLER' | 'PHOTO_VALIDEE' | 'IMPRIME' | 'A_VERIF
 
 type SortOption = 'RECENT' | 'OLD' | 'ALPHABETIC_AZ' | 'ALPHABETIC_ZA';
 
+type SearchMode = 'CONTAINS' | 'EQUALS' | 'STARTS_WITH' | 'ENDS_WITH' | 'NOT_CONTAINS';
+
+const SEARCH_MODES: { value: SearchMode; label: string }[] = [
+  { value: 'CONTAINS', label: 'Contient' },
+  { value: 'EQUALS', label: 'Est égal à' },
+  { value: 'STARTS_WITH', label: 'Commence par' },
+  { value: 'ENDS_WITH', label: 'Se termine par' },
+  { value: 'NOT_CONTAINS', label: 'Ne contient pas' },
+];
+
+// Case-, accent- and spacing-insensitive comparison
+const normalizeSearch = (val: string) =>
+  val.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+const LAST_NAME_KEYS = ['nom', 'noms', 'lastname', 'lastnames', 'surname', 'surnames', 'familyname', 'nom de famille'];
+const FIRST_NAME_KEYS = ['prenom', 'prénom', 'prenoms', 'prénoms', 'firstname', 'firstnames'];
+
+const getNameParts = (data: Record<string, any>) => {
+  const pick = (candidates: string[]) => {
+    const key = Object.keys(data).find((k) => candidates.includes(k.toLowerCase().trim()));
+    return key ? String(data[key] ?? '').trim() : '';
+  };
+  return { lastName: pick(LAST_NAME_KEYS), firstName: pick(FIRST_NAME_KEYS) };
+};
+
 export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh, onOpenDetail, isOfflineMode = false }: EmployeeCardListProps) {
   const { toast } = useToast();
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchMode, setSearchMode] = useState<SearchMode>('CONTAINS');
   const [fieldFilters, setFieldFilters] = useState<DynamicFieldFilter[]>([]);
   const fieldValues = useDynamicFieldValues(employees);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
@@ -54,26 +80,44 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
   // Reset to page 1 when filter or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [filter, searchQuery, fieldFilters]);
+  }, [filter, searchQuery, searchMode, fieldFilters]);
 
   // Search filter implementation
   const matchesSearch = (emp: Employee) => {
-    const query = searchQuery.toLowerCase().trim();
+    const query = normalizeSearch(searchQuery);
     if (!query) return true;
 
-    // Check enrollmentNumber and uniqueIdentifier
-    if (emp.enrollmentNumber && emp.enrollmentNumber.toLowerCase().includes(query)) return true;
-    if (emp.uniqueIdentifier.toLowerCase().includes(query)) return true;
-
-    // Check all dynamic data values
-    const data = emp.dynamicData as Record<string, any>;
-    if (data) {
-      return Object.values(data).some((val) =>
-        String(val).toLowerCase().includes(query)
-      );
+    // Searchable values: numbers, imported columns (not internal "_" settings),
+    // and the last name + first name glued in both orders ("koffi bertrand" / "bertrand koffi")
+    const candidates: string[] = [emp.enrollmentNumber || '', emp.uniqueIdentifier];
+    const data = emp.dynamicData as Record<string, any> | null;
+    if (data && typeof data === 'object') {
+      for (const [key, val] of Object.entries(data)) {
+        if (key.startsWith('_') || val === null || val === undefined || typeof val === 'object') continue;
+        candidates.push(String(val));
+      }
+      const { lastName, firstName } = getNameParts(data);
+      if (lastName && firstName) candidates.push(`${lastName} ${firstName}`, `${firstName} ${lastName}`);
     }
+    const values = candidates.map(normalizeSearch).filter(Boolean);
 
-    return false;
+    switch (searchMode) {
+      case 'EQUALS':
+        return values.some((v) => v === query);
+      case 'STARTS_WITH':
+        return values.some((v) => v.startsWith(query));
+      case 'ENDS_WITH':
+        return values.some((v) => v.endsWith(query));
+      case 'NOT_CONTAINS':
+        return !values.some((v) => v.includes(query));
+      case 'CONTAINS':
+      default: {
+        if (values.some((v) => v.includes(query))) return true;
+        // Several words: each one must be found in a field (any order, e.g. last name then first name)
+        const words = query.split(' ');
+        return words.length > 1 && words.every((w) => values.some((v) => v.includes(w)));
+      }
+    }
   };
 
   // Helper to extract main employee details from dynamicData
@@ -256,17 +300,29 @@ export default function EmployeeCardList({ employees, onTriggerWebcam, onRefresh
             <option value="ALPHABETIC_ZA">Nom (Z-A)</option>
           </select>
 
-          <div className="relative w-full lg:w-64">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-              <Search className="w-4 h-4" />
-            </span>
-            <input
-              type="text"
-              placeholder="Rechercher par nom, matricule..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500/25"
-            />
+          <div className="flex w-full lg:w-auto">
+            <select
+              value={searchMode}
+              onChange={(e) => setSearchMode(e.target.value as SearchMode)}
+              title="Type de recherche"
+              className="px-2.5 py-2 border border-r-0 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-l-xl text-xs font-bold text-slate-700 dark:text-neutral-300 outline-none focus:ring-2 focus:ring-indigo-500/20"
+            >
+              {SEARCH_MODES.map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+            <div className="relative flex-1 lg:w-60">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                <Search className="w-4 h-4" />
+              </span>
+              <input
+                type="text"
+                placeholder="Nom prénom, matricule..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-r-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500/25"
+              />
+            </div>
           </div>
         </div>
       </div>
