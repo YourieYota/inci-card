@@ -16,6 +16,7 @@ import { extractCategoryFromDynamicData } from '@/lib/categoryUtils';
 import { safeGetItem, safeSetItem, cleanEmployeesForCache } from '@/lib/storage';
 import { resizeImageClientSide } from '@/lib/imageUtils';
 import { removeBackgroundCanvas } from '@/app/utils/canvasRemoveBg';
+import { formatDateFr } from '@/lib/formatDate';
 
 interface PrintClientProps {
   employees: (Employee & { company: { name: string } })[];
@@ -544,13 +545,8 @@ const getFieldValue = (
         (typeof rawVal === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(rawVal));
 
       if (isDateField) {
-        const dateObj = new Date(rawVal);
-        if (!isNaN(dateObj.getTime())) {
-          const day = String(dateObj.getUTCDate()).padStart(2, '0');
-          const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-          const year = dateObj.getUTCFullYear();
-          return `${day}/${month}/${year}`;
-        }
+        const formatted = formatDateFr(rawVal);
+        if (formatted) return formatted;
       }
       return String(rawVal);
     }
