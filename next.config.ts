@@ -8,6 +8,9 @@ const nextConfig: any = {
     serverActions: {
       bodySizeLimit: "200mb",
     },
+    // proxy.ts covers /settings and /dashboard: without this, Next only buffers the first 10 MB
+    // of each request, which truncates field-sync / backup files and breaks the Server Action.
+    proxyClientMaxBodySize: "200mb",
   },
 
   typescript: {
