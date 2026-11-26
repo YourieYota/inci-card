@@ -7,7 +7,9 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN npm ci
+ENV npm_config_onnxruntime_node_install_cuda=skip
+ENV ONNXRUNTIME_NODE_INSTALL_CUDA=skip
+RUN npm ci --onnxruntime-node-install-cuda=skip
 
 # 3. Build de l'application
 FROM base AS builder
@@ -27,6 +29,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
 
 RUN mkdir -p /app/backups /app/public /app/.next && chown -R nextjs:nodejs /app
 
