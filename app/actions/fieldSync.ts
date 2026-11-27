@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminAndPassword, exportDatabaseBackup } from '@/app/actions/backup';
 import { assertNotFieldMode } from '@/lib/fieldMode';
-import { buildFieldSyncPackage, readFieldSyncPackage, planFieldSync, applyFieldSync } from '@/lib/fieldSync';
+import { readFieldSyncPackage, planFieldSync, applyFieldSync } from '@/lib/fieldSync';
 
 async function requireAdminSession() {
   const session = await getServerSession(authOptions);
@@ -24,18 +24,8 @@ async function readUploadedPackage(formData: FormData) {
   return readFieldSyncPackage(await file.arrayBuffer());
 }
 
-// PC terrain : exporte toutes les fiches créées ou modifiées depuis l'installation du kit
-export async function exportFieldData(passwordConfirm: string) {
-  try {
-    const user = await verifyAdminAndPassword(passwordConfirm);
-    const res = await buildFieldSyncPackage(user.name || user.email);
-    revalidatePath('/', 'layout');
-    return { success: true as const, ...res };
-  } catch (error: any) {
-    console.error('Error exporting field data:', error);
-    return { success: false as const, error: (error.message || "Impossible d'exporter les données terrain") as string };
-  }
-}
+// L'export (PC terrain) est servi par la route /api/field-sync/export : le .zip est trop lourd
+// pour transiter par une action serveur.
 
 // Serveur principal : aperçu de ce que la synchronisation va faire, sans rien écrire
 export async function analyzeFieldSync(formData: FormData) {
