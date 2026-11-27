@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { getFieldMode, enableFieldMode, disableFieldMode } from '@/app/actions/fieldMode';
 import { getKitCompanies, exportFieldKit, getInstalledFieldKit } from '@/app/actions/fieldKit';
-import { exportFieldData, analyzeFieldSync, applyFieldSyncFromFile } from '@/app/actions/fieldSync';
+import { analyzeFieldSync, applyFieldSyncFromFile } from '@/app/actions/fieldSync';
 import type { FieldSyncPlan } from '@/lib/fieldSync';
 import { updateUserProfile } from '@/app/actions/users';
 import { 
@@ -366,9 +366,8 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     });
   };
 
-  const downloadBase64File = (base64: string, filename: string, type: string) => {
-    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -382,12 +381,22 @@ export default function SettingsClient({ initialUser }: SettingsClientProps) {
     requestAdminAuth('Exporter les données terrain', async (pass) => {
       setIsExportingFieldData(true);
       try {
-        const res = await exportFieldData(pass);
-        if (!res.success) throw new Error(res.error);
-        downloadBase64File(res.zipBase64, res.filename, 'application/zip');
+        const res = await fetch('/api/field-sync/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pass }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.error || `Échec de l'export des données terrain (HTTP ${res.status})`);
+        }
+        const filename =
+          res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] || 'donnees-terrain.zip';
+        const counts = JSON.parse(res.headers.get('X-Field-Sync-Counts') || '{}');
+        downloadBlob(await res.blob(), filename);
         setMessage({
           type: 'success',
-          text: `Données terrain exportées : ${res.counts.employees} fiche(s), ${res.counts.photos} photo(s). Rapportez ce fichier .zip au serveur principal.`,
+          text: `Données terrain exportées : ${counts.employees ?? '?'} fiche(s), ${counts.photos ?? '?'} photo(s). Rapportez ce fichier .zip au serveur principal.`,
         });
         loadFieldMode();
       } finally {

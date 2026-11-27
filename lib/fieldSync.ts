@@ -93,7 +93,7 @@ export async function buildFieldSyncPackage(exportedBy: string) {
     const match = emp.photoUrl?.match(/^data:image\/([a-z+]+);base64,(.+)$/i);
     if (!match) continue;
     const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-    zip.file(`photos/${safeFilePart(emp.uniqueIdentifier)}_${emp.id.slice(0, 8)}.${ext}`, match[2], { base64: true });
+    zip.file(`photos/${safeFilePart(emp.uniqueIdentifier)}_${emp.id.slice(0, 8)}.${ext}`, match[2], { base64: true, compression: 'STORE' }); // déjà compressée
     photoCount++;
   }
 
@@ -111,17 +111,20 @@ export async function buildFieldSyncPackage(exportedBy: string) {
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));
   zip.file('data.json', dataJson);
   zip.file('data.sql',
-    `-- INCI CARD - Données terrain exportées le ${exportedAt} (archive lisible, non utilisée par la synchronisation)\n\n` +
+    `-- INCI CARD - Données terrain exportées le ${exportedAt} (archive lisible, non utilisée par la synchronisation)\n` +
+    `-- Colonne "photoUrl" vide ici : les photos sont dans le dossier photos/ et dans data.json.\n\n` +
     generateTableInserts('Company', companies) +
-    generateTableInserts('Employee', employees)
+    // Sans les photos : les recopier en base64 dans ce fichier doublait le poids de l'export
+    generateTableInserts('Employee', employees.map(e => ({ ...e, photoUrl: null })))
   );
 
-  const zipBase64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE' });
+  // Buffer binaire, pas de base64 : avec les photos l'export pèse plusieurs centaines de Mo
+  const zipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 
   await saveFieldModeState({ ...state, lastExportAt: exportedAt });
 
   return {
-    zipBase64,
+    zipBuffer,
     filename: `donnees-terrain-${exportedAt.replace(/[:.]/g, '-').slice(0, 19)}.zip`,
     counts: manifest.counts,
   };
